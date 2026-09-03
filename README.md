@@ -9,10 +9,6 @@ many copies are on screen.
 
 ![four glTF radars, each at its own animation phase](docs/images/radar-gltf.png)
 
-*Four copies of a six-node, three-material, two-clip radar. Each is **one** Flywheel instance despite
-having three separately-moving parts: the parts move through a bone palette, not through separate
-draws. No two are on the same animation frame.*
-
 ## What it does
 
 - **Imports glTF 2.0** – node animation, skinning and morph targets, all three of glTF's animation
