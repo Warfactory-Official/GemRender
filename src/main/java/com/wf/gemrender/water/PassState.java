@@ -21,8 +21,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
  * The blend, depth and framebuffer state a full-screen pass changes, saved on the way in and put back
  * on the way out.
  *
- * <p>Writing the defaults back instead — {@code disableBlend}, {@code depthMask(true)},
- * {@code depthFunc(GL_LEQUAL)} — is the mistake this class exists to stop. These passes run inside
+ * <p>Writing the defaults back instead – {@code disableBlend}, {@code depthMask(true)},
+ * {@code depthFunc(GL_LEQUAL)} – is the mistake this class exists to stop. These passes run inside
  * Minecraft's level render at a point where blend is on, the depth mask is off and the bound target is
  * not the main one; restoring the defaults there is a leak that happens to look like tidying up.
  *

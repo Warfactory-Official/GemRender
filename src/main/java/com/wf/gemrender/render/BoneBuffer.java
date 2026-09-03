@@ -131,7 +131,7 @@ public final class BoneBuffer {
 
 			// Restored rather than zeroed: this runs inside Flywheel's render, which has its own array
 			// buffer bound and does not re-bind it after every call it makes. Read before create(),
-			// because create() binds ours — snapshotting after it would record our own buffer as the one
+			// because create() binds ours – snapshotting after it would record our own buffer as the one
 			// to go back to, and Flywheel's would stay unbound for the rest of the run. The GL audit
 			// caught exactly that, on the one frame per launch where create() runs.
 			int previousBuffer = glGetInteger(GL_ARRAY_BUFFER_BINDING);

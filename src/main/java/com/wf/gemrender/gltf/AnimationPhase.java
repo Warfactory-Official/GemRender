@@ -54,7 +54,7 @@ public record AnimationPhase(GltfAnimation clip, float offsetSeconds, float spee
 	 * <p>A continuous offset gives every copy its own instant, so copies meet in the pose cache only by
 	 * birthday: with a cycle divided into B buckets and N copies, the distinct poses a frame asks for
 	 * are about B(1 - (1 - 1/B)^N), which is nearly N whenever B is the larger. Drawing offsets from a
-	 * fixed set instead makes that a cap rather than a coincidence — at most {@code steps} poses however
+	 * fixed set instead makes that a cap rather than a coincidence – at most {@code steps} poses however
 	 * large the crowd, and however many layers ride the same clock.
 	 */
 	public static float snap(float unit, int steps) {

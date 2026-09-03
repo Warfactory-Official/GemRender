@@ -4,8 +4,8 @@ package com.wf.gemrender.gltf;
  * A driver played on a loop of its own, whatever clock it is handed.
  *
  * <p>Needed only where two animations of different lengths have to share one clock. A keyframe
- * channel handed a time past its last key clamps rather than wrapping — correct for a short channel
- * inside a longer clip, which is what glTF asks for — so merging a one-second clip into a
+ * channel handed a time past its last key clamps rather than wrapping – correct for a short channel
+ * inside a longer clip, which is what glTF asks for – so merging a one-second clip into a
  * twenty-second layer would freeze it after the first second. Wrapping it at its own clip's length
  * first is what a loop means, and restores it.
  */

@@ -48,7 +48,7 @@ import com.wf.gemrender.GemRender;
  * <p>Leaked GL state is the worst class of bug this renderer can produce, because the symptom appears
  * somewhere else: a depth function left on {@code GL_ALWAYS} shows up as another mod's geometry drawing
  * through walls, a vertex array left bound shows up as the wrong mesh, and neither points at the code
- * that did it. There is a second, quieter version of the same problem — Minecraft's
+ * that did it. There is a second, quieter version of the same problem – Minecraft's
  * {@link GlStateManager} keeps a shadow copy of some of this state and <em>skips</em> the GL call when
  * it believes nothing changed, so one raw GL call behind its back makes a later, necessary call not
  * happen. Both are checked here.

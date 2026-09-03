@@ -513,7 +513,7 @@ public final class GemRenderClient {
 				.append(AUTO_SPIN)
 				.append(" turns/s (one revolution every ")
 				.append(Math.round(1.0f / Math.abs(AUTO_SPIN)))
-				.append("s — slow, watch for a while)");
+				.append("s – slow, watch for a while)");
 
 		if (AUTO_SPIN_DUTY < 1.0f) {
 			out.append(", moving for the first ")

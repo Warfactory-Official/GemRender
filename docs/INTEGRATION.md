@@ -28,7 +28,7 @@ Two consequences shape the whole API:
   the API as intended and lethal the moment you read a mesh yourself. See
   [the vertex format trap](#the-vertex-format-trap).
 
-There is a second path for the shape this one is bad at — a handful of vehicles whose parts each
+There is a second path for the shape this one is bad at – a handful of vehicles whose parts each
 answer to something different, rather than a crowd of machines sharing a clock. Sections 1 and 2 are
 the crowd; [section 3](#3-vehicles-and-animation-driven-by-something-other-than-time) is the vehicle.
 
@@ -240,7 +240,7 @@ the machine jumps the moment its visual is rebuilt.
 
 One clip and one time is the common case. A thing whose parts answer to *different* quantities needs
 more than one, and merging them into a single clip cannot work: two independent parameters would need
-a clip per pair of values. Pass them as layers instead — same call, arrays instead of scalars:
+a clip per pair of values. Pass them as layers instead – same call, arrays instead of scalars:
 
 ```java
 // A mob whose legs run on distance walked and whose jaws run on an attack timer.
@@ -261,8 +261,8 @@ agrees, so a layer can only ever split the table further. That makes the cost of
 question of how much it varies:
 
 - A layer that hardly ever varies is nearly free. Damage states, variants, a hatch that is open or
-  shut: a handful of distinct values across a whole crowd, and clips with no duration at all — see
-  `NodeHide` — fall in one time bucket, so the cache separates them by identity rather than instant.
+  shut: a handful of distinct values across a whole crowd, and clips with no duration at all – see
+  `NodeHide` – fall in one time bucket, so the cache separates them by identity rather than instant.
 - A layer that varies per copy costs a pose per copy, exactly as a single clip on a continuous clock
   does. Three hundred mobs mid-stride at three hundred different phases is three hundred evaluations
   whether that is one layer or four.
@@ -275,7 +275,7 @@ The counting argument in `AnimationPhase.snap` applies unchanged, once per layer
 
 Everything above assumes the shape section 2 is good at: many copies of one machine, all reading one
 clock, so the pose cache collapses them. A vehicle is the other shape. There are a few of them, not a
-few thousand, and each one's parts answer to different things — the left tread to how far that side
+few thousand, and each one's parts answer to different things – the left tread to how far that side
 has travelled, the turret to where its gunner is looking. Nothing is shared between two of them,
 ever, and the mechanism section 2 relies on has nothing to collapse.
 
@@ -292,12 +292,12 @@ only when its own quantised instant moves on, and only the parts that layer driv
 parked tank whose turret is slewing costs the turret.
 
 **The trade, and one limit.** Each part becomes its own instance, so a 112-part tank is 112 instances
-rather than one — good for tens of vehicles, wrong for thousands of machines. And the path reads
+rather than one – good for tens of vehicles, wrong for thousands of machines. And the path reads
 Bedrock `.geo.json` only; `GemRenderModels.partsHandle` on a `.glb` throws.
 
 ### Registering
 
-Same rule as section 1 — declare it in a `static final` so the import happens at reload rather than
+Same rule as section 1 – declare it in a `static final` so the import happens at reload rather than
 on a Flywheel task thread. `GemRenderModels.parts(id)` resolves through the same cache but loads on
 the spot, which inside a visual's constructor is an import mid-frame.
 
@@ -311,7 +311,7 @@ public static final ModelCache.Handle<GemRenderPartsModel> TANK =
 
 A layer is a clip plus the parts it is allowed to move. `drivenBy(clip)` reports which parts the clip
 touches and `withAncestors(...)` widens that to everything above them, because moving a turret moves
-the gun that hangs off it. Precompute it once — it never changes:
+the gun that hangs off it. Precompute it once – it never changes:
 
 ```java
 private record Layer(GltfAnimation clip, boolean[] recompute) {
@@ -328,11 +328,11 @@ private record Layer(GltfAnimation clip, boolean[] recompute) {
 same question for anything else, and hands back the same clip-local seconds, so it drops into the
 same slot. Two shapes cover everything a vehicle does:
 
-- **`AnimationDrive.cyclic(clip, unitsPerCycle)`** — a quantity that accumulates without bound and
+- **`AnimationDrive.cyclic(clip, unitsPerCycle)`** – a quantity that accumulates without bound and
   means the same thing every cycle. Feed it the odometer directly, in whatever unit you already have:
   a wheel animated as one full turn is `cyclic(spin, 2 * PI * radius)` read off distance travelled.
   It wraps, so reversing runs it backwards and nothing has to be reset.
-- **`AnimationDrive.ranged(clip, min, max)`** — a quantity that lives between two stops: a steering
+- **`AnimationDrive.ranged(clip, min, max)`** – a quantity that lives between two stops: a steering
   angle, an elevation, how far a hatch has opened. It scrubs the clip and holds the end frames
   outside the range. Give `max` below `min` to run it the other way. `isAtEnd(v)` is there for
   whatever drives the thing to know it has arrived.
@@ -403,8 +403,8 @@ private static void or(boolean[] into, boolean[] from) {
 }
 ```
 
-`transforms` comes from `model.newTransforms()` and must be seeded once with the rest pose —
-`PartsPose.evaluate(model, null, 0.0f, transforms, scratch)` — because parts no layer can reach keep
+`transforms` comes from `model.newTransforms()` and must be seeded once with the rest pose –
+`PartsPose.evaluate(model, null, 0.0f, transforms, scratch)` – because parts no layer can reach keep
 whatever is in it for good. `Scratch` is one per thread and not thread-safe.
 
 Note what is absent: no elapsed time, no accumulating field, no state in the visual at all beyond
@@ -414,7 +414,7 @@ already owns them.
 ### The one thing the asset has to get right
 
 A bone the partition did not cut above is baked into its part's geometry, and writing its transform
-then changes nothing — the motion vanishes silently rather than failing. Any bone a layer needs to
+then changes nothing – the motion vanishes silently rather than failing. Any bone a layer needs to
 move must be declared in `gemrender:gameplay_bones` so the partition cuts above it. GemRender logs an
 error naming the bone and the part it was baked into, which is the first thing to check when a turret
 will not turn.
@@ -428,7 +428,7 @@ been drawing a machine for years usually has a folder of `.obj` parts and a hand
 the geometry and the motion both exist, and nothing joins them.
 
 `RigBuilder` is that join. Declare the bones, hang the meshes on them, and what comes out is an
-ordinary `GemRenderGltfModel` — one Flywheel model, one instance a copy, posed through the same bone
+ordinary `GemRenderGltfModel` – one Flywheel model, one instance a copy, posed through the same bone
 palette as an imported one. Nothing downstream can tell the difference.
 
 **Every mesh binds rigidly to exactly one bone.** There is no vertex weighting here, which is what
@@ -458,7 +458,7 @@ GemRenderGltfModel model = rig.build(material, Map.of("wave", wave));
 ```
 
 **A bone's translation is its pivot relative to its parent's pivot**, in the frame the meshes were
-authored in — the same convention a Bedrock model uses. Attached geometry stays where the artist put
+authored in – the same convention a Bedrock model uses. Attached geometry stays where the artist put
 it: `attach` moves each mesh into its bone's frame by the inverse of that bone's rest transform, so a
 rig with no clip running draws exactly the model you started with. That inverse is the inverse bind
 matrix a glTF skin would have shipped; here the rig knows where every bone rests, so it is derived.
@@ -470,7 +470,7 @@ case, and costs one copy of the vertices per leg.
 
 `WavefrontObj.load(id)` reads a `.obj` as one `RigGeometry` per named `o`/`g` group. It flips the V
 axis and fan-triangulates faces, both matching what NeoForge's own obj loader does with
-`flip_v: true`, and it ignores materials — an obj's `.mtl` names a texture through a placeholder the
+`flip_v: true`, and it ignores materials – an obj's `.mtl` names a texture through a placeholder the
 model json fills in, so the texture belongs in the `Material` you hand `build`.
 
 `RigGeometry` is plain arrays, so anything can produce one: a format of your own, or geometry
@@ -482,15 +482,15 @@ generated on the spot.
 part its own; meshes are grouped by material and each group is one draw, so a propeller skinned
 separately from its airframe costs two draws however many parts wear each.
 
-The `build(GltfMaterial, clips)` overload is the importers' vocabulary — alpha mode and
-two-sidedness rather than Flywheel shaders — and it resolves and owns the texture, decoding a
+The `build(GltfMaterial, clips)` overload is the importers' vocabulary – alpha mode and
+two-sidedness rather than Flywheel shaders – and it resolves and owns the texture, decoding a
 `.ktx2` and releasing it on reload. Use the `Material` overload for anything `GltfMaterial` cannot
 say: a decal at depth-equal, an emissive overlay.
 
 ### Drivers: what a bone can be told to do
 
 A clip is an ordered list of `PoseDriver`s. Keyframe channels read out of a file and the procedural
-ones below are peers — nothing downstream distinguishes them.
+ones below are peers – nothing downstream distinguishes them.
 
 | Driver | Motion | Driven by |
 |---|---|---|
@@ -506,11 +506,11 @@ compose before every driver, so `Ry(a)Rz(b)` at rest plus drivers on Y and Z giv
 `Ry(a)Rz(b)Ry(dy)Rz(dz)`, which is not the `Ry(a+dy)Rz(b+dz)` the rig meant.
 
 **Writing your own driver.** The four above are not a closed set. A motion that is not a sine and not
-a sweep — a mandible that stays shut through the first half of a swing and snaps through the second —
+a sweep – a mandible that stays shut through the first half of a swing and snaps through the second –
 is a record implementing `PoseDriver`, and `NodeRotation.compose` is the public helper that writes a
 rotation correctly onto whatever the drivers before it left in the pose. Two rules, both from
 `PoseDriver`'s own contract: be a pure function of the time argument, and have value equality. A
-driver that reaches per-copy state through a field breaks sharing silently — the copy that lands in
+driver that reaches per-copy state through a field breaks sharing silently – the copy that lands in
 its bucket gets somebody else's answer.
 
 ### Registering a built model
@@ -532,7 +532,7 @@ than a race.
 
 ### When not to use it
 
-If the asset already has a skeleton, import it — a glTF or a `.geo.json` carries the rig, the
+If the asset already has a skeleton, import it – a glTF or a `.geo.json` carries the rig, the
 materials and the clips, and none of it has to be restated in code. `RigBuilder` is for the case where
 restating it in code is the only option, and for that case it is the difference between a mob costing
 one instance and a mob costing one per moving part.
@@ -614,7 +614,7 @@ and *discards Flywheel's fragment shader entirely*. Consequences:
   with its own PBR from GemRender's normal and specular maps. Emission is a scalar in LabPBR and a
   colour in glTF, so an emissive strip glows in its albedo's colour.
 - **Every pack ships with those materials off.** At stock settings a pack does not read them, and a
-  PBR model falls back to base colour — no normal mapping, no roughness, no emissive, a glowing lamp
+  PBR model falls back to base colour – no normal mapping, no roughness, no emissive, a glowing lamp
   as a black plate. Everything baked into the sheet at import survives, so tints and occlusion remain.
 - **Parallax occlusion mapping must stay off.** It needs `mc_midTexCoord`, which instanced geometry
   has no attribute for; with it on, models render near-black. This one is not GemRender's to fix and
