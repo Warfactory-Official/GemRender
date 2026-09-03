@@ -1,0 +1,276 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.pylon",
+        "texture_width": 128,
+        "texture_height": 128,
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [
+          0,
+          1,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "base",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "parent": "root",
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                0,
+                -7
+              ],
+              "size": [
+                14,
+                3,
+                14
+              ],
+              "uv": [
+                16,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "column",
+          "pivot": [
+            0,
+            3,
+            0
+          ],
+          "parent": "base",
+          "cubes": [
+            {
+              "origin": [
+                -2,
+                3,
+                -2
+              ],
+              "size": [
+                4,
+                20,
+                4
+              ],
+              "uv": [
+                0,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -3,
+                10,
+                -3
+              ],
+              "size": [
+                6,
+                2,
+                6
+              ],
+              "uv": [
+                50,
+                24
+              ]
+            },
+            {
+              "origin": [
+                -5,
+                3,
+                -1
+              ],
+              "size": [
+                3,
+                6,
+                2
+              ],
+              "uv": [
+                74,
+                24
+              ]
+            },
+            {
+              "origin": [
+                2,
+                3,
+                -1
+              ],
+              "size": [
+                3,
+                6,
+                2
+              ],
+              "uv": [
+                84,
+                24
+              ]
+            }
+          ]
+        },
+        {
+          "name": "head",
+          "pivot": [
+            0,
+            23,
+            0
+          ],
+          "parent": "column",
+          "cubes": [
+            {
+              "origin": [
+                -5,
+                23,
+                -5
+              ],
+              "size": [
+                10,
+                6,
+                10
+              ],
+              "uv": [
+                72,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -3,
+                29,
+                -3
+              ],
+              "size": [
+                6,
+                1,
+                6
+              ],
+              "uv": [
+                94,
+                24
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dish",
+          "pivot": [
+            0,
+            26,
+            0
+          ],
+          "parent": "head",
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                19,
+                5
+              ],
+              "size": [
+                14,
+                14,
+                1
+              ],
+              "uv": [
+                0,
+                24
+              ]
+            },
+            {
+              "origin": [
+                -7,
+                33,
+                5
+              ],
+              "size": [
+                14,
+                1,
+                1
+              ],
+              "uv": [
+                12,
+                39
+              ]
+            },
+            {
+              "origin": [
+                -7,
+                18,
+                5
+              ],
+              "size": [
+                14,
+                1,
+                1
+              ],
+              "uv": [
+                42,
+                39
+              ]
+            }
+          ]
+        },
+        {
+          "name": "vane",
+          "pivot": [
+            0,
+            26,
+            6
+          ],
+          "parent": "dish",
+          "cubes": [
+            {
+              "origin": [
+                -1,
+                25,
+                6
+              ],
+              "size": [
+                2,
+                2,
+                8
+              ],
+              "uv": [
+                30,
+                24
+              ]
+            },
+            {
+              "origin": [
+                -2,
+                24,
+                13
+              ],
+              "size": [
+                4,
+                4,
+                2
+              ],
+              "uv": [
+                0,
+                39
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

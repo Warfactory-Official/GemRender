@@ -1,0 +1,54 @@
+# GemRender: NeoForge mod metadata.
+# The dollar-brace tokens below are expanded by the generateModMetadata task in build.gradle from gradle.properties.
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "${mod_license}"
+
+[[mods]]
+modId = "gemrender"
+version = "${mod_version}"
+displayName = "${mod_name}"
+authors = "${mod_authors}"
+description = '''${mod_description}'''
+
+# Mixin configs are declared to FML here on NeoForge (no MANIFEST MixinConfigs attribute).
+# Client-only: every mixin GemRender applies targets Flywheel's rendering internals.
+[[mixins]]
+config = "gemrender.mixins.json"
+
+# iris-flw-compat is never on the classpath: -Piris drops it into run/mods and no other run has it.
+# Its config is required = false so a launch without it skips the mixin instead of refusing to start.
+[[mixins]]
+config = "gemrender.irisflw.mixins.json"
+
+# --- Required: NeoForge ---
+[[dependencies.gemrender]]
+modId = "neoforge"
+type = "required"
+versionRange = "${neo_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# --- Required: Minecraft ---
+[[dependencies.gemrender]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# --- Required: Flywheel ---
+# GemRender is a layer on top of Flywheel, not an alternative to it: models are Flywheel Models, draws are
+# Flywheel Instancers, culling is Flywheel's. Without it there is nothing to render through.
+#
+# Jar-in-jar'd, under the same group:artifact Create nests Flywheel under, so FML resolves the two as
+# one dependency and loads a single copy. A Flywheel installed in mods/ wins over both. Still declared
+# required: the range below is what GemRender needs of whichever copy ends up loading.
+#
+# ordering = AFTER so Flywheel's backends are registered before GemRender asks for an Instancer.
+[[dependencies.gemrender]]
+modId = "flywheel"
+type = "required"
+versionRange = "${flywheel_version_range}"
+ordering = "AFTER"
+side = "CLIENT"

@@ -1,0 +1,18 @@
+pluginManagement {
+    repositories {
+        // ModDevGradle + foojay resolver are on the Gradle Plugin Portal.
+        gradlePluginPortal()
+        // Fallback so the moddev plugin can resolve even if the portal mirror lags.
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/releases'
+        }
+    }
+}
+
+plugins {
+    // Auto-provisions the JDK 21 toolchain required by java.toolchain in build.gradle.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'gemrender'

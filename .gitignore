@@ -1,0 +1,33 @@
+# Gradle / build
+.gradle/
+build/
+out/
+bin/
+mcmodsrepo/
+
+# Dev run directories
+run/
+run-data/
+run-*/
+
+# Generated data
+src/generated/resources/.cache/
+
+# Third-party vehicle assets, if a local checkout ever puts them here rather than in the second
+# resource root. They are never ours to redistribute.
+src/main/resources/assets/gemrender/models/vehicles/
+
+# RenderDoc captures are large and machine-specific.
+*.rdc
+*.cap
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.eclipse/
+.settings/
+.classpath
+.project
