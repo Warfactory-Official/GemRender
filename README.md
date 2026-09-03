@@ -84,10 +84,6 @@ GemRender is a **required client-side dependency** of a mod that draws through i
 | `src/harness`, `src/bench` | the development spike and the cross-framework benchmark  |
 | `docs/INTEGRATION.md` | the API guide                                            |
 
-Design notes, research, the test plan, benchmark fixtures and third-party assets are not part of this
-repository. The build looks for them in a sibling checkout at `../gemrender-internal`, overridable
-with `-PinternalDir=<path>`, and every task that reads from it skips cleanly when it is absent.
-
 ## Licence
 
 GPL-3. Vendored third-party source retains its own licences.
