@@ -20,6 +20,9 @@ import com.wf.gemrender.render.PoseLod;
 import com.wf.gemrender.render.SkinnedCubeMesh;
 import com.wf.gemrender.spike.GltfEffect;
 import com.wf.gemrender.spike.GltfVisual;
+import com.wf.gemrender.particle.ParticleBuffer;
+import com.wf.gemrender.particle.ParticleClock;
+import com.wf.gemrender.spike.ParticleSpikeEffect;
 import com.wf.gemrender.spike.PartsEffect;
 import com.wf.gemrender.spike.SpikeAssets;
 import com.wf.gemrender.spike.SpikeClock;
@@ -47,6 +50,10 @@ public final class GemRenderClient {
 	}
 
 	private static final int AUTO_SPIKE = Integer.getInteger("gemrender.autospike", 0);
+
+	private static final int AUTO_PARTICLES = Integer.getInteger("gemrender.autoparticles", 0);
+
+	private static final float PARTICLE_EXTENT = 10.0f;
 
 	private static final int AUTO_EXIT_TICKS = Integer.getInteger("gemrender.autoexit", 0);
 
@@ -129,6 +136,16 @@ public final class GemRenderClient {
 
 	private static void reportLoadState() {
 		ResourceLocation asset = autoAsset();
+
+		if (AUTO_PARTICLES > 0) {
+			ParticleBuffer particles = ParticleBuffer.getInstance();
+			int alive = particles.aliveCount(ParticleClock.seconds());
+			SpikeHud.status("want particles  x" + AUTO_PARTICLES + "  buffer="
+					+ (particles.isInitialized() ? "live" : "NOT UPLOADED") + "  slots="
+					+ particles.capacitySlots() + "  alive=" + alive, !particles.isInitialized());
+			return;
+		}
+
 		if (asset == null && AUTO_SPIKE <= 0) {
 			SpikeHud.status("", false);
 			return;
@@ -239,7 +256,10 @@ public final class GemRenderClient {
 		if (AUTO_RIG > 0) {
 			return AUTO_RIG;
 		}
-		return AUTO_RADAR > 0 ? AUTO_RADAR : AUTO_SPIKE;
+		if (AUTO_RADAR > 0) {
+			return AUTO_RADAR;
+		}
+		return AUTO_PARTICLES > 0 ? AUTO_PARTICLES : AUTO_SPIKE;
 	}
 
 	@SubscribeEvent
@@ -284,7 +304,7 @@ public final class GemRenderClient {
 
 			float extent = asset != null
 					? GltfVisual.gridExtentOf(autoSphere(), autoCount())
-					: SpikeVisual.gridExtent(AUTO_SPIKE);
+					: AUTO_PARTICLES > 0 ? PARTICLE_EXTENT : SpikeVisual.gridExtent(AUTO_SPIKE);
 			int back = Math.max(CAMERA_MIN_BACK, Math.round(extent * CAMERA_BACK_FACTOR));
 			int up = Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
 
@@ -360,6 +380,8 @@ public final class GemRenderClient {
 		if (++ticksSinceSpike == AUTO_EXIT_TICKS / 2) {
 			FrameCost.getInstance()
 					.resetRun();
+			ParticleBuffer.getInstance()
+					.resetRun();
 			com.wf.gemrender.water.WaterSplit.getInstance()
 					.resetRun();
 			com.wf.gemrender.render.GlAudit.resetRun();
@@ -391,7 +413,11 @@ public final class GemRenderClient {
 							+ "lodMeanCentis={} costFrames={} poseUs={} "
 							+ "overheadUs={} uploadUs={} nsPerPose={} instanceWrites={} waterSplit={} units={} "
 							+ "glAudit={} "
-							+ "path={} parts={} partMeshes={} evalsPerFrame={} spinDuty={}",
+							+ "path={} parts={} partMeshes={} evalsPerFrame={} spinDuty={} "
+							+ "particleBufferInitialised={} particleSlots={} particlesAlive={} "
+							+ "particlesWanted={} particleEmitters={} particleBlend={} "
+							+ "particleSizeScale={} particleUploadFrames={} particleUploadCalls={} "
+							+ "particleUploadBytes={}",
 					VERDICT_PREFIX,
 					bones.isInitialized(),
 					bones.lastUploadedCount(),
@@ -440,7 +466,24 @@ public final class GemRenderClient {
 					parts == null ? 0 : parts.partCount(),
 					parts == null ? 0 : parts.meshCount(),
 					cost.meanPoseCount(),
-					AUTO_SPIN_DUTY);
+					AUTO_SPIN_DUTY,
+
+					ParticleBuffer.getInstance()
+							.isInitialized(),
+					ParticleBuffer.getInstance()
+							.capacitySlots(),
+					ParticleBuffer.getInstance()
+							.aliveCount(ParticleClock.seconds()),
+					AUTO_PARTICLES,
+					ParticleSpikeEffect.EMITTERS,
+					com.wf.gemrender.spike.ParticleSpikeVisual.BLEND,
+					ParticleSpikeEffect.SIZE_SCALE,
+					ParticleBuffer.getInstance()
+							.uploadFrames(),
+					ParticleBuffer.getInstance()
+							.uploadCalls(),
+					ParticleBuffer.getInstance()
+							.uploadBytes());
 			mc.stop();
 		}
 	}
@@ -453,6 +496,17 @@ public final class GemRenderClient {
 		java.util.List<String> what = new java.util.ArrayList<>();
 		String clip = System.getProperty("gemrender.autoanimation", "running_loop");
 		boolean noClip = com.wf.gemrender.spike.PartsVisual.NO_CLIP.equals(clip);
+
+		if (AUTO_PARTICLES > 0) {
+			SpikeHud.progress(AUTO_ROW.isEmpty() ? "" : "[" + AUTO_ROW + "]");
+			SpikeHud.describe(java.util.List.of(
+					(AUTO_LABEL.isEmpty() ? "spike" : AUTO_LABEL) + "  |  " + AUTO_PARTICLES
+							+ " x billboard particles  |  CLOSED FORM (nothing written per frame)",
+					"life=" + ParticleSpikeEffect.LIFE_SECONDS + "s   one instance per slot, 16 bytes, "
+							+ "written once at creation"),
+					"the fountain holds ~" + AUTO_PARTICLES + " alive and alive= tracks it");
+			return;
+		}
 
 		what.add((AUTO_LABEL.isEmpty() ? "spike" : AUTO_LABEL) + "  |  " + autoCount() + " x "
 				+ (asset == null ? "skinned cubes" : asset.getPath()
@@ -722,6 +776,10 @@ public final class GemRenderClient {
 					.queueAdd(new GltfEffect(level, origin, asset, autoCount(),
 							System.getProperty("gemrender.autoanimation", "running_loop"), AUTO_SYNC, 1.0f,
 							AUTO_SPIN, spinNode, AUTO_SPIN_DUTY));
+		} else if (AUTO_PARTICLES > 0) {
+			VisualizationManager.getOrThrow(level)
+					.effects()
+					.queueAdd(new ParticleSpikeEffect(level, origin, AUTO_PARTICLES));
 		} else {
 			VisualizationManager.getOrThrow(level)
 					.effects()
@@ -772,6 +830,11 @@ public final class GemRenderClient {
 						.executes(ctx -> spike(ctx.getSource(), 1024))
 						.then(Commands.argument("count", IntegerArgumentType.integer(1, 100000))
 								.executes(ctx -> spike(ctx.getSource(),
+										IntegerArgumentType.getInteger(ctx, "count")))))
+				.then(Commands.literal("particles")
+						.executes(ctx -> particles(ctx.getSource(), 3000))
+						.then(Commands.argument("count", IntegerArgumentType.integer(1, 200000))
+								.executes(ctx -> particles(ctx.getSource(),
 										IntegerArgumentType.getInteger(ctx, "count")))))
 				.then(gltfCommand("radar", SpikeAssets.RADAR, "running_loop"))
 				.then(gltfCommand("rig", SpikeAssets.RIG, "curl"))
@@ -827,6 +890,29 @@ public final class GemRenderClient {
 		source.sendSuccess(() -> Component.literal(
 				"Spawned " + count + " skinned cubes at " + origin.toShortString()
 						+ ". Run /gemrender status to confirm the bone buffer is live."), false);
+		return count;
+	}
+
+	private static int particles(CommandSourceStack source, int count) {
+		Level level = Minecraft.getInstance().level;
+		if (level == null) {
+			source.sendFailure(Component.literal("No level."));
+			return 0;
+		}
+
+		if (!VisualizationManager.supportsVisualization(level)) {
+			source.sendFailure(Component.literal(
+					"Flywheel visualization is off for this level. Check the Flywheel backend is not set to 'off'."));
+			return 0;
+		}
+
+		BlockPos origin = BlockPos.containing(source.getPosition());
+		VisualizationManager.getOrThrow(level)
+				.effects()
+				.queueAdd(new ParticleSpikeEffect(level, origin, count));
+
+		source.sendSuccess(() -> Component.literal("Spawned a " + count + " particle fountain at "
+				+ origin.toShortString() + ". The CPU writes a slot per spawn and nothing per frame."), false);
 		return count;
 	}
 

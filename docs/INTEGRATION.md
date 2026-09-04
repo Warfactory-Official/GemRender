@@ -599,7 +599,234 @@ Flywheel frame.
 
 ---
 
-## 6. Things that will bite
+## 6. Particles
+
+The same idea as section 1, applied to a different problem. A particle's position, size, colour and
+spin are a **closed form of its age**: given where it was born, how fast, and when, the shader can
+work out where it is now. So nothing about a particle is written per frame. The CPU writes
+forty-eight bytes once, at spawn, and never touches that particle again.
+
+That is what makes the count stop mattering. Three thousand particles cost three thousand cull
+invocations and one draw, and zero Java.
+
+### The four pieces
+
+| | |
+|---|---|
+| `ParticleStyle` | the curves every particle in a family shares: drag, gravity, how it grows, how it fades. Registered once, at most 64 of them |
+| `ParticleEmitter` | owns a block of slots and a spawn cursor. Lives as long as the effect does, **not** as long as the visual |
+| `ParticlePool` | the Flywheel side: one instance per slot, created in the visual, deleted with it |
+| `GemRenderParticleTypes` | `BILLBOARD` for camera-facing quads, `MESH` for a model oriented along its own velocity |
+
+### Registering a style
+
+```java
+private static final int EXHAUST = ParticleBuffer.getInstance()
+        .registerStyle(ParticleStyle.builder()
+                .drag(ParticleStyle.dragFromPerTickFactor(0.9f))
+                .gravity(-1.6f)
+                .size(0.5f, 2.8f)
+                .tint(0xFF7A28)
+                .alpha(0.75f, 0.4f)
+                .cool(0.1f, 0.6f)
+                .build());
+```
+
+`dragFromPerTickFactor` and `gravityFromPerTickDelta` exist because most existing particle code is
+written as a per-tick loop – `v *= 0.9`, `vy += 0.004`. Those are a geometric series and a constant
+acceleration, so they have exact closed forms; the two helpers convert the loop's constants into the
+per-second ones the shader wants. **Everything the API takes is per second**, including velocity.
+A per-tick delta multiplied by 20 is a per-second one.
+
+### Emitting
+
+The emitter belongs to the effect, because Flywheel destroys and rebuilds every visual when the
+render origin moves and the trail must not restart when it does.
+
+```java
+public final class ExhaustEffect implements Effect {
+    private final ParticleEmitter emitter =
+            ParticleEmitter.create(EXHAUST, 512, x, y, z);
+
+    public void emit(Vec3 at, Vec3 velocity) {
+        emitter.spawn(at.x, at.y, at.z,
+                -velocity.x * 8.0, -velocity.y * 8.0, -velocity.z * 8.0,
+                2.5f, 0.6f + random.nextFloat() * 0.4f);
+    }
+}
+```
+
+`spawn` overwrites the oldest slot in the ring, so a pool never fills up and never allocates. A slot
+that has never been written reads as a dead particle and is culled.
+
+### Drawing
+
+```java
+public final class ExhaustVisual extends AbstractVisual
+        implements EffectVisual<ExhaustEffect>, SimpleTickableVisual {
+    private final ParticlePool pool;
+
+    public ExhaustVisual(VisualizationContext ctx, ExhaustEffect effect, float partialTick) {
+        super(ctx, (Level) effect.level(), partialTick);
+        this.pool = new ParticlePool(ctx, effect.emitter(),
+                GemRenderParticleTypes.BILLBOARD,
+                ParticleModels.additive(TEXTURE));
+    }
+
+    @Override
+    protected void _delete() {
+        pool.delete();
+    }
+}
+```
+
+There is no `beginFrame`. If you find yourself writing one, the thing you want to vary per frame
+probably belongs in the style or in the closed form instead.
+
+### Mesh particles
+
+`GemRenderParticleTypes.MESH` takes any Flywheel `Model` instead of the built-in quad and orients it
+so **the model's +Y points along its velocity**, with `spin` rolling it about that axis. Debris,
+casings, sparks with a length. Everything else – the style, the emitter, the pool – is identical.
+
+### What a closed form cannot do
+
+No collision, and no force that depends on another particle. Both need the previous frame's state,
+and a particle here has no state to read: that is the trade that buys the zero per-frame cost and the
+identical result on every backend. Wind, drag, gravity, buoyancy, growth and fade are all fine,
+because none of them need to know what happened last frame.
+
+### Shader packs
+
+Under Iris neither of Flywheel's stock backends runs; the compatibility layer supplies an instancing
+one instead. Particles keep working, because the whole evaluation is in the instance vertex shader
+rather than in a compute pass. What is lost is GPU culling, which the instancing backend does not do
+at all – a dead particle there collapses to a zero-size quad instead of being thrown away, which
+costs four vertex shader invocations and no fragments.
+
+### Choosing a transparency
+
+This is the only decision on this page that changes your frame rate by more than a rounding error, so
+make it deliberately.
+
+`ParticleModels` offers three:
+
+- `additive(texture)` – one pass, order-independent by construction. Right for fire, muzzle flash,
+  tracers, sparks. Cannot darken, so at any real density it saturates to white.
+- `cutout(texture)` – `OPAQUE` plus an alpha test, so one pass, writes depth, and gets early-Z.
+  Keeps dark colours, which additive cannot. Costs hard quad edges instead of feathered ones.
+- `translucent(texture)` – `ORDER_INDEPENDENT`. The best-looking of the three and by far the most
+  expensive.
+
+For exhaust and dust – many particles, mostly not the thing the player is looking at – use `cutout`.
+Push the alpha test up (`ParticleModels.billboard(texture, Transparency.OPAQUE, CutoutShaders.HALF)`)
+and let the texture's own alpha carve the silhouette rather than scaling alpha down in the style;
+a low `alphaScale` with a high threshold discards everything, and a low threshold gives you visible
+squares.
+
+### Cost
+
+Per spawn: one 48-byte write. Per frame, per particle: nothing on the CPU. `instanceWrites=0` – no
+instance is rewritten after the frame it was created in – and the only per-frame work left is one
+`glBufferSubData` per run of dirty pages, which measures at 1 µs.
+
+That leaves the GPU, and there the whole cost is which `Transparency` you picked, not how many
+particles you have. Measured on one machine (RX 7900 XTX, Mesa 26.2, `indirect` backend) at
+846x1020, sampling 200 ticks:
+
+| row | frames/s |
+| --- | --- |
+| empty scene, one particle | 1926 |
+| 3 000, `cutout` | 2167 |
+| 3 000, `additive` | 2150 |
+| 3 000, `translucent` | **713** |
+| 30 000, `cutout` | 2067 |
+| 30 000 from 2 000 emitters, `cutout` | 2126 |
+| 100 000, `cutout` | 900 |
+| 300 000, `cutout` | 333 |
+| 300 000, `cutout`, `-PparticleSize=0.15` | 1994 |
+
+**The instancer is never the bottleneck.** 30 000 particles on a one-pass blend are indistinguishable
+from an empty scene, and the last two rows are the proof that even 300 000 is not the instancer's
+limit: they draw the same 288 000 live particles, the same instances, the same vertices and the same
+buffer fetches, and differ only in how many pixels the quads cover. Shrinking them wins 6x.
+
+Every cost on this page is fill. There are exactly two levers on it:
+
+- **How many passes rasterise the geometry.** `ORDER_INDEPENDENT` costs 3x `cutout` at the same 3 000
+  particles, because Flywheel's moment-based OIT rasterises three separate times – depth range,
+  coefficients, evaluate – into full-resolution `RGBA16F` targets.
+- **How many pixels the particles cover.** Size, distance, and how much of the screen the effect
+  fills. `-PparticleSize=0.15` took the 3 000 OIT row from 649 to 1838 fps and the 300 000 cutout row
+  from 333 to 1994.
+
+Particle count barely enters into either. If a particle effect is costing you frames, it is covering
+too many pixels or going through too many passes; adding a budget on the count is treating the wrong
+number.
+
+Reproduce and tune any of it with:
+
+```
+./gradlew runClient -PspikeExit=400 -PquickPlay=spike -Ppitch=0 -Pparticles=3000 \
+    -PparticleBlend=cutout   # additive | translucent | cutout
+    -PparticleSize=0.15      # multiplies every particle's size
+    -PparticleEmitters=200   # splits the count across that many emitters
+    -PparticleSpacing=0      # blocks between them, 0 stacks them on one spot
+```
+
+### The water split taxes order-independent particles
+
+GemRender's own `WaterSplit` resubmits every `ORDER_INDEPENDENT` draw a fourth time, so that
+Flywheel's OIT geometry interleaves per pixel with vanilla's translucent terrain. Particles are not
+exempt, and they pay it whether or not there is anything to interleave with: `-PwaterSplit=false`
+took the 3 000 `translucent` row from 655 to 878 fps and the 30 000 one from 98 to 152 fps – 34% and
+56%, in a scene with no water in it at all.
+
+Do not reach for the obvious fixes. Both are worse than they look:
+
+**Excluding particles from the resubmission** would be wrong – a particle in front of a water surface
+does have to composite after it – and it would not be particle-specific anyway. `GltfMaterial` gives
+every glTF `BLEND` material `ORDER_INDEPENDENT`, so translucent *models* take the identical path, and
+the split is load-bearing for them. Frozen-clock A/B on the glass row, `-PwaterColumn=8`, split on
+versus off: 56% of the models' pixels differ, by up to 176 of 255. That is not overhead, that is the
+feature working.
+
+**Skipping the split when the prepass found nothing** is safe – the same A/B with no water differs on
+0.16% of model pixels by at most 6 of 255, which is OIT dithering rather than a rendering change –
+but it is worth much less than it sounds. `WaterDepthPrepass` renders `RenderType.translucent()`,
+which is the whole vanilla translucent terrain layer and not just water: ice, stained glass, slime,
+honey, portals. In a real world some of it is nearly always on screen, so the guard would rarely
+fire. The numbers above are close to a best case for it, not a typical one.
+
+Two things do reliably avoid the tax: **Fabulous graphics**, where `modeActive()` is false and the
+split never runs at all, and not being on the `ORDER_INDEPENDENT` path in the first place. The second
+is the one you control, and the fill numbers above already recommend it on their own.
+
+### Time resolution
+
+`age` comes from `flw_renderSeconds`, which Flywheel writes as a **32-bit** float of
+`(ticks + partialTick) / 20`. That is a shared uniform, not something this instancer chooses, and its
+resolution decays with client uptime: about 0.25 ms after an hour, 8 ms after a day, 60 ms after a
+week. Particle motion stays correct – `spawnTime` is quantised on exactly the same grid, so `age` is
+still exact – but past roughly a day of uninterrupted uptime in one dimension it advances in visible
+steps. Every Flywheel shader that animates on `flw_renderSeconds` has the same bound.
+
+`ParticleStyle.FLOATS` and the 12-float record layout are given in `particle.glsl`, which is the
+authority – `ParticleMotion` is the same arithmetic in Java, kept in step by `ParticleMotionTest`,
+and is there for tests and for CPU-side code that needs to know where a particle is. The buffer is
+bound as `RGBA32F`, so both records read as whole `vec4`s: three fetches for a particle and four for
+a style, rather than 26 scalar ones. That was done expecting it to matter at high counts and it does
+not – it measures inside run-to-run noise at every count up to 300 000, because nothing here is ever
+fetch-bound. It is kept for being the simpler shader, not for being the faster one.
+
+One sizing note the harness row makes obvious: a pool is a ring, so if the spawn rate times the mean
+lifetime equals the pool size exactly, the ring wraps just as the oldest particle is dying and a few
+per cent get overwritten early. `-Pparticles=3000` settles at about 2880 alive for that reason. Size
+the pool ten to twenty per cent above `rate x life` if you want the full count on screen.
+
+---
+
+## 7. Things that will bite
 
 Failure modes that render something plausible rather than throwing.
 
@@ -674,6 +901,13 @@ The types a consumer actually touches.
 | `WavefrontObj` | `load(id)` reads a `.obj` as one `RigGeometry` per named group |
 | `NodeSpin`, `NodeOscillate`, `NodeSwing`, `NodeHide` | Procedural drivers: turn, rock, sweep, disappear |
 | `NodeRotation` | `compose(...)` and `offsetOf(...)`, for writing a `PoseDriver` of your own |
+| `ParticleStyle` | the curves a family of particles shares (section 6). `builder()`, `dragFromPerTickFactor`, `gravityFromPerTickDelta` |
+| `ParticleBuffer` | `registerStyle(style)` returns the index every emitter of that family passes |
+| `ParticleEmitter` | `create(style, capacity, x, y, z)`, `spawn(...)`, `isIdle()`, `close()`. Held by the effect, not the visual |
+| `ParticlePool` | `new ParticlePool(ctx, emitter, type, model)` in the visual, `delete()` with it |
+| `GemRenderParticleTypes` | `BILLBOARD` and `MESH`, the two instance types to pass to `ParticlePool` |
+| `ParticleModels` | `additive`, `cutout` and `translucent` billboards; `cutout` is the cheap one |
+| `ParticleMotion` | the closed form in Java, for tests and for CPU-side code that needs a particle's position |
 
 ### The SKINNED instance layout
 

@@ -58,7 +58,7 @@ public final class FrameCost {
 		instanceWritesLastFrame = instanceWrites.sumThenReset();
 		uploadNanosLastFrame = uploadNanos.sumThenReset();
 
-		if (visualNanosLastFrame > 0) {
+		if (visualNanosLastFrame > 0 || uploadNanosLastFrame > 0) {
 			sampledFrames++;
 			runVisualNanos += visualNanosLastFrame;
 			runPoseNanos += poseNanosLastFrame;

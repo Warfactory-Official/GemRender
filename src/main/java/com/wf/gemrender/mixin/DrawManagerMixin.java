@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.wf.gemrender.debug.SamplerProbe;
+import com.wf.gemrender.particle.ParticleBuffer;
 import com.wf.gemrender.render.BoneBuffer;
 import com.wf.gemrender.render.FrameCost;
 import com.wf.gemrender.render.GlAudit;
@@ -32,6 +33,8 @@ public abstract class DrawManagerMixin {
 			BoneBuffer.getInstance()
 					.uploadAndBind();
 			MorphBuffer.getInstance()
+					.uploadAndBind();
+			ParticleBuffer.getInstance()
 					.uploadAndBind();
 		} finally {
 			audit.close();

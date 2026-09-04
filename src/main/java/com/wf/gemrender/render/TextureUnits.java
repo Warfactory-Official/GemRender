@@ -7,7 +7,7 @@ import org.lwjgl.opengl.GL13C;
 import com.mojang.blaze3d.platform.GlStateManager;
 
 /**
- * The two texture units GemRender's palette buffers live on, and the only supported way to reach them.
+ * The three texture units GemRender's palette buffers live on, and the only supported way to reach them.
  *
  * <p>Both are above {@link GlStateManager#TEXTURE_COUNT}, which is deliberate – Minecraft tracks only
  * the units below it, so a unit above one cannot be clobbered by vanilla rendering. It also means
@@ -21,6 +21,8 @@ public final class TextureUnits {
 	public static final int BONES = Integer.getInteger("gemrender.boneunit", 14);
 
 	public static final int MORPHS = Integer.getInteger("gemrender.morphunit", 15);
+
+	public static final int PARTICLES = Integer.getInteger("gemrender.particleunit", 13);
 
 	private TextureUnits() {
 	}

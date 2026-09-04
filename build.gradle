@@ -163,6 +163,32 @@ neoForge {
             if (project.hasProperty('spike')) {
                 systemProperty 'gemrender.autospike', project.property('spike').toString()
             }
+            // -Pparticles=<count> auto-spawns a particle fountain sized to keep that many alive at
+            // once. Nothing about a particle is written per frame, so this is the row that shows
+            // whether the closed form in particle.glsl agrees with ParticleMotion on a real GPU.
+            if (project.hasProperty('particles')) {
+                systemProperty 'gemrender.autoparticles', project.property('particles').toString()
+            }
+            // -PparticleEmitters=<n> splits that count across n separate emitters on a grid, which is
+            // the axis that decides how many glBufferSubData calls the upload costs per frame.
+            if (project.hasProperty('particleEmitters')) {
+                systemProperty 'gemrender.particleemitters', project.property('particleEmitters').toString()
+            }
+            // -PparticleSpacing=<blocks> between those emitters. Zero stacks them all on one spot, so a
+            // row against -PparticleSpacing=4 isolates upload cost from screen coverage.
+            if (project.hasProperty('particleSpacing')) {
+                systemProperty 'gemrender.particlespacing', project.property('particleSpacing').toString()
+            }
+            // -PparticleBlend=additive|translucent. Translucent goes through Flywheel's moment-based
+            // OIT, which rasterises the same geometry three times; additive is one pass.
+            if (project.hasProperty('particleBlend')) {
+                systemProperty 'gemrender.particleblend', project.property('particleBlend').toString()
+            }
+            // -PparticleSize=<scale> multiplies every particle's size, so a row at 0.1 versus 1.0
+            // separates fill rate from everything else.
+            if (project.hasProperty('particleSize')) {
+                systemProperty 'gemrender.particlesize', project.property('particleSize').toString()
+            }
             // -PspikeExit=<ticks> renders for that many ticks, logs a one-line verdict, then quits.
             // -Pradar=<count> runs the node-animated asset instead of the cubes.
             if (project.hasProperty('radar')) {

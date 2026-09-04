@@ -1,6 +1,7 @@
 package com.wf.gemrender.render;
 
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.particle.ParticleBuffer;
 
 import dev.engine_room.flywheel.backend.gl.shader.GlProgram;
 
@@ -13,6 +14,7 @@ public final class SamplerBindings {
 	public static void apply(GlProgram program) {
 		program.setSamplerBinding("_gemrender_bones", BoneBuffer.TEXTURE_UNIT);
 		program.setSamplerBinding("_gemrender_morphs", MorphBuffer.TEXTURE_UNIT);
+		program.setSamplerBinding("_gemrender_particles", ParticleBuffer.TEXTURE_UNIT);
 
 		if (!logged) {
 			int bones = program.getUniformLocation("_gemrender_bones");
