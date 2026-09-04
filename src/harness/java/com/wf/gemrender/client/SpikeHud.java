@@ -17,6 +17,7 @@ public final class SpikeHud {
 	private static final int LINE_HEIGHT = 11;
 	private static final int TEXT = 0xFFE0E0E0;
 	private static final int EXPECT = 0xFF9CD67A;
+	private static final int SCENE = 0xFF7FC8E8;
 	private static final int ALARM = 0xFFFF6B6B;
 	private static final int BACKDROP = 0xC0000000;
 
@@ -27,6 +28,8 @@ public final class SpikeHud {
 	private static volatile String progress = "";
 
 	private static volatile String status = "";
+
+	private static volatile String scene = "";
 
 	private static volatile boolean statusAlarm;
 
@@ -45,6 +48,10 @@ public final class SpikeHud {
 	public static void status(String text, boolean alarm) {
 		status = text;
 		statusAlarm = alarm;
+	}
+
+	public static void scene(String text) {
+		scene = text;
 	}
 
 	@SubscribeEvent
@@ -67,7 +74,8 @@ public final class SpikeHud {
 						width - 2 * MARGIN);
 
 		String live = status;
-		int rows = what.size() + (live.isEmpty() ? 0 : 1) + wrapped.size();
+		String where = scene;
+		int rows = what.size() + (live.isEmpty() ? 0 : 1) + (where.isEmpty() ? 0 : 1) + wrapped.size();
 		int top = bottom - MARGIN - rows * LINE_HEIGHT;
 
 		graphics.fill(0, top - MARGIN, width, bottom, BACKDROP);
@@ -76,6 +84,10 @@ public final class SpikeHud {
 		for (int i = 0; i < what.size(); i++) {
 			String line = i == 0 && !progress.isEmpty() ? progress + "  " + what.get(i) : what.get(i);
 			graphics.drawString(mc.font, line, MARGIN, y, TEXT, false);
+			y += LINE_HEIGHT;
+		}
+		if (!where.isEmpty()) {
+			graphics.drawString(mc.font, where, MARGIN, y, SCENE, false);
 			y += LINE_HEIGHT;
 		}
 		if (!live.isEmpty()) {

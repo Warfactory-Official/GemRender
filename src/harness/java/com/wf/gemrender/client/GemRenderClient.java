@@ -55,6 +55,17 @@ public final class GemRenderClient {
 
 	private static final float PARTICLE_EXTENT = 10.0f;
 
+	/**
+	 * -PparticlePlacement=front|behind|between places the water column relative to the fountain. The camera
+	 * sits at origin minus back on both axes, so a smaller x+z is nearer to it: "front" means the particles
+	 * are in front of the water and the column goes behind them, which is the case where order-independent
+	 * geometry stamps depth over water that is drawn later.
+	 */
+	private static final String PARTICLE_PLACEMENT =
+			System.getProperty("gemrender.particleplacement", "front");
+
+	private static final int PARTICLE_COLUMN_OFFSET = 9;
+
 	private static final int AUTO_EXIT_TICKS = Integer.getInteger("gemrender.autoexit", 0);
 
 	private static final int AUTO_RADAR = Integer.getInteger("gemrender.autoradar", 0);
@@ -94,6 +105,8 @@ public final class GemRenderClient {
 	private static final float CAMERA_UP_FACTOR = 0.25f;
 	private static final int CAMERA_MIN_BACK = 8;
 
+	private static final int CAMERA_BACK = Integer.getInteger("gemrender.cameraback", 0);
+
 	private static final int AUTO_YAW = Integer.getInteger("gemrender.autoyaw", 0);
 
 	private static final int AUTO_PITCH = Integer.getInteger("gemrender.autopitch", 20);
@@ -121,6 +134,10 @@ public final class GemRenderClient {
 	private static boolean autoSpikeDone;
 	private static int ticksSinceSpike;
 
+	private static boolean sceneQueued;
+
+	private static final int QUEUE_DELAY_TICKS = 20;
+
 	private static final int ASSET_WAIT_TICKS = 200;
 
 	private static int ticksWaitingForAsset;
@@ -134,8 +151,48 @@ public final class GemRenderClient {
 		return AUTO_VEHICLE_PARTS > 0;
 	}
 
+	private static String sceneLine() {
+		Minecraft mc = Minecraft.getInstance();
+		StringBuilder out = new StringBuilder();
+
+		out.append("graphics=")
+				.append(mc.options.graphicsMode()
+						.get())
+				.append("  shaderTransparency=")
+				.append(Minecraft.useShaderTransparency() ? "ON" : "off");
+
+		if (AUTO_PARTICLES > 0) {
+			out.append("  blend=")
+					.append(com.wf.gemrender.spike.ParticleSpikeVisual.BLEND);
+		}
+
+		String split = com.wf.gemrender.water.WaterSplit.getInstance()
+				.report();
+		int detail = split.indexOf('(');
+		out.append("  waterSplit=")
+				.append(detail < 0 ? split : split.substring(0, detail));
+
+		if (AUTO_WATER_COLUMN > 0) {
+			out.append("  water=column x")
+					.append(AUTO_WATER_COLUMN);
+			if (AUTO_PARTICLES > 0) {
+				out.append(" @")
+						.append(PARTICLE_PLACEMENT);
+			}
+		} else if (AUTO_WATER > 0) {
+			out.append("  water=basin x")
+					.append(AUTO_WATER);
+		} else {
+			out.append("  water=none");
+		}
+
+		return out.toString();
+	}
+
 	private static void reportLoadState() {
 		ResourceLocation asset = autoAsset();
+
+		SpikeHud.scene(sceneLine());
 
 		if (AUTO_PARTICLES > 0) {
 			ParticleBuffer particles = ParticleBuffer.getInstance();
@@ -262,6 +319,20 @@ public final class GemRenderClient {
 		return AUTO_PARTICLES > 0 ? AUTO_PARTICLES : AUTO_SPIKE;
 	}
 
+	private static final String MAKE_WORLD = System.getProperty("gemrender.makeworld", "");
+
+	private static final boolean STAGE_WORLD =
+			!"false".equalsIgnoreCase(System.getProperty("gemrender.stageworld"));
+
+	private static boolean worldRequested;
+
+	private static void stage(net.minecraft.client.multiplayer.ClientPacketListener connection,
+			String command) {
+		if (STAGE_WORLD) {
+			connection.sendCommand(command);
+		}
+	}
+
 	@SubscribeEvent
 	public static void onClientTick(ClientTickEvent.Post event) {
 		if (autoCount() <= 0) {
@@ -269,6 +340,21 @@ public final class GemRenderClient {
 		}
 
 		Minecraft mc = Minecraft.getInstance();
+
+		if (!MAKE_WORLD.isEmpty() && !worldRequested && mc.level == null
+				&& mc.screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
+			worldRequested = true;
+			if (VoidWorld.exists(mc, MAKE_WORLD)) {
+				GemRender.LOGGER.info("Auto-spike: void world '{}' already exists; opening it.", MAKE_WORLD);
+				mc.createWorldOpenFlows()
+						.openWorld(MAKE_WORLD, () -> {
+						});
+			} else {
+				GemRender.LOGGER.info("Auto-spike: creating void world '{}'.", MAKE_WORLD);
+				VoidWorld.create(mc, MAKE_WORLD);
+			}
+			return;
+		}
 
 		if (!autoSpikeDone) {
 			Level level = mc.level;
@@ -295,7 +381,6 @@ public final class GemRenderClient {
 					.offset(3, SCENE_ALTITUDE, 3);
 			sceneOrigin = origin;
 			ResourceLocation asset = autoAsset();
-			queueScene(level, origin);
 
 			var connection = mc.player.connection;
 			connection.sendCommand("gamemode spectator");
@@ -305,7 +390,9 @@ public final class GemRenderClient {
 			float extent = asset != null
 					? GltfVisual.gridExtentOf(autoSphere(), autoCount())
 					: AUTO_PARTICLES > 0 ? PARTICLE_EXTENT : SpikeVisual.gridExtent(AUTO_SPIKE);
-			int back = Math.max(CAMERA_MIN_BACK, Math.round(extent * CAMERA_BACK_FACTOR));
+			int back = CAMERA_BACK > 0
+					? CAMERA_BACK
+					: Math.max(CAMERA_MIN_BACK, Math.round(extent * CAMERA_BACK_FACTOR));
 			int up = Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
 
 			clearStagingArea(connection, origin, extent);
@@ -322,9 +409,16 @@ public final class GemRenderClient {
 				buildVanillaControls(connection, origin, asset);
 			}
 
-			connection.sendCommand(String.format(java.util.Locale.ROOT, "tp @s %d %d %d %d %d",
-					origin.getX() - back, origin.getY() + up, origin.getZ() - back,
-					CAMERA_BASE_YAW + AUTO_YAW, AUTO_PITCH));
+			// A particle row has no diagonal copy grid to frame, so it looks straight down +Z. That lets
+			// the water column be one axis-aligned fill instead of a staircase of one-block slices, whose
+			// exposed interior faces banded the wall with seams that read as a rendering artefact.
+			boolean particleRow = asset == null && AUTO_PARTICLES > 0;
+			connection.sendCommand(particleRow
+					? String.format(java.util.Locale.ROOT, "tp @s %d %d %d %d %d",
+							origin.getX(), origin.getY() + up, origin.getZ() - back, AUTO_YAW, AUTO_PITCH)
+					: String.format(java.util.Locale.ROOT, "tp @s %d %d %d %d %d",
+							origin.getX() - back, origin.getY() + up, origin.getZ() - back,
+							CAMERA_BASE_YAW + AUTO_YAW, AUTO_PITCH));
 
 			describeRun(asset);
 
@@ -373,9 +467,23 @@ public final class GemRenderClient {
 		mc.getToasts()
 				.clear();
 
+		// Staging moves the render distance, and that runs levelRenderer.allChanged() a tick or two
+		// later, which throws away every visual Flywheel is holding. Queueing on a delay outlasts the
+		// reload; queueing inline produced a scene that was built, silently discarded and never ticked.
+		if (!sceneQueued && ticksSinceSpike >= QUEUE_DELAY_TICKS && sceneOrigin != null
+				&& mc.level != null && VisualizationManager.supportsVisualization(mc.level)) {
+			sceneQueued = true;
+			queueScene(mc.level, sceneOrigin);
+		}
+
 		SpikeHud.progress((AUTO_ROW.isEmpty() ? "" : "[" + AUTO_ROW + "] ") + "tick " + ticksSinceSpike
 				+ "/" + AUTO_EXIT_TICKS);
 		reportLoadState();
+
+		if (!MAKE_WORLD.isEmpty() && mc.player != null && ticksSinceSpike == AUTO_EXIT_TICKS - 40) {
+			mc.player.connection.sendCommand("save-all flush");
+			GemRender.LOGGER.info("Auto-spike: flushed void world '{}' to disk.", MAKE_WORLD);
+		}
 
 		if (++ticksSinceSpike == AUTO_EXIT_TICKS / 2) {
 			FrameCost.getInstance()
@@ -611,7 +719,7 @@ public final class GemRenderClient {
 				origin.getX() + reach + CLEAR_MARGIN, origin.getZ() + reach + CLEAR_MARGIN,
 				origin.getY() - CLEAR_BELOW, origin.getY() + CLEAR_ABOVE, "minecraft:air");
 
-		connection.sendCommand("kill @e[type=minecraft:slime]");
+		stage(connection, "kill @e[type=minecraft:slime]");
 	}
 
 	private static final int CLEAR_MARGIN = 40;
@@ -638,12 +746,21 @@ public final class GemRenderClient {
 	private static void buildWaterColumn(Minecraft mc,
 			net.minecraft.client.multiplayer.ClientPacketListener connection, BlockPos origin,
 			@Nullable ResourceLocation asset, float extent, int back) {
-		float spacing = GltfVisual.spacingOf(autoSphere());
-		int stride = GltfVisual.stride(autoCount());
+		// A particle fountain is not a grid of copies, so the copy-grid maths that places the plane for a
+		// model row would put the column a hundred blocks past it. Run the plane through the origin
+		// instead and let -PparticleStraddle put emitters on either side of it.
+		boolean particles = asset == null && AUTO_PARTICLES > 0;
+
+		float spacing = particles ? PARTICLE_EXTENT : GltfVisual.spacingOf(autoSphere());
+		int stride = particles ? 2 : GltfVisual.stride(autoCount());
 
 		int rank = Math.max(1, stride - 1);
-		int plane = origin.getX() + origin.getZ() + Math.round((rank - 0.5f) * spacing);
-		int centreX = origin.getX() + Math.round((rank - 0.5f) * spacing / 2.0f);
+		int plane = particles
+				? origin.getX() + origin.getZ()
+				: origin.getX() + origin.getZ() + Math.round((rank - 0.5f) * spacing);
+		int centreX = particles
+				? origin.getX()
+				: origin.getX() + Math.round((rank - 0.5f) * spacing / 2.0f);
 
 		int half = Math.max(0, Math.round((AUTO_WATER_COLUMN * 1.4142f - 1.0f) / 2.0f));
 
@@ -652,21 +769,43 @@ public final class GemRenderClient {
 		int yBottom = origin.getY() - Math.max(3, Math.round(spacing * COLUMN_BELOW_FACTOR));
 		int yTop = origin.getY() + Math.max(6, Math.round(spacing * COLUMN_ABOVE_FACTOR));
 
-		connection.sendCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
+		stage(connection, String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
 				origin.getX() - Math.round(spacing), yBottom + 1, origin.getZ(),
 				origin.getX() + Math.round(3.0f * spacing), yBottom + 1, origin.getZ(),
 				"minecraft:white_concrete"));
 
-		for (int x = centreX - reach; x <= centreX + reach; x++) {
-			connection.sendCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
-					x, yBottom, plane - half - x, x, yTop, plane + half - x,
-					"minecraft:barrier[waterlogged=true]"));
+		// The fountain stays at the origin and the water moves, so "in front of" and "behind" are one knob
+		// rather than a rebuild of the scene. Between is simply both planes at once.
+		boolean nearer = particles && !"front".equals(PARTICLE_PLACEMENT);
+		boolean further = particles && !"behind".equals(PARTICLE_PLACEMENT);
+
+		if (particles) {
+			if (nearer) {
+				fillWaterSlab(connection, origin, origin.getZ() - PARTICLE_COLUMN_OFFSET, reach, yBottom,
+						yTop);
+			}
+			if (further) {
+				fillWaterSlab(connection, origin, origin.getZ() + PARTICLE_COLUMN_OFFSET, reach, yBottom,
+						yTop);
+			}
+		} else {
+			fillWaterPlane(connection, plane, centreX, half, reach, yBottom, yTop);
 		}
 
 		double far = Math.hypot(reach, Math.sqrt(2.0) * (back + (rank - 0.5f) * spacing / 2.0f));
-		int chunks = Math.max(8, Math.min(32, (int) Math.ceil(far * 1.5 / 16.0)));
+		int chunks = Math.clamp((int) Math.ceil(far * 1.5 / 16.0), 8, 32);
 		mc.options.renderDistance()
 				.set(chunks);
+
+		if (particles) {
+			GemRender.LOGGER.info("Auto-spike: placement={}, water {} blocks thick at z={}{}, y={}..{}, "
+					+ "fountain at z={}, render distance {} chunks.",
+					PARTICLE_PLACEMENT, AUTO_WATER_COLUMN,
+					nearer ? String.valueOf(origin.getZ() - PARTICLE_COLUMN_OFFSET) : "",
+					further ? (nearer ? " and " : "") + (origin.getZ() + PARTICLE_COLUMN_OFFSET) : "",
+					yBottom, yTop, origin.getZ(), chunks);
+			return;
+		}
 
 		int inFront = 0;
 		for (int i = 0; i < autoCount(); i++) {
@@ -681,6 +820,24 @@ public final class GemRenderClient {
 				+ "slime (translucent entity).",
 				AUTO_WATER_COLUMN, plane, 2 * reach + 1, yBottom, yTop, chunks, inFront,
 				autoCount() - inFront);
+	}
+
+	private static final String WATER_BLOCK =
+			System.getProperty("gemrender.waterblock", "minecraft:water");
+
+	private static void fillWaterSlab(net.minecraft.client.multiplayer.ClientPacketListener connection,
+			BlockPos origin, int zNear, int reach, int yBottom, int yTop) {
+		stage(connection, String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
+				origin.getX() - reach, yBottom, zNear,
+				origin.getX() + reach, yTop, zNear + AUTO_WATER_COLUMN - 1, WATER_BLOCK));
+	}
+
+	private static void fillWaterPlane(net.minecraft.client.multiplayer.ClientPacketListener connection,
+			int plane, int centreX, int half, int reach, int yBottom, int yTop) {
+		for (int x = centreX - reach; x <= centreX + reach; x++) {
+			stage(connection, String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
+					x, yBottom, plane - half - x, x, yTop, plane + half - x, WATER_BLOCK));
+		}
 	}
 
 	private static final float COLUMN_BELOW_FACTOR = 0.35f;
@@ -709,20 +866,20 @@ public final class GemRenderClient {
 		int x = origin.getX() - Math.round(spacing);
 		int z = origin.getZ() + Math.round(controlRank * spacing);
 
-		connection.sendCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
+		stage(connection, String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
 				x, yBottom + 2, z, x + size, yBottom + 2 + size, z + size,
 				"minecraft:light_blue_stained_glass"));
 	}
 
 	private static void summonSlimeControl(net.minecraft.client.multiplayer.ClientPacketListener connection,
 			BlockPos origin, float spacing, int controlRank, int yBottom) {
-		connection.sendCommand("difficulty easy");
+		stage(connection, "difficulty easy");
 
 		int size = Math.max(2, Math.round(spacing * CONTROL_SIZE_FACTOR));
 		int x = origin.getX() + Math.round((controlRank + 1) * spacing);
 		int z = origin.getZ() - Math.round(spacing);
 
-		connection.sendCommand(String.format(java.util.Locale.ROOT,
+		stage(connection, String.format(java.util.Locale.ROOT,
 				"summon minecraft:slime %d %d %d {Size:%d,NoAI:1b,NoGravity:1b,Invulnerable:1b,"
 						+ "PersistenceRequired:1b,Silent:1b}",
 				x, yBottom + 2, z, size));
@@ -737,7 +894,7 @@ public final class GemRenderClient {
 
 		for (int x = x0; x <= x1; x += tile) {
 			for (int z = z0; z <= z1; z += tile) {
-				connection.sendCommand(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
+				stage(connection, String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d %s",
 						x, yMin, z, Math.min(x + tile - 1, x1), yMax, Math.min(z + tile - 1, z1), block));
 			}
 		}

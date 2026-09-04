@@ -154,9 +154,10 @@ public final class WaterSplit {
 			programs.drawBehind(oit.accumulate, frontTexture, oit.depthBounds, oit.coefficients,
 					prepass.textureId());
 		} finally {
-			// GL_ALWAYS is the dangerous one: left behind, everything drawn afterwards ignores depth,
-			// which reads as another mod's geometry showing through walls.
 			compositeState.restore();
+			Minecraft.getInstance()
+					.getMainRenderTarget()
+					.bindWrite(false);
 			audit.close();
 		}
 		midTimer.end();

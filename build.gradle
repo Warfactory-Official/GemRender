@@ -179,6 +179,12 @@ neoForge {
             if (project.hasProperty('particleSpacing')) {
                 systemProperty 'gemrender.particlespacing', project.property('particleSpacing').toString()
             }
+            // -PparticlePlacement=front|behind|between puts the water column behind the fountain, in front
+            // of it, or one of each. "front" - particles nearer the camera than the water - is the case
+            // where order-independent geometry stamps depth over water drawn after it.
+            if (project.hasProperty('particlePlacement')) {
+                systemProperty 'gemrender.particleplacement', project.property('particlePlacement').toString()
+            }
             // -PparticleBlend=additive|translucent. Translucent goes through Flywheel's moment-based
             // OIT, which rasterises the same geometry three times; additive is one pass.
             if (project.hasProperty('particleBlend')) {
@@ -258,6 +264,12 @@ neoForge {
             // pass runs later. Made of waterlogged barriers, which are invisible and cannot drain.
             if (project.hasProperty('waterColumn')) {
                 systemProperty 'gemrender.autowatercolumn', project.property('waterColumn').toString()
+            }
+            // -PwaterBlock swaps what the column is made of. Filling it with an opaque block is the
+            // positive control for "is the wall in frame at all", which has to pass before any claim
+            // about water and particle ordering means anything.
+            if (project.hasProperty('waterBlock')) {
+                systemProperty 'gemrender.waterblock', project.property('waterBlock').toString()
             }
             // -Pcontrols=true stands vanilla's own two translucent surfaces in the scene: a box of
             // stained glass, which is translucent terrain and sorted with the water, and a slime, which
@@ -489,7 +501,27 @@ neoForge {
         }
 
         configureEach {
-            gameDirectory = project.file('run')
+            // -PrunDir=<name> gives the run its own game directory. Saves, options.txt and the
+            // screenshot the verdict reads back all live there, so runs in different directories do
+            // not fight and can go at the same time.
+            gameDirectory = project.file(
+                    project.hasProperty('runDir') ? project.property('runDir').toString() : 'run')
+
+            // -PmakeWorld=<name> builds a void superflat world of that name and stages the scene into
+            // it, then flushes it to disk. -PstageWorld=false reuses what is already there, so a test
+            // boots a prebuilt world and renders without replaying a few hundred fill commands.
+            if (project.hasProperty('makeWorld')) {
+                systemProperty 'gemrender.makeworld', project.property('makeWorld').toString()
+            }
+            if (project.hasProperty('stageWorld')) {
+                systemProperty 'gemrender.stageworld', project.property('stageWorld').toString()
+            }
+            // -PcameraBack=<blocks> overrides how far the camera sits from the scene on both axes.
+            // The derived default frames the subject alone, which is too close once a water wall the
+            // width of the staging area has to fit in the same shot.
+            if (project.hasProperty('cameraBack')) {
+                systemProperty 'gemrender.cameraback', project.property('cameraBack').toString()
+            }
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.DEBUG
 
