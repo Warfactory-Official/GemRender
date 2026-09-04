@@ -20,6 +20,7 @@ struct GemRenderParticle {
 
 struct GemRenderStyle {
     float drag;
+    float dragY;
     float gravity;
     float size0;
     float sizeRate;
@@ -30,6 +31,7 @@ struct GemRenderStyle {
     float coolSpan;
     float spinRate;
     vec2 light;
+    float fadeIn;
 };
 
 GemRenderParticle gemrender_particle(uint slot) {
@@ -71,7 +73,13 @@ GemRenderStyle gemrender_style(float index) {
     s.coolSpan = c.z;
     s.spinRate = c.w;
     s.light = d.xy;
+    s.dragY = d.z;
+    s.fadeIn = d.w;
     return s;
+}
+
+vec3 _gemrender_drag(in GemRenderStyle s) {
+    return vec3(s.drag, s.dragY, s.drag);
 }
 
 bool gemrender_particleAlive(in GemRenderParticle p, float age) {
@@ -83,27 +91,30 @@ float gemrender_particleUnitAge(in GemRenderParticle p, float age) {
 }
 
 vec3 gemrender_particleVelocity(in GemRenderParticle p, in GemRenderStyle s, float age) {
+    vec3 d = _gemrender_drag(s);
     vec3 g = vec3(0.0, -s.gravity, 0.0);
 
-    if (s.drag > 1e-4) {
-        vec3 terminal = g / s.drag;
-        return (p.spawnVelocity - terminal) * exp(-s.drag * age) + terminal;
-    }
+    vec3 safe = max(d, vec3(1e-4));
+    vec3 terminal = g / safe;
 
-    return p.spawnVelocity + g * age;
+    vec3 dragged = (p.spawnVelocity - terminal) * exp(-safe * age) + terminal;
+    vec3 free = p.spawnVelocity + g * age;
+
+    return mix(free, dragged, greaterThan(d, vec3(1e-4)));
 }
 
 vec3 gemrender_particlePosition(in GemRenderParticle p, in GemRenderStyle s, float age) {
+    vec3 d = _gemrender_drag(s);
     vec3 g = vec3(0.0, -s.gravity, 0.0);
 
-    if (s.drag > 1e-4) {
-        vec3 terminal = g / s.drag;
-        return p.spawnPos
-                + (p.spawnVelocity - terminal) * ((1.0 - exp(-s.drag * age)) / s.drag)
-                + terminal * age;
-    }
+    vec3 safe = max(d, vec3(1e-4));
+    vec3 terminal = g / safe;
+    vec3 travel = (1.0 - exp(-safe * age)) / safe;
 
-    return p.spawnPos + p.spawnVelocity * age + 0.5 * g * age * age;
+    vec3 dragged = p.spawnPos + (p.spawnVelocity - terminal) * travel + terminal * age;
+    vec3 free = p.spawnPos + p.spawnVelocity * age + 0.5 * g * age * age;
+
+    return mix(free, dragged, greaterThan(d, vec3(1e-4)));
 }
 
 float gemrender_particleSize(in GemRenderParticle p, in GemRenderStyle s, float unitAge) {
@@ -114,6 +125,7 @@ vec4 gemrender_particleColor(in GemRenderParticle p, in GemRenderStyle s, float 
     float cool = s.coolFloor
             + (1.0 - s.coolFloor) * (1.0 - min(unitAge / max(s.coolSpan, 1e-6), 1.0));
     float alpha = s.alphaScale * pow(1.0 - unitAge, s.alphaFalloff);
+    float ramp = s.fadeIn > 1e-4 ? min(unitAge / s.fadeIn, 1.0) : 1.0;
 
-    return vec4(clamp(s.tint * cool * p.tintScale, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
+    return vec4(clamp(s.tint * cool * p.tintScale, 0.0, 1.0), clamp(alpha * ramp, 0.0, 1.0));
 }

@@ -74,11 +74,13 @@ public final class ParticleSpikeEffect implements Effect {
 			if (styleIndex < 0) {
 				styleIndex = ParticleBuffer.getInstance()
 						.registerStyle(ParticleStyle.builder()
-								.drag(ParticleStyle.dragFromPerTickFactor(0.93f))
+								.drag(ParticleStyle.dragFromPerTickFactor(0.93f),
+									ParticleStyle.dragFromPerTickFactor(0.97f))
 								.gravity(-1.6f)
 								.size(0.4f, 2.4f)
 								.tint(0xFF7A28)
 								.alpha(0.35f, 0.6f)
+								.fadeIn(0.05f)
 								.cool(0.1f, 0.6f)
 								.spin(0.6f)
 								.build());

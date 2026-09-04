@@ -6,6 +6,7 @@ public final class ParticleStyle {
 	public static final float FULL_BRIGHT = 240.0f / 256.0f;
 
 	public final float drag;
+	public final float dragY;
 	public final float gravity;
 	public final float sizeAtBirth;
 	public final float sizeGrowth;
@@ -19,10 +20,13 @@ public final class ParticleStyle {
 	public final float spinRate;
 	public final float lightBlock;
 	public final float lightSky;
+	public final float fadeIn;
 
 	private ParticleStyle(Builder builder) {
 		drag = builder.drag;
+		dragY = builder.dragYSet ? builder.dragY : builder.drag;
 		gravity = builder.gravity;
+		fadeIn = builder.fadeIn;
 		sizeAtBirth = builder.sizeAtBirth;
 		sizeGrowth = builder.sizeGrowth;
 		tintRed = builder.tintRed;
@@ -56,8 +60,8 @@ public final class ParticleStyle {
 		target[offset + 11] = spinRate;
 		target[offset + 12] = lightBlock;
 		target[offset + 13] = lightSky;
-		target[offset + 14] = 0.0f;
-		target[offset + 15] = 0.0f;
+		target[offset + 14] = dragY;
+		target[offset + 15] = fadeIn;
 	}
 
 	public static float dragFromPerTickFactor(float factor) {
@@ -73,7 +77,10 @@ public final class ParticleStyle {
 
 	public static final class Builder {
 		private float drag = 0.0f;
+		private float dragY = 0.0f;
+		private boolean dragYSet;
 		private float gravity = 0.0f;
+		private float fadeIn = 0.0f;
 		private float sizeAtBirth = 1.0f;
 		private float sizeGrowth = 0.0f;
 		private float tintRed = 1.0f;
@@ -92,6 +99,18 @@ public final class ParticleStyle {
 
 		public Builder drag(float perSecond) {
 			drag = perSecond;
+			return this;
+		}
+
+		public Builder drag(float horizontalPerSecond, float verticalPerSecond) {
+			drag = horizontalPerSecond;
+			dragY = verticalPerSecond;
+			dragYSet = true;
+			return this;
+		}
+
+		public Builder fadeIn(float unitAge) {
+			fadeIn = unitAge;
 			return this;
 		}
 

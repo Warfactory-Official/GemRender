@@ -27,7 +27,7 @@ class ParticleStyleTest {
 		assertThat(target).startsWith(new float[ParticleStyle.FLOATS]);
 		assertThat(java.util.Arrays.copyOfRange(target, ParticleStyle.FLOATS, target.length))
 				.containsExactly(2.1f, 1.6f, 0.5f, 2.8f, 0.25f, 0.5f, 0.75f, 0.75f, 0.4f, 0.1f, 0.6f, 3.0f, 0.9f,
-						0.8f, 0.0f, 0.0f);
+						0.8f, 2.1f, 0.0f);
 	}
 
 	@Test

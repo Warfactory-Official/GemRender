@@ -19,35 +19,38 @@ public final class ParticleMotion {
 		return life > 0.0f && age >= 0.0f && age < life;
 	}
 
-	public static Vector3f velocity(ParticleStyle style, Vector3f spawnVelocity, float age, Vector3f target) {
-		float gravity = -style.gravity;
-
-		if (style.drag > DRAG_EPSILON) {
-			float decay = (float) Math.exp(-style.drag * age);
-			float terminal = gravity / style.drag;
-			return target.set(spawnVelocity.x * decay,
-					(spawnVelocity.y - terminal) * decay + terminal,
-					spawnVelocity.z * decay);
+	private static float axisVelocity(float drag, float spawnVelocity, float acceleration, float age) {
+		if (drag > DRAG_EPSILON) {
+			float terminal = acceleration / drag;
+			return (spawnVelocity - terminal) * (float) Math.exp(-drag * age) + terminal;
 		}
 
-		return target.set(spawnVelocity.x, spawnVelocity.y + gravity * age, spawnVelocity.z);
+		return spawnVelocity + acceleration * age;
+	}
+
+	private static float axisPosition(float drag, float spawnPosition, float spawnVelocity, float acceleration,
+			float age) {
+		if (drag > DRAG_EPSILON) {
+			float terminal = acceleration / drag;
+			float travel = (1.0f - (float) Math.exp(-drag * age)) / drag;
+			return spawnPosition + (spawnVelocity - terminal) * travel + terminal * age;
+		}
+
+		return spawnPosition + spawnVelocity * age + 0.5f * acceleration * age * age;
+	}
+
+	public static Vector3f velocity(ParticleStyle style, Vector3f spawnVelocity, float age, Vector3f target) {
+		return target.set(axisVelocity(style.drag, spawnVelocity.x, 0.0f, age),
+				axisVelocity(style.dragY, spawnVelocity.y, -style.gravity, age),
+				axisVelocity(style.drag, spawnVelocity.z, 0.0f, age));
 	}
 
 	public static Vector3f position(ParticleStyle style, Vector3f spawnPosition, Vector3f spawnVelocity, float age,
 			Vector3f target) {
-		float gravity = -style.gravity;
-
-		if (style.drag > DRAG_EPSILON) {
-			float travel = (1.0f - (float) Math.exp(-style.drag * age)) / style.drag;
-			float terminal = gravity / style.drag;
-			return target.set(spawnPosition.x + spawnVelocity.x * travel,
-					spawnPosition.y + (spawnVelocity.y - terminal) * travel + terminal * age,
-					spawnPosition.z + spawnVelocity.z * travel);
-		}
-
-		return target.set(spawnPosition.x + spawnVelocity.x * age,
-				spawnPosition.y + spawnVelocity.y * age + 0.5f * gravity * age * age,
-				spawnPosition.z + spawnVelocity.z * age);
+		return target.set(
+				axisPosition(style.drag, spawnPosition.x, spawnVelocity.x, 0.0f, age),
+				axisPosition(style.dragY, spawnPosition.y, spawnVelocity.y, -style.gravity, age),
+				axisPosition(style.drag, spawnPosition.z, spawnVelocity.z, 0.0f, age));
 	}
 
 	public static float size(ParticleStyle style, float sizeScale, float unitAge) {
@@ -55,7 +58,9 @@ public final class ParticleMotion {
 	}
 
 	public static float alpha(ParticleStyle style, float unitAge) {
-		return Math.clamp(style.alphaScale * (float) Math.pow(1.0f - unitAge, style.alphaFalloff), 0.0f, 1.0f);
+		float alpha = style.alphaScale * (float) Math.pow(1.0f - unitAge, style.alphaFalloff);
+		float ramp = style.fadeIn > DRAG_EPSILON ? Math.min(unitAge / style.fadeIn, 1.0f) : 1.0f;
+		return Math.clamp(alpha * ramp, 0.0f, 1.0f);
 	}
 
 	public static float cool(ParticleStyle style, float unitAge) {
