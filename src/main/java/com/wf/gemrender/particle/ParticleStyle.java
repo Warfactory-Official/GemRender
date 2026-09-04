@@ -22,23 +22,33 @@ public final class ParticleStyle {
 	public final float lightSky;
 	public final float fadeIn;
 
-	private ParticleStyle(Builder builder) {
-		drag = builder.drag;
-		dragY = builder.dragYSet ? builder.dragY : builder.drag;
-		gravity = builder.gravity;
-		fadeIn = builder.fadeIn;
-		sizeAtBirth = builder.sizeAtBirth;
-		sizeGrowth = builder.sizeGrowth;
-		tintRed = builder.tintRed;
-		tintGreen = builder.tintGreen;
-		tintBlue = builder.tintBlue;
-		alphaScale = builder.alphaScale;
-		alphaFalloff = builder.alphaFalloff;
-		coolFloor = builder.coolFloor;
-		coolSpan = builder.coolSpan;
-		spinRate = builder.spinRate;
-		lightBlock = builder.lightBlock;
-		lightSky = builder.lightSky;
+	private final float[] data;
+
+	private ParticleStyle(float[] data) {
+		this.data = data;
+		drag = data[0];
+		gravity = data[1];
+		sizeAtBirth = data[2];
+		sizeGrowth = data[3];
+		tintRed = data[4];
+		tintGreen = data[5];
+		tintBlue = data[6];
+		alphaScale = data[7];
+		alphaFalloff = data[8];
+		coolFloor = data[9];
+		coolSpan = data[10];
+		spinRate = data[11];
+		lightBlock = data[12];
+		lightSky = data[13];
+		dragY = data[14];
+		fadeIn = data[15];
+	}
+
+	public static ParticleStyle of(float... sixteen) {
+		if (sixteen.length != FLOATS) {
+			throw new IllegalArgumentException("A style is " + FLOATS + " floats, got " + sixteen.length);
+		}
+		return new ParticleStyle(sixteen.clone());
 	}
 
 	public static Builder builder() {
@@ -46,22 +56,7 @@ public final class ParticleStyle {
 	}
 
 	public void write(float[] target, int offset) {
-		target[offset] = drag;
-		target[offset + 1] = gravity;
-		target[offset + 2] = sizeAtBirth;
-		target[offset + 3] = sizeGrowth;
-		target[offset + 4] = tintRed;
-		target[offset + 5] = tintGreen;
-		target[offset + 6] = tintBlue;
-		target[offset + 7] = alphaScale;
-		target[offset + 8] = alphaFalloff;
-		target[offset + 9] = coolFloor;
-		target[offset + 10] = coolSpan;
-		target[offset + 11] = spinRate;
-		target[offset + 12] = lightBlock;
-		target[offset + 13] = lightSky;
-		target[offset + 14] = dragY;
-		target[offset + 15] = fadeIn;
+		System.arraycopy(data, 0, target, offset, FLOATS);
 	}
 
 	public static float dragFromPerTickFactor(float factor) {
@@ -160,7 +155,10 @@ public final class ParticleStyle {
 		}
 
 		public ParticleStyle build() {
-			return new ParticleStyle(this);
+			return ParticleStyle.of(drag, gravity, sizeAtBirth, sizeGrowth,
+					tintRed, tintGreen, tintBlue, alphaScale,
+					alphaFalloff, coolFloor, coolSpan, spinRate,
+					lightBlock, lightSky, dragYSet ? dragY : drag, fadeIn);
 		}
 	}
 }

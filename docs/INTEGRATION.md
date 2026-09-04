@@ -613,6 +613,7 @@ invocations and one draw, and zero Java.
 
 | | |
 |---|---|
+| `GemRenderParticleTypes` | `BILLBOARD`, `MESH`, and `custom(vert, cull)` for your own shader |
 | `ParticleStyle` | the curves every particle in a family shares: drag, gravity, how it grows, how it fades. Registered once, at most 64 of them |
 | `ParticleEmitter` | owns a block of slots and a spawn cursor. Lives as long as the effect does, **not** as long as the visual |
 | `ParticlePool` | the Flywheel side: one instance per slot, created in the visual, deleted with it |
@@ -688,6 +689,43 @@ probably belongs in the style or in the closed form instead.
 `GemRenderParticleTypes.MESH` takes any Flywheel `Model` instead of the built-in quad and orients it
 so **the model's +Y points along its velocity**, with `spin` rolling it about that axis. Debris,
 casings, sparks with a length. Everything else – the style, the emitter, the pool – is identical.
+
+### Your own particle shader
+
+The stock billboard evaluates one particular set of curves: exponential drag, linear growth, a power-law
+fade, a cool toward a floor. When your effect wants something else, do not ask for a field to be added
+here — declare your own instance type over the same buffer:
+
+```java
+private static final InstanceType<ParticleInstance> FLAME = GemRenderParticleTypes.custom(
+        ResourceLocation.fromNamespaceAndPath(MODID, "instance/flame.vert"),
+        ResourceLocation.fromNamespaceAndPath(MODID, "instance/cull/flame.glsl"));
+```
+
+Those live in `assets/<your namespace>/flywheel/instance/`, and Flywheel finds them because it scans every
+namespace. Start by including this one, which gives you the record and style structs and every curve as a
+function you may use or ignore:
+
+```glsl
+#include "gemrender:particle.glsl"
+
+void flw_instanceVertex(in FlwInstance i) {
+    GemRenderParticle p = gemrender_particle(i.particle);
+    GemRenderStyle s = gemrender_style(p.style);
+    float age = flw_renderSeconds - p.spawnTime;
+    ...
+}
+```
+
+The contract you must keep is small. The cull shader has to set `radius = -1e18` for a particle that
+`gemrender_particleAlive` rejects, or dead ring slots will draw. `spawnTime` and `life` mean what they say,
+because emitters and `aliveCount` read them. Everything else is yours: `sizeScale`, `spinPhase` and
+`tintScale` are three uninterpreted per-particle scalars, and the style's sixteen floats are whatever you
+decide — `ParticleStyle.of(float...)` writes a raw block, and the named builder is only the convention the
+stock shaders happen to use. WF-Ballistics reuses the two cool fields as a white-out start and span.
+
+You do not have to bind anything. `_gemrender_particles` is bound on every Flywheel program, so a shader in
+any namespace can read the buffer.
 
 ### What a closed form cannot do
 

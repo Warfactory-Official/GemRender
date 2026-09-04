@@ -19,7 +19,17 @@ public final class GemRenderParticleTypes {
 	private GemRenderParticleTypes() {
 	}
 
+	public static InstanceType<ParticleInstance> custom(ResourceLocation vertexShader,
+			ResourceLocation cullShader) {
+		return build(vertexShader, cullShader);
+	}
+
 	private static InstanceType<ParticleInstance> build(String name) {
+		return build(shader("instance/" + name + ".vert"), shader("instance/cull/" + name + ".glsl"));
+	}
+
+	private static InstanceType<ParticleInstance> build(ResourceLocation vertexShader,
+			ResourceLocation cullShader) {
 		return SimpleInstanceType.builder(ParticleInstance::new)
 				.layout(LayoutBuilder.create()
 						.vector("origin", FloatRepr.FLOAT, 3)
@@ -31,8 +41,8 @@ public final class GemRenderParticleTypes {
 					MemoryUtil.memPutFloat(ptr + 8, instance.originZ);
 					MemoryUtil.memPutInt(ptr + 12, instance.particle);
 				})
-				.vertexShader(shader("instance/" + name + ".vert"))
-				.cullShader(shader("instance/cull/" + name + ".glsl"))
+				.vertexShader(vertexShader)
+				.cullShader(cullShader)
 				.build();
 	}
 

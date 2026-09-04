@@ -7,6 +7,7 @@ import dev.engine_room.flywheel.api.material.CardinalLightingMode;
 import dev.engine_room.flywheel.api.material.CutoutShader;
 import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.material.Transparency;
+import dev.engine_room.flywheel.api.material.WriteMask;
 import dev.engine_room.flywheel.api.model.Model;
 import dev.engine_room.flywheel.lib.material.CutoutShaders;
 import dev.engine_room.flywheel.lib.material.SimpleMaterial;
@@ -29,6 +30,20 @@ public final class ParticleModels {
 
 	public static Model cutout(ResourceLocation texture) {
 		return billboard(texture, Transparency.OPAQUE, CutoutShaders.ONE_TENTH);
+	}
+
+	public static Model blended(ResourceLocation texture) {
+		return BILLBOARDS.computeIfAbsent(new Key(texture, Transparency.TRANSLUCENT, CutoutShaders.EPSILON),
+				key -> new SingleMeshModel(ParticleQuad.INSTANCE,
+						SimpleMaterial.builder()
+								.texture(key.texture())
+								.transparency(Transparency.TRANSLUCENT)
+								.cutout(key.cutout())
+								.writeMask(WriteMask.COLOR)
+								.backfaceCulling(false)
+								.cardinalLightingMode(CardinalLightingMode.OFF)
+								.mipmap(false)
+								.build()));
 	}
 
 	public static Model billboard(ResourceLocation texture, Transparency transparency) {
