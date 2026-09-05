@@ -15,6 +15,8 @@ public final class Volume {
 
 	private float seed;
 
+	private VolumeField field;
+
 	private boolean closed;
 
 	private Volume(int slot, VolumeStyle style) {
@@ -59,12 +61,26 @@ public final class Volume {
 		return this;
 	}
 
+	public Volume field(VolumeField value) {
+		field = value;
+		flush();
+		return this;
+	}
+
+	public VolumeField field() {
+		return field;
+	}
+
 	public void close() {
 		if (closed) {
 			return;
 		}
 
 		closed = true;
+		if (field != null) {
+			field.close();
+			field = null;
+		}
 		VolumeBuffer.getInstance()
 				.release(slot);
 	}
@@ -74,7 +90,14 @@ public final class Volume {
 			return;
 		}
 
+		VolumeAtlas atlas = VolumeAtlas.getInstance();
+		VolumeField current = field;
+
 		VolumeBuffer.getInstance()
-				.write(slot, style, extentX, extentY, extentZ, fade, seed);
+				.write(slot, style, extentX, extentY, extentZ, fade, seed,
+						current == null ? 0.0f : atlas.originU(current.tile()),
+						current == null ? 0.0f : atlas.originV(current.tile()),
+						current == null ? 0.0f : atlas.originW(current.tile()),
+						current == null ? 0.0f : atlas.scale());
 	}
 }

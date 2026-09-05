@@ -30,7 +30,7 @@ import com.wf.gemrender.render.TextureUnits;
 public final class VolumeBuffer {
 	public static final int TEXTURE_UNIT = TextureUnits.VOLUMES;
 
-	public static final int VOLUME_FLOATS = VolumeStyle.FLOATS;
+	public static final int VOLUME_FLOATS = 24;
 
 	private static final int INITIAL_SLOTS = 64;
 
@@ -93,7 +93,7 @@ public final class VolumeBuffer {
 	}
 
 	public void write(int slot, VolumeStyle style, float extentX, float extentY, float extentZ, float fade,
-			float seed) {
+			float seed, float fieldU, float fieldV, float fieldW, float fieldScale) {
 		synchronized (lock) {
 			if (slot < 0 || slot >= capacity) {
 				return;
@@ -121,6 +121,10 @@ public final class VolumeBuffer {
 			data[at + 17] = style.sunSteps();
 			data[at + 18] = style.sunDensity();
 			data[at + 19] = style.sunStrength();
+			data[at + 20] = fieldU;
+			data[at + 21] = fieldV;
+			data[at + 22] = fieldW;
+			data[at + 23] = fieldScale;
 
 			dirty = true;
 		}

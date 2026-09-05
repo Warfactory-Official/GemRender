@@ -30,6 +30,8 @@ public final class TextureUnits {
 
 	public static final int SCENE_DEPTH = Integer.getInteger("gemrender.scenedepthunit", 17);
 
+	public static final int VOLUME_FIELD = Integer.getInteger("gemrender.volumefieldunit", 18);
+
 	private TextureUnits() {
 	}
 

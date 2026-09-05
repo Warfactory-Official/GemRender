@@ -234,6 +234,11 @@ neoForge {
             if (project.hasProperty('volumeTint')) {
                 systemProperty 'gemrender.volumetint', project.property('volumeTint').toString()
             }
+            // -PvolumeCells=1 feeds each volume a cached voxel field built from box cells instead of the
+            // default ellipsoid -- the same path WF-Ballistics' gas takes once its 220 cells are recombined.
+            if (project.hasProperty('volumeCells')) {
+                systemProperty 'gemrender.volumecells', project.property('volumeCells').toString()
+            }
             if (project.hasProperty('volumeSpacing')) {
                 systemProperty 'gemrender.volumespacing', project.property('volumeSpacing').toString()
             }

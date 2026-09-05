@@ -43,6 +43,13 @@ public final class VolumeSpikeEffect implements Effect {
 	private static final float EDGE =
 			Float.parseFloat(System.getProperty("gemrender.volumeedge", "0.35"));
 
+	/**
+	 * -PvolumeCells=1 builds each cloud from a cross of boxes voxelised into a cached field, instead of
+	 * the default ellipsoid. The cross is deliberately a shape no ellipsoid can be: if the row renders a
+	 * blob, the field is not reaching the shader.
+	 */
+	public static final boolean CELLS = Integer.getInteger("gemrender.volumecells", 0) > 0;
+
 	private static final float DETAIL =
 			Float.parseFloat(System.getProperty("gemrender.volumedetail", "0.6"));
 

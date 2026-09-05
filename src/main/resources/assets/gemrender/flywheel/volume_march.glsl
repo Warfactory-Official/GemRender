@@ -2,6 +2,7 @@
 
 uniform sampler3D _gemrender_volumeNoise;
 uniform sampler2D _gemrender_sceneDepth;
+uniform sampler3D _gemrender_volumeField;
 
 const int GEMRENDER_VOLUME_MAX_STEPS = 128;
 const int GEMRENDER_VOLUME_MAX_SUN_STEPS = 8;
@@ -28,7 +29,14 @@ float gemrender_sceneDistance(vec3 direction) {
 }
 
 float gemrender_volumeShape(in GemRenderVolume v, vec3 local) {
-    float r = length(local / max(v.extent, vec3(1e-3)));
+    vec3 unit = local / max(v.extent, vec3(1e-3));
+
+    if (v.fieldScale > 0.0) {
+        vec3 uvw = v.fieldOrigin + clamp(unit * 0.5 + 0.5, 0.0, 1.0) * v.fieldScale;
+        return texture(_gemrender_volumeField, uvw).r;
+    }
+
+    float r = length(unit);
     float f = clamp((1.0 - r) / max(v.edge, 1e-3), 0.0, 1.0);
     return f * f * (3.0 - 2.0 * f);
 }

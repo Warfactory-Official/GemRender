@@ -10,9 +10,9 @@ public final class Volumetrics {
 	private static final boolean ENABLED =
 			!"false".equalsIgnoreCase(System.getProperty("gemrender.volumetrics"));
 
-	private static final int REQUIRED_UNITS =
-			Math.max(Math.max(VolumeBuffer.TEXTURE_UNIT, VolumeNoise.TEXTURE_UNIT), SceneDepth.TEXTURE_UNIT)
-					+ 1;
+	private static final int REQUIRED_UNITS = Math.max(
+			Math.max(VolumeBuffer.TEXTURE_UNIT, VolumeNoise.TEXTURE_UNIT),
+			Math.max(SceneDepth.TEXTURE_UNIT, VolumeAtlas.TEXTURE_UNIT)) + 1;
 
 	private static final Volumetrics INSTANCE = new Volumetrics();
 
@@ -63,6 +63,9 @@ public final class Volumetrics {
 				.uploadAndBind();
 		VolumeNoise.getInstance()
 				.bind();
+		VolumeAtlas atlas = VolumeAtlas.getInstance();
+		atlas.flushPending();
+		atlas.bind();
 	}
 
 	public void beginFrame() {
