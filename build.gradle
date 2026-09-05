@@ -182,11 +182,25 @@ neoForge {
             // -PparticlePlacement=front|behind|between puts the water column behind the fountain, in front
             // of it, or one of each. "front" - particles nearer the camera than the water - is the case
             // where order-independent geometry stamps depth over water drawn after it.
+            // Generic appearance knobs for the particle row: a tint, an explicit block/sky light pair,
+            // and whether the style cools at all. They exist to reproduce a consumer's style shape
+            // without that consumer's art direction living in this repository.
+            if (project.hasProperty('particleTint')) {
+                systemProperty 'gemrender.particletint', project.property('particleTint').toString()
+            }
+            if (project.hasProperty('particleLight')) {
+                systemProperty 'gemrender.particlelight', project.property('particleLight').toString()
+            }
+            if (project.hasProperty('particleCool')) {
+                systemProperty 'gemrender.particlecool', project.property('particleCool').toString()
+            }
             if (project.hasProperty('particlePlacement')) {
                 systemProperty 'gemrender.particleplacement', project.property('particlePlacement').toString()
             }
-            // -PparticleBlend=additive|translucent. Translucent goes through Flywheel's moment-based
-            // OIT, which rasterises the same geometry three times; additive is one pass.
+            // -PparticleBlend=additive|translucent|cutout|absorbance. Translucent goes through
+            // Flywheel's wavelet OIT, which rasterises the same geometry three times and blends 16
+            // coefficients per fragment; absorbance discards in those two passes and accumulates a
+            // single scalar in the third; additive is one pass and cannot darken.
             if (project.hasProperty('particleBlend')) {
                 systemProperty 'gemrender.particleblend', project.property('particleBlend').toString()
             }
@@ -194,6 +208,53 @@ neoForge {
             // separates fill rate from everything else.
             if (project.hasProperty('particleSize')) {
                 systemProperty 'gemrender.particlesize', project.property('particleSize').toString()
+            }
+            // -Pvolume=<count> draws that many raymarched gas volumes instead of a billboard fountain.
+            // One draw per cloud: cost is the box's screen area times the step count and is completely
+            // independent of how dense the gas looks, which is the whole point of the comparison against
+            // -Pparticles. Pair the two to prove both reach the absorbance accumulator in one frame.
+            if (project.hasProperty('volume')) {
+                systemProperty 'gemrender.autovolumes', project.property('volume').toString()
+            }
+            // -PvolumeQuality=low|medium|high sets the primary step count and whether the secondary
+            // march toward the key light runs at all: 24/0, 48/4, 96/6. Low is flat fog, medium is the
+            // first setting that reads as lit smoke.
+            if (project.hasProperty('volumeQuality')) {
+                systemProperty 'gemrender.volumequality', project.property('volumeQuality').toString()
+            }
+            // -PvolumeSize=<blocks> is the half-extent of each box, -PvolumeDensity=<extinction> the
+            // extinction per block at full density. Together they separate fill rate from optical depth:
+            // a bigger box costs more pixels, a denser one costs nothing extra but exits the march sooner.
+            if (project.hasProperty('volumeSize')) {
+                systemProperty 'gemrender.volumesize', project.property('volumeSize').toString()
+            }
+            if (project.hasProperty('volumeDensity')) {
+                systemProperty 'gemrender.volumedensity', project.property('volumeDensity').toString()
+            }
+            if (project.hasProperty('volumeTint')) {
+                systemProperty 'gemrender.volumetint', project.property('volumeTint').toString()
+            }
+            if (project.hasProperty('volumeSpacing')) {
+                systemProperty 'gemrender.volumespacing', project.property('volumeSpacing').toString()
+            }
+            // The lighting knobs, separated so a row can isolate one at a time. -PvolumePhase is the
+            // Henyey-Greenstein asymmetry (0 isotropic, positive forward-scattering), -PvolumeSun scales
+            // what the secondary march contributes, and -PvolumeAmbient is the floor under it. Phase peaks
+            // above 3 at g=0.35, so sun and ambient together decide whether a cloud facing the light reads
+            // as a silver lining or as a white blob.
+            ['volumePhase' : 'gemrender.volumephase',
+             'volumeAmbient': 'gemrender.volumeambient',
+             'volumeSun'   : 'gemrender.volumesun',
+             'volumeEdge'  : 'gemrender.volumeedge',
+             'volumeDetail': 'gemrender.volumedetail'].each { gradleName, systemName ->
+                if (project.hasProperty(gradleName)) {
+                    systemProperty systemName, project.property(gradleName).toString()
+                }
+            }
+            // -Pvolumetrics=false disables raymarched volumes wholesale, so a row can measure what they
+            // cost without rebuilding.
+            if (project.hasProperty('volumetrics')) {
+                systemProperty 'gemrender.volumetrics', project.property('volumetrics').toString()
             }
             // -PspikeExit=<ticks> renders for that many ticks, logs a one-line verdict, then quits.
             // -Pradar=<count> runs the node-animated asset instead of the cubes.
@@ -318,6 +379,11 @@ neoForge {
             // water-column screenshots and for the split's overhead numbers.
             if (project.hasProperty('waterSplit')) {
                 systemProperty 'gemrender.watersplit', project.property('waterSplit').toString()
+            }
+            // -Pabsorbance=false forces even absorbance-shaded materials back through the full
+            // wavelet chain, which is the A/B for what the single-scalar path actually saves.
+            if (project.hasProperty('absorbance')) {
+                systemProperty 'gemrender.absorbance', project.property('absorbance').toString()
             }
             // -Patlas=false leaves textures unstitched and -Pmerge=false leaves primitives that share
             // a material as separate meshes. The A/B for the draw-count claim, and the only way to
@@ -1019,5 +1085,28 @@ idea {
     module {
         downloadSources = true
         downloadJavadoc = true
+    }
+}
+
+// Minecraft shows the accessibility onboarding screen once per fresh game directory, before the
+// title screen, and only writes onboardAccessibility:false after it has been dismissed. Every
+// harness row runs in a directory that did not exist a moment ago, so every row would sit on that
+// screen instead of the title screen the world bootstrap waits for. Seeding the one line ahead of
+// launch is what makes a fresh run directory behave like a returning one; anything already there
+// is left alone so a hand-edited options.txt survives.
+tasks.named('runClient') {
+    doFirst {
+        def dir = project.file(project.hasProperty('runDir')
+                ? project.property('runDir').toString() : 'run')
+        dir.mkdirs()
+        def options = new File(dir, 'options.txt')
+        if (!options.exists()) {
+            // The window size is pinned for the same reason: it is otherwise whatever the window
+            // manager felt like, and two rows measured at 846x328 and 846x503 differ by half again
+            // as many fragments before either one draws anything. -PrunWidth/-PrunHeight override.
+            def w = project.hasProperty('runWidth') ? project.property('runWidth') : 1280
+            def h = project.hasProperty('runHeight') ? project.property('runHeight') : 720
+            options.text = "onboardAccessibility:false\noverrideWidth:${w}\noverrideHeight:${h}\n"
+        }
     }
 }

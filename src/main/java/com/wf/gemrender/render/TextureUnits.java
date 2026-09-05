@@ -24,6 +24,12 @@ public final class TextureUnits {
 
 	public static final int PARTICLES = Integer.getInteger("gemrender.particleunit", 13);
 
+	public static final int VOLUMES = Integer.getInteger("gemrender.volumeunit", 12);
+
+	public static final int VOLUME_NOISE = Integer.getInteger("gemrender.volumenoiseunit", 16);
+
+	public static final int SCENE_DEPTH = Integer.getInteger("gemrender.scenedepthunit", 17);
+
 	private TextureUnits() {
 	}
 

@@ -53,6 +53,8 @@ public final class GemRenderClient {
 
 	private static final int AUTO_PARTICLES = Integer.getInteger("gemrender.autoparticles", 0);
 
+	private static final int AUTO_VOLUMES = Integer.getInteger("gemrender.autovolumes", 0);
+
 	private static final float PARTICLE_EXTENT = 10.0f;
 
 	/**
@@ -171,6 +173,21 @@ public final class GemRenderClient {
 		int detail = split.indexOf('(');
 		out.append("  waterSplit=")
 				.append(detail < 0 ? split : split.substring(0, detail));
+
+		String absorbance = com.wf.gemrender.water.Absorbance.getInstance()
+				.report();
+		int absorbanceDetail = absorbance.indexOf('(');
+		out.append("  absorbance=")
+				.append(absorbanceDetail < 0 ? absorbance : absorbance.substring(0, absorbanceDetail));
+
+		if (AUTO_VOLUMES > 0) {
+			String volumetrics = com.wf.gemrender.volume.Volumetrics.getInstance()
+					.report();
+			int volumetricsDetail = volumetrics.indexOf('(');
+			out.append("  volumetrics=")
+					.append(volumetricsDetail < 0 ? volumetrics
+							: volumetrics.substring(0, volumetricsDetail));
+		}
 
 		if (AUTO_WATER_COLUMN > 0) {
 			out.append("  water=column x")
@@ -316,7 +333,15 @@ public final class GemRenderClient {
 		if (AUTO_RADAR > 0) {
 			return AUTO_RADAR;
 		}
-		return AUTO_PARTICLES > 0 ? AUTO_PARTICLES : AUTO_SPIKE;
+		if (AUTO_PARTICLES > 0) {
+			return AUTO_PARTICLES;
+		}
+		// A volume row has no particles and no cube grid, so without this the whole tick handler bails on
+		// its first line and the run sits at the title screen until the timeout.
+		if (AUTO_VOLUMES > 0) {
+			return AUTO_VOLUMES;
+		}
+		return AUTO_SPIKE;
 	}
 
 	private static final String MAKE_WORLD = System.getProperty("gemrender.makeworld", "");
@@ -389,11 +414,20 @@ public final class GemRenderClient {
 
 			float extent = asset != null
 					? GltfVisual.gridExtentOf(autoSphere(), autoCount())
-					: AUTO_PARTICLES > 0 ? PARTICLE_EXTENT : SpikeVisual.gridExtent(AUTO_SPIKE);
+					: AUTO_PARTICLES > 0 ? PARTICLE_EXTENT
+							: AUTO_VOLUMES > 0
+									? com.wf.gemrender.spike.VolumeSpikeEffect.SIZE * 2.0f
+									: SpikeVisual.gridExtent(AUTO_SPIKE);
 			int back = CAMERA_BACK > 0
 					? CAMERA_BACK
 					: Math.max(CAMERA_MIN_BACK, Math.round(extent * CAMERA_BACK_FACTOR));
-			int up = Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
+			// A volume row is one object at a known height, not a grid whose top edge you want in shot, so
+			// the camera goes to the cloud's own centre height and looks level at it. The grid factor put
+			// the eye above the box and the default pitch then aimed under it, which is a framing bug that
+			// looks exactly like the volume failing to draw.
+			int up = AUTO_VOLUMES > 0 && asset == null
+					? Math.max(1, Math.round(com.wf.gemrender.spike.VolumeSpikeEffect.SIZE * 0.8f))
+					: Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
 
 			clearStagingArea(connection, origin, extent);
 
@@ -412,7 +446,7 @@ public final class GemRenderClient {
 			// A particle row has no diagonal copy grid to frame, so it looks straight down +Z. That lets
 			// the water column be one axis-aligned fill instead of a staircase of one-block slices, whose
 			// exposed interior faces banded the wall with seams that read as a rendering artefact.
-			boolean particleRow = asset == null && AUTO_PARTICLES > 0;
+			boolean particleRow = asset == null && (AUTO_PARTICLES > 0 || AUTO_VOLUMES > 0);
 			connection.sendCommand(particleRow
 					? String.format(java.util.Locale.ROOT, "tp @s %d %d %d %d %d",
 							origin.getX(), origin.getY() + up, origin.getZ() - back, AUTO_YAW, AUTO_PITCH)
@@ -492,6 +526,10 @@ public final class GemRenderClient {
 					.resetRun();
 			com.wf.gemrender.water.WaterSplit.getInstance()
 					.resetRun();
+			com.wf.gemrender.water.Absorbance.getInstance()
+					.resetRun();
+			com.wf.gemrender.volume.Volumetrics.getInstance()
+					.resetRun();
 			com.wf.gemrender.render.GlAudit.resetRun();
 		}
 
@@ -519,7 +557,8 @@ public final class GemRenderClient {
 							+ "frame={}x{} modelGeneration={} modelsLoaded={} morphFloats={} "
 							+ "morphFloatsBefore={} frozenAt={} spin={} spinNode={} lod={} lodMax={} "
 							+ "lodMeanCentis={} costFrames={} poseUs={} "
-							+ "overheadUs={} uploadUs={} nsPerPose={} instanceWrites={} waterSplit={} units={} "
+							+ "overheadUs={} uploadUs={} nsPerPose={} instanceWrites={} waterSplit={} "
+						+ "absorbance={} volumetrics={} volumesWanted={} units={} "
 							+ "glAudit={} "
 							+ "path={} parts={} partMeshes={} evalsPerFrame={} spinDuty={} "
 							+ "particleBufferInitialised={} particleSlots={} particlesAlive={} "
@@ -565,6 +604,13 @@ public final class GemRenderClient {
 
 					com.wf.gemrender.water.WaterSplit.getInstance()
 							.report(),
+
+					com.wf.gemrender.water.Absorbance.getInstance()
+							.report(),
+
+					com.wf.gemrender.volume.Volumetrics.getInstance()
+							.report(),
+					AUTO_VOLUMES,
 
 					SamplerProbe.report(),
 
@@ -613,6 +659,18 @@ public final class GemRenderClient {
 					"life=" + ParticleSpikeEffect.LIFE_SECONDS + "s   one instance per slot, 16 bytes, "
 							+ "written once at creation"),
 					"the fountain holds ~" + AUTO_PARTICLES + " alive and alive= tracks it");
+			return;
+		}
+
+		if (AUTO_VOLUMES > 0 && asset == null) {
+			SpikeHud.progress(AUTO_ROW.isEmpty() ? "" : "[" + AUTO_ROW + "]");
+			SpikeHud.describe(java.util.List.of(
+					(AUTO_LABEL.isEmpty() ? "spike" : AUTO_LABEL) + "  |  " + AUTO_VOLUMES
+							+ " x raymarched volume  |  ONE DRAW PER CLOUD",
+					"halfExtent=" + com.wf.gemrender.spike.VolumeSpikeEffect.SIZE + "  density="
+							+ com.wf.gemrender.spike.VolumeSpikeEffect.DENSITY + "  quality="
+							+ System.getProperty("gemrender.volumequality", "MEDIUM")),
+					"cost is screen coverage x steps, not particle count: volumetrics= tracks it");
 			return;
 		}
 
@@ -933,14 +991,30 @@ public final class GemRenderClient {
 					.queueAdd(new GltfEffect(level, origin, asset, autoCount(),
 							System.getProperty("gemrender.autoanimation", "running_loop"), AUTO_SYNC, 1.0f,
 							AUTO_SPIN, spinNode, AUTO_SPIN_DUTY));
-		} else if (AUTO_PARTICLES > 0) {
-			VisualizationManager.getOrThrow(level)
-					.effects()
-					.queueAdd(new ParticleSpikeEffect(level, origin, AUTO_PARTICLES));
-		} else {
+		} else if (AUTO_PARTICLES == 0 && AUTO_VOLUMES == 0) {
 			VisualizationManager.getOrThrow(level)
 					.effects()
 					.queueAdd(new SpikeEffect(level, origin, AUTO_SPIKE));
+		}
+
+		// Additive to the asset rather than an alternative to it. An asset and a particle fountain in
+		// one frame is the only way to stage two transparency modes at once, which is what a row
+		// pairing -Pglass with -PparticleBlend=absorbance is for: glass is wavelet content and gas is
+		// not, and the pair has to composite from separate accumulators without either eating the
+		// other. Without both on screen that path never runs.
+		if (AUTO_PARTICLES > 0) {
+			VisualizationManager.getOrThrow(level)
+					.effects()
+					.queueAdd(new ParticleSpikeEffect(level, origin, AUTO_PARTICLES));
+		}
+
+		// Additive for the same reason. -Pvolume paired with -Pparticles is the row that proves a
+		// raymarched cloud and a billboard cloud both reach the absorbance accumulator, and paired with
+		// -Pglass that neither of them eats the wavelet content sharing the frame.
+		if (AUTO_VOLUMES > 0) {
+			VisualizationManager.getOrThrow(level)
+					.effects()
+					.queueAdd(new com.wf.gemrender.spike.VolumeSpikeEffect(level, origin, AUTO_VOLUMES));
 		}
 	}
 

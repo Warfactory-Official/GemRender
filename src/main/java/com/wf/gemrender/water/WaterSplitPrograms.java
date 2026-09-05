@@ -49,6 +49,9 @@ final class WaterSplitPrograms {
 	private int depthCopyProgram;
 	private int behindProgram;
 	private int frontProgram;
+	private int absorbanceCompositeProgram;
+	private int absorbanceBehindProgram;
+	private int absorbanceFrontProgram;
 	private int vao;
 
 	private int depthCopyDepthLoc;
@@ -95,6 +98,17 @@ final class WaterSplitPrograms {
 			bindSamplers(frontProgram);
 			frontZNearLoc = glGetUniformLocation(frontProgram, "_gr_znear");
 			frontZFarLoc = glGetUniformLocation(frontProgram, "_gr_zfar");
+
+			absorbanceCompositeProgram = link("absorbance_composite",
+					vert, VERSION + resource(GemRender.MOD_ID, "shaders/absorbance_composite.frag"));
+			absorbanceBehindProgram = link("absorbance_behind",
+					vert, VERSION + resource(GemRender.MOD_ID, "shaders/absorbance_behind.frag"));
+			absorbanceFrontProgram = link("absorbance_front",
+					vert, VERSION + resource(GemRender.MOD_ID, "shaders/absorbance_front.frag"));
+
+			bindSamplers(absorbanceCompositeProgram);
+			bindSamplers(absorbanceBehindProgram);
+			bindSamplers(absorbanceFrontProgram);
 
 			glUseProgram(0);
 			vao = glGenVertexArrays();
@@ -151,6 +165,34 @@ final class WaterSplitPrograms {
 			bindCompositeTextures(accumulate, front, depthRange, coefficients, waterDepth);
 			drawFullscreen();
 			unbindCompositeTextures();
+		} finally {
+			glUseProgram(previousProgram);
+		}
+	}
+
+	void drawAbsorbanceComposite(int accumulate) {
+		drawAccumulators(absorbanceCompositeProgram, accumulate, 0);
+	}
+
+	void drawAbsorbanceBehind(int accumulate, int front) {
+		drawAccumulators(absorbanceBehindProgram, accumulate, front);
+	}
+
+	void drawAbsorbanceFront(int front) {
+		drawAccumulators(absorbanceFrontProgram, 0, front);
+	}
+
+	private void drawAccumulators(int program, int accumulate, int front) {
+		int previousProgram = glGetInteger(GL_CURRENT_PROGRAM);
+		try {
+			glUseProgram(program);
+			bind2d(UNIT_ACCUMULATE, accumulate);
+			bind2d(UNIT_FRONT, front);
+			GlStateManager._activeTexture(GL_TEXTURE0);
+			drawFullscreen();
+			unbind(UNIT_FRONT);
+			unbind(UNIT_ACCUMULATE);
+			GlStateManager._activeTexture(GL_TEXTURE0);
 		} finally {
 			glUseProgram(previousProgram);
 		}

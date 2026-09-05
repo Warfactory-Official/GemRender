@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.wf.gemrender.water.Absorbance;
 import com.wf.gemrender.water.WaterSplit;
 
 import dev.engine_room.flywheel.backend.compile.PipelineCompiler;
@@ -23,6 +24,14 @@ abstract class InstancedDrawManagerMixin {
 
 	@Shadow
 	protected abstract void submitOitDraws(PipelineCompiler.OitMode mode);
+
+	@Inject(method = "submitOitDraws", at = @At("HEAD"), cancellable = true)
+	private void gemrender$skipCoefficientPasses(PipelineCompiler.OitMode mode, CallbackInfo ci) {
+		if (mode != PipelineCompiler.OitMode.EVALUATE && Absorbance.getInstance()
+				.exclusive()) {
+			ci.cancel();
+		}
+	}
 
 	@Inject(method = "render", at = @At(value = "INVOKE",
 			target = "Ldev/engine_room/flywheel/backend/engine/indirect/OitFramebuffer;composite()V"))

@@ -9,9 +9,11 @@
   "client": [
     "DrawManagerMixin",
     "GlProgramMixin",
+    "IndirectCullingGroupMixin",
     "IndirectDrawManagerMixin",
     "InstancedDrawManagerMixin",
     "LevelRendererAccessor",
+    "MaterialRenderStateMixin",
     "OitFramebufferMixin"
   ]
 }

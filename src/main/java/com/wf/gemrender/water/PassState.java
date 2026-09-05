@@ -30,7 +30,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
  * of this state follows the real thing. One instance per pass, reused; the reads are plain state
  * queries, which drivers answer from their own CPU-side copy.
  */
-final class PassState {
+public final class PassState {
 	private int drawFramebuffer;
 
 	private boolean blend;
@@ -45,7 +45,7 @@ final class PassState {
 	private boolean depthMask;
 	private int depthFunc;
 
-	void save() {
+	public void save() {
 		drawFramebuffer = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
 
 		blend = glGetInteger(GL_BLEND) != 0;
@@ -61,7 +61,7 @@ final class PassState {
 		depthFunc = glGetInteger(GL_DEPTH_FUNC);
 	}
 
-	void restore() {
+	public void restore() {
 		GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
 
 		GlStateManager._blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);

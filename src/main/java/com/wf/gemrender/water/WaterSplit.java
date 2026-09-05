@@ -55,6 +55,10 @@ public final class WaterSplit {
 
 	private boolean pendingFront;
 
+	private boolean absorbanceFrame;
+
+	private boolean waveletFrame;
+
 	private boolean oitDrawsThisFrame;
 	private boolean oitDrawsLastFrame;
 
@@ -114,11 +118,16 @@ public final class WaterSplit {
 		// Flywheel's OIT framebuffer is borrowed here, not owned. If the resubmitted draws throw, its
 		// attachments must still go back: leaving them pointing at our front and prepass textures is
 		// invisible until every later frame composites the wrong image, with nothing naming the cause.
+		Absorbance.getInstance()
+				.beginFrontResubmit();
+
 		GlAudit.Scope audit = GlAudit.open("water:oit-front");
 		try {
 			resubmit.run();
 		} finally {
 			audit.close();
+			Absorbance.getInstance()
+					.endFrontResubmit();
 			glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 5, oit.accumulate, 0);
 			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, main.getDepthTextureId(), 0);
 		}
@@ -130,10 +139,18 @@ public final class WaterSplit {
 	}
 
 	public boolean compositeInstead(OitFramebuffer oit) {
+		Absorbance absorbance = Absorbance.getInstance();
+
 		if (!armedComposite) {
-			return false;
+			if (!absorbance.present() || !programs.ensureCreated()) {
+				return false;
+			}
+			compositeAbsorbance(absorbance);
+			return absorbance.exclusive();
 		}
 		armedComposite = false;
+		absorbanceFrame = absorbance.present();
+		waveletFrame = !absorbance.exclusive();
 
 		GlAudit.Scope audit = GlAudit.open("water:composite");
 		compositeState.save();
@@ -151,8 +168,13 @@ public final class WaterSplit {
 			RenderSystem.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
 			RenderSystem.depthFunc(GL_ALWAYS);
 
-			programs.drawBehind(oit.accumulate, frontTexture, oit.depthBounds, oit.coefficients,
-					prepass.textureId());
+			if (absorbanceFrame) {
+				programs.drawAbsorbanceBehind(absorbance.accumulateTexture(), absorbance.frontTexture());
+			}
+			if (waveletFrame) {
+				programs.drawBehind(oit.accumulate, frontTexture, oit.depthBounds, oit.coefficients,
+						prepass.textureId());
+			}
 		} finally {
 			compositeState.restore();
 			Minecraft.getInstance()
@@ -192,8 +214,16 @@ public final class WaterSplit {
 			RenderSystem.enableDepthTest();
 			RenderSystem.depthFunc(GL_LEQUAL);
 
-			programs.drawFront(stashedAccumulate, frontTexture, stashedDepthBounds, stashedCoefficients,
-					prepass.textureId());
+			if (absorbanceFrame) {
+				RenderSystem.depthMask(false);
+				programs.drawAbsorbanceFront(Absorbance.getInstance()
+						.frontTexture());
+			}
+			if (waveletFrame) {
+				RenderSystem.depthMask(true);
+				programs.drawFront(stashedAccumulate, frontTexture, stashedDepthBounds, stashedCoefficients,
+						prepass.textureId());
+			}
 		} finally {
 			frontState.restore();
 			GlStateManager._activeTexture(org.lwjgl.opengl.GL13C.GL_TEXTURE0);
@@ -201,6 +231,33 @@ public final class WaterSplit {
 		}
 
 		lateTimer.end();
+	}
+
+	private void compositeAbsorbance(Absorbance absorbance) {
+		GlAudit.Scope audit = GlAudit.open("absorbance:composite");
+		compositeState.save();
+		try {
+			Minecraft.getInstance()
+					.getMainRenderTarget()
+					.bindWrite(false);
+
+			RenderSystem.depthMask(false);
+			RenderSystem.colorMask(true, true, true, true);
+			RenderSystem.enableBlend();
+			RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE,
+					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+			RenderSystem.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+			RenderSystem.depthFunc(GL_ALWAYS);
+
+			programs.drawAbsorbanceComposite(absorbance.accumulateTexture());
+		} finally {
+			compositeState.restore();
+			Minecraft.getInstance()
+					.getMainRenderTarget()
+					.bindWrite(false);
+			audit.close();
+		}
 	}
 
 	private void ensureFrontTexture(int width, int height) {

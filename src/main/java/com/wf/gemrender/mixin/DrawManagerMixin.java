@@ -12,6 +12,7 @@ import com.wf.gemrender.render.FrameCost;
 import com.wf.gemrender.render.GlAudit;
 import com.wf.gemrender.render.MorphBuffer;
 import com.wf.gemrender.render.PoseCache;
+import com.wf.gemrender.volume.Volumetrics;
 
 import dev.engine_room.flywheel.backend.engine.DrawManager;
 import dev.engine_room.flywheel.backend.engine.LightStorage;
@@ -36,6 +37,8 @@ public abstract class DrawManagerMixin {
 					.uploadAndBind();
 			ParticleBuffer.getInstance()
 					.uploadAndBind();
+			Volumetrics.getInstance()
+					.upload();
 		} finally {
 			audit.close();
 		}

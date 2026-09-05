@@ -2,6 +2,9 @@ package com.wf.gemrender.render;
 
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.particle.ParticleBuffer;
+import com.wf.gemrender.volume.SceneDepth;
+import com.wf.gemrender.volume.VolumeBuffer;
+import com.wf.gemrender.volume.VolumeNoise;
 
 import dev.engine_room.flywheel.backend.gl.shader.GlProgram;
 
@@ -15,6 +18,9 @@ public final class SamplerBindings {
 		program.setSamplerBinding("_gemrender_bones", BoneBuffer.TEXTURE_UNIT);
 		program.setSamplerBinding("_gemrender_morphs", MorphBuffer.TEXTURE_UNIT);
 		program.setSamplerBinding("_gemrender_particles", ParticleBuffer.TEXTURE_UNIT);
+		program.setSamplerBinding("_gemrender_volumes", VolumeBuffer.TEXTURE_UNIT);
+		program.setSamplerBinding("_gemrender_volumeNoise", VolumeNoise.TEXTURE_UNIT);
+		program.setSamplerBinding("_gemrender_sceneDepth", SceneDepth.TEXTURE_UNIT);
 
 		if (!logged) {
 			int bones = program.getUniformLocation("_gemrender_bones");

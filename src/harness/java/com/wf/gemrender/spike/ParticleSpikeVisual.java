@@ -31,6 +31,7 @@ public final class ParticleSpikeVisual extends AbstractVisual
 		Model model = switch (BLEND) {
 			case "additive" -> ParticleModels.additive(TEXTURE);
 			case "cutout" -> ParticleModels.cutout(TEXTURE);
+			case "absorbance" -> ParticleModels.absorbance(TEXTURE);
 			default -> ParticleModels.translucent(TEXTURE);
 		};
 

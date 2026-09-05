@@ -70,21 +70,38 @@ public final class ParticleSpikeEffect implements Effect {
 		}
 	}
 
+	private static final int TINT =
+			Integer.parseInt(System.getProperty("gemrender.particletint", "FF7A28"), 16);
+
+	private static final String LIGHT = System.getProperty("gemrender.particlelight", "");
+
+	private static final boolean COOL =
+			!"false".equalsIgnoreCase(System.getProperty("gemrender.particlecool"));
+
 	public static int style() {
 		synchronized (STYLE_LOCK) {
 			if (styleIndex < 0) {
+				ParticleStyle.Builder builder = ParticleStyle.builder()
+						.drag(ParticleStyle.dragFromPerTickFactor(0.93f),
+							ParticleStyle.dragFromPerTickFactor(0.97f))
+						.gravity(-1.6f)
+						.size(0.4f, 2.4f)
+						.tint(TINT)
+						.alpha(0.35f, 0.6f)
+						.fadeIn(0.05f)
+						.spin(0.6f);
+
+				if (COOL) {
+					builder.cool(0.1f, 0.6f);
+				}
+				if (!LIGHT.isEmpty()) {
+					String[] parts = LIGHT.split(",");
+					builder.light(Integer.parseInt(parts[0].trim()) / 16.0f,
+							Integer.parseInt(parts[parts.length - 1].trim()) / 16.0f);
+				}
+
 				styleIndex = ParticleBuffer.getInstance()
-						.registerStyle(ParticleStyle.builder()
-								.drag(ParticleStyle.dragFromPerTickFactor(0.93f),
-									ParticleStyle.dragFromPerTickFactor(0.97f))
-								.gravity(-1.6f)
-								.size(0.4f, 2.4f)
-								.tint(0xFF7A28)
-								.alpha(0.35f, 0.6f)
-								.fadeIn(0.05f)
-								.cool(0.1f, 0.6f)
-								.spin(0.6f)
-								.build());
+						.registerStyle(builder.build());
 			}
 			return styleIndex;
 		}
