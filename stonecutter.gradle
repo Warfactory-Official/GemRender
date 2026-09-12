@@ -1,0 +1,75 @@
+plugins {
+    id "dev.kikugie.stonecutter"
+}
+
+// The active version. Stonecutter REWRITES this exact line when you switch versions -- it matches it
+// with the regex /(sc|stonecutter)\s*\.\s*active\s*\(?\s*["'](\S+)["']\s*\)?/ -- so keep it on one
+// line, in this form, and do not compute the value. Switch with:
+//     ./gradlew "Set active project to 1.20.1"     (and "Reset active project" to go back)
+// The active version is the one whose source directories point at the real ./src tree, which is what
+// makes the IDE edit the shared sources in place instead of a generated copy.
+stonecutter.active "1.21.1"
+
+// ---------------------------------------------------------------------------------------------
+// Aggregate and delegating tasks.
+//
+// Gradle matches a bare task name against the root project AND every subproject, so a root task
+// named `runClient` would launch BOTH versions' clients rather than overriding them. Every alias
+// below therefore has a name no version subproject uses. The explicit form always works and is what
+// the recipes in gemrender-internal/docs are written against:
+//     ./gradlew :1.21.1:runClient -PquickPlay=spike -Pradar=64
+// ---------------------------------------------------------------------------------------------
+
+def activeVersion = { stonecutter.current?.project ?: stonecutter.vcsVersion.project }
+
+// Run the active version's client/server. `./gradlew client -Pradar=64` is the short form of
+// `./gradlew :<active>:runClient -Pradar=64`; every -P flag passes straight through.
+tasks.register('client') {
+    group = 'gemrender'
+    description = "Runs runClient on the active version (${activeVersion()})"
+    dependsOn ":${activeVersion()}:runClient"
+}
+
+tasks.register('server') {
+    group = 'gemrender'
+    description = "Runs runServer on the active version (${activeVersion()})"
+    dependsOn ":${activeVersion()}:runServer"
+}
+
+// Whole-tree tasks. Named *All so they never collide with the per-version task of the same name.
+// A version mid-port is excluded from the aggregates, or a known-incomplete port masks a real
+// regression on the ones that work. Read straight from the version's own properties file: the
+// controller is evaluated before the subprojects, so their project properties are not available yet.
+def buildableVersions = stonecutter.versions.findAll { v ->
+    def f = file("versions/${v.project}/gradle.properties")
+    if (!f.isFile()) return true
+    def props = new Properties()
+    f.withInputStream { props.load(it) }
+    Boolean.parseBoolean(props.getProperty('version_buildable', 'true'))
+}
+
+['build', 'check', 'test', 'jar'].each { name ->
+    tasks.register("${name}All") {
+        group = 'gemrender'
+        description = "Runs ${name} on every buildable Minecraft version"
+        dependsOn buildableVersions.collect { ":${it.project}:${name}" }
+    }
+}
+
+// Force the per-version builds to run one at a time, oldest first. Two Minecraft toolchains
+// decompiling at once does not fit in the heap gradle.properties asks for, and interleaved output
+// from two moddev pipelines is unreadable when one of them fails.
+stonecutter.tasks.order 'build'
+
+// `./gradlew versions` -- what is configured and what is active, without reading three files.
+tasks.register('versions') {
+    group = 'gemrender'
+    description = 'Prints the configured Minecraft versions and which one is active'
+    def active = activeVersion()
+    def all = stonecutter.versions.collect { it.project }
+    doLast {
+        println "GemRender targets:"
+        all.each { println "  ${it == active ? '*' : ' '} ${it}" }
+        println "\n  * = active (edits ./src in place; switch with: ./gradlew \"Set active project to <v>\")"
+    }
+}

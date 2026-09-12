@@ -15,29 +15,29 @@ import org.jetbrains.annotations.Nullable;
  * for an unlit surface.
  */
 public record RigGeometry(float[] positions, @Nullable float[] normals, float[] texCoords, int[] indices) {
-	public RigGeometry {
-		if (positions.length % 3 != 0) {
-			throw new IllegalArgumentException("positions must be 3 floats a vertex, got " + positions.length);
-		}
+    public RigGeometry {
+        if (positions.length % 3 != 0) {
+            throw new IllegalArgumentException("positions must be 3 floats a vertex, got " + positions.length);
+        }
 
-		int vertices = positions.length / 3;
-		if (normals != null && normals.length != vertices * 3) {
-			throw new IllegalArgumentException("mesh has " + vertices + " vertices but " + normals.length / 3
-					+ " normals");
-		}
-		if (texCoords.length != vertices * 2) {
-			throw new IllegalArgumentException("mesh has " + vertices + " vertices but " + texCoords.length / 2
-					+ " texture coordinates");
-		}
-		for (int index : indices) {
-			if (index < 0 || index >= vertices) {
-				throw new IllegalArgumentException("index " + index + " is outside the mesh's " + vertices
-						+ " vertices");
-			}
-		}
-	}
+        int vertices = positions.length / 3;
+        if (normals != null && normals.length != vertices * 3) {
+            throw new IllegalArgumentException("mesh has " + vertices + " vertices but " + normals.length / 3
+                    + " normals");
+        }
+        if (texCoords.length != vertices * 2) {
+            throw new IllegalArgumentException("mesh has " + vertices + " vertices but " + texCoords.length / 2
+                    + " texture coordinates");
+        }
+        for (int index : indices) {
+            if (index < 0 || index >= vertices) {
+                throw new IllegalArgumentException("index " + index + " is outside the mesh's " + vertices
+                        + " vertices");
+            }
+        }
+    }
 
-	public int vertexCount() {
-		return positions.length / 3;
-	}
+    public int vertexCount() {
+        return positions.length / 3;
+    }
 }

@@ -1,9 +1,9 @@
 #include "gemrender:volume_march.glsl"
 
 void flw_materialFragment() {
-#if defined(_FLW_DEPTH_RANGE) || defined(_FLW_COLLECT_COEFFS)
+    #if defined(_FLW_DEPTH_RANGE) || defined(_FLW_COLLECT_COEFFS)
     discard;
-#else
+    #else
     GemRenderVolume v = gemrender_volume(uint(flw_vertexOverlay.x));
 
     if (!gemrender_volumeAlive(v)) {
@@ -28,10 +28,10 @@ void flw_materialFragment() {
         discard;
     }
 
-#ifdef _FLW_EVALUATE
+    #ifdef _FLW_EVALUATE
     flw_fragColor = vec4(marched.rgb, -log(max(1.0 - marched.a, 1e-4)));
-#else
+    #else
     flw_fragColor = marched;
-#endif
-#endif
+    #endif
+    #endif
 }

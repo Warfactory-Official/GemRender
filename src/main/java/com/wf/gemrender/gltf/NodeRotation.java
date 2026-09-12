@@ -17,53 +17,55 @@ import com.wf.gemrender.vendor.mcgltf.animation.GltfAnimationCreator;
  * declared in that order.
  */
 public final class NodeRotation {
-	private NodeRotation() {
-	}
+    private NodeRotation() {
+    }
 
-	/**
-	 * The offset into the pose scratch where {@code slot}'s rotation quaternion lives.
-	 *
-	 * @throws IllegalArgumentException if the slot is not a node of this table
-	 */
-	public static int offsetOf(NodeTable table, int slot) {
-		int offset = table.offsetFor(slot, GltfAnimationCreator.ROTATION_PATH);
-		if (offset < 0) {
-			throw new IllegalArgumentException("no node in slot " + slot + " to rotate");
-		}
-		return offset;
-	}
+    /**
+     * The offset into the pose scratch where {@code slot}'s rotation quaternion lives.
+     *
+     * @throws IllegalArgumentException if the slot is not a node of this table
+     */
+    public static int offsetOf(NodeTable table, int slot) {
+        int offset = table.offsetFor(slot, GltfAnimationCreator.ROTATION_PATH);
+        if (offset < 0) {
+            throw new IllegalArgumentException("no node in slot " + slot + " to rotate");
+        }
+        return offset;
+    }
 
-	/** A unit axis, or a thrown exception for one of length zero, which would rotate about nothing. */
-	public static float[] axis(float x, float y, float z) {
-		float length = (float) Math.sqrt(x * x + y * y + z * z);
-		if (length < 1.0e-6f) {
-			throw new IllegalArgumentException("rotation axis is zero-length");
-		}
-		return new float[] { x / length, y / length, z / length };
-	}
+    /**
+     * A unit axis, or a thrown exception for one of length zero, which would rotate about nothing.
+     */
+    public static float[] axis(float x, float y, float z) {
+        float length = (float) Math.sqrt(x * x + y * y + z * z);
+        if (length < 1.0e-6f) {
+            throw new IllegalArgumentException("rotation axis is zero-length");
+        }
+        return new float[]{x / length, y / length, z / length};
+    }
 
-	/**
-	 * Turns the node at {@code offset} by {@code angleRadians} about a <b>unit</b> axis, composing onto
-	 * the rotation already in the scratch rather than replacing it.
-	 */
-	public static void compose(float[] scratch, int offset, float axisX, float axisY, float axisZ,
-			float angleRadians) {
-		float half = angleRadians * 0.5f;
-		float sin = (float) Math.sin(half);
+    /**
+     * Turns the node at {@code offset} by {@code angleRadians} about a <b>unit</b> axis, composing onto
+     * the rotation already in the scratch rather than replacing it.
+     */
+    public static void compose(float[] scratch, int offset, float axisX, float axisY, float axisZ,
+                               float angleRadians) {
+        float half = angleRadians * 0.5f;
+        float sin = (float) Math.sin(half);
 
-		float sx = axisX * sin;
-		float sy = axisY * sin;
-		float sz = axisZ * sin;
-		float sw = (float) Math.cos(half);
+        float sx = axisX * sin;
+        float sy = axisY * sin;
+        float sz = axisZ * sin;
+        float sw = (float) Math.cos(half);
 
-		float bx = scratch[offset];
-		float by = scratch[offset + 1];
-		float bz = scratch[offset + 2];
-		float bw = scratch[offset + 3];
+        float bx = scratch[offset];
+        float by = scratch[offset + 1];
+        float bz = scratch[offset + 2];
+        float bw = scratch[offset + 3];
 
-		scratch[offset] = bw * sx + bx * sw + by * sz - bz * sy;
-		scratch[offset + 1] = bw * sy - bx * sz + by * sw + bz * sx;
-		scratch[offset + 2] = bw * sz + bx * sy - by * sx + bz * sw;
-		scratch[offset + 3] = bw * sw - bx * sx - by * sy - bz * sz;
-	}
+        scratch[offset] = bw * sx + bx * sw + by * sz - bz * sy;
+        scratch[offset + 1] = bw * sy - bx * sz + by * sw + bz * sx;
+        scratch[offset + 2] = bw * sz + bx * sy - by * sx + bz * sw;
+        scratch[offset + 3] = bw * sw - bx * sx - by * sy - bz * sz;
+    }
 }

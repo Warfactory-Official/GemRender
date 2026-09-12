@@ -33,11 +33,19 @@ public final class GltfVisual extends AbstractVisual implements EffectVisual<Glt
 	private static final float SPACING_OVERRIDE =
 			Float.parseFloat(System.getProperty("gemrender.spacing", "0"));
 
+	private static final int VARIANT_INDEX = Integer.getInteger("gemrender.autovariantindex", -1);
+
 	private static final Vector4f LAST_CULL_SPHERE = new Vector4f();
 
 	public static Vector4f lastCullSphere() {
 		synchronized (LAST_CULL_SPHERE) {
 			return new Vector4f(LAST_CULL_SPHERE);
+		}
+	}
+
+	public static void recordCullSphere(Vector4fc sphere) {
+		synchronized (LAST_CULL_SPHERE) {
+			LAST_CULL_SPHERE.set(sphere);
 		}
 	}
 
@@ -118,6 +126,8 @@ public final class GltfVisual extends AbstractVisual implements EffectVisual<Glt
 
 			instance.colorArgb(0xFFFFFFFF);
 
+			instance.variant(gltf.variant(VARIANT_INDEX >= 0 ? VARIANT_INDEX : i % gltf.variantCount()));
+
 			instance.light(LightTexture.FULL_BRIGHT);
 			instance.setChanged();
 
@@ -174,8 +184,14 @@ public final class GltfVisual extends AbstractVisual implements EffectVisual<Glt
 
 		PoseCache poses = PoseCache.getInstance();
 		PoseLod lod = PoseLod.getInstance();
+
+		//? if >=26.1 {
+		/*Vec3 camera = ctx.camera()
+				.position();
+*///?} else {
 		Vec3 camera = ctx.camera()
 				.getPosition();
+		//?}
 
 		int writes = 0;
 

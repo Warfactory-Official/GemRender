@@ -100,6 +100,19 @@ public final class MorphFixture {
 		return builder.build();
 	}
 
+	public static GltfMorphLayout mergedMorphLayout() {
+		MorphTargets bellows = targets(NODE_PUMP);
+		MorphTargets piston = targets(NODE_PISTON);
+
+		GltfMorphLayout.Builder builder = GltfMorphLayout.builder();
+		builder.add(LAYOUT.nodeTable(), node(NODE_PUMP), mesh(NODE_PUMP), bellows, 0);
+		int pistonSet =
+				builder.add(LAYOUT.nodeTable(), node(NODE_PISTON), mesh(NODE_PISTON), piston,
+						bellows.floatCount());
+		builder.rebase(pistonSet, vertexCount(NODE_PUMP));
+		return builder.build();
+	}
+
 	private static GltfModel read() {
 		try (InputStream in = MorphFixture.class.getClassLoader()
 				.getResourceAsStream(ASSET)) {

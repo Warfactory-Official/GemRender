@@ -22,41 +22,43 @@ package com.wf.gemrender.gltf;
  * slides, costs no more than a single-axis spin.
  */
 public record AnimationDrive(GltfAnimation clip, float from, float to, boolean cyclic) {
-	/**
-	 * A clip the parameter runs through once every {@code unitsPerCycle}, and keeps running: 2.25
-	 * cycles is a quarter of the way in, and driving backwards runs it backwards.
-	 */
-	public static AnimationDrive cyclic(GltfAnimation clip, float unitsPerCycle) {
-		return new AnimationDrive(clip, 0.0f, unitsPerCycle, true);
-	}
+    /**
+     * A clip the parameter runs through once every {@code unitsPerCycle}, and keeps running: 2.25
+     * cycles is a quarter of the way in, and driving backwards runs it backwards.
+     */
+    public static AnimationDrive cyclic(GltfAnimation clip, float unitsPerCycle) {
+        return new AnimationDrive(clip, 0.0f, unitsPerCycle, true);
+    }
 
-	/**
-	 * A clip the parameter scrubs between two stops, holding the first frame at or below {@code min}
-	 * and the last at or above {@code max}. Passing {@code max} below {@code min} runs it the other way,
-	 * which is the same thing an inverted binding does.
-	 */
-	public static AnimationDrive ranged(GltfAnimation clip, float min, float max) {
-		return new AnimationDrive(clip, min, max, false);
-	}
+    /**
+     * A clip the parameter scrubs between two stops, holding the first frame at or below {@code min}
+     * and the last at or above {@code max}. Passing {@code max} below {@code min} runs it the other way,
+     * which is the same thing an inverted binding does.
+     */
+    public static AnimationDrive ranged(GltfAnimation clip, float min, float max) {
+        return new AnimationDrive(clip, min, max, false);
+    }
 
-	/**
-	 * Clip-local time for {@code parameter}, in the same units and the same range as
-	 * {@link AnimationPhase#timeAt}.
-	 */
-	public float timeAt(float parameter) {
-		if (clip == null || from == to) {
-			return 0.0f;
-		}
+    /**
+     * Clip-local time for {@code parameter}, in the same units and the same range as
+     * {@link AnimationPhase#timeAt}.
+     */
+    public float timeAt(float parameter) {
+        if (clip == null || from == to) {
+            return 0.0f;
+        }
 
-		float unit = (parameter - from) / (to - from);
-		if (cyclic) {
-			return clip.loop(unit * clip.duration());
-		}
-		return Math.min(1.0f, Math.max(0.0f, unit)) * clip.duration();
-	}
+        float unit = (parameter - from) / (to - from);
+        if (cyclic) {
+            return clip.loop(unit * clip.duration());
+        }
+        return Math.min(1.0f, Math.max(0.0f, unit)) * clip.duration();
+    }
 
-	/** True once the parameter has run past a ranged drive's last stop, so a caller can act on arrival. */
-	public boolean isAtEnd(float parameter) {
-		return !cyclic && from != to && (parameter - from) / (to - from) >= 1.0f;
-	}
+    /**
+     * True once the parameter has run past a ranged drive's last stop, so a caller can act on arrival.
+     */
+    public boolean isAtEnd(float parameter) {
+        return !cyclic && from != to && (parameter - from) / (to - from) >= 1.0f;
+    }
 }

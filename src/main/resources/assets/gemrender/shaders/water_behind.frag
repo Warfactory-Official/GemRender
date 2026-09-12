@@ -1,15 +1,3 @@
-// The behind-water half of the split composite. Compiled with flywheel:internal/wavelet.glsl and
-// depth.glsl prepended, so `transmittance` here is the same reconstruction the stock composite uses.
-//
-// The whole accumulate texture holds every OIT fragment that passed the opaque depth test; the front
-// texture holds the re-run restricted to fragments in front of min(opaque, nearest translucent
-// terrain). Accumulation is additive, so their difference is exactly the fragments behind the water,
-// still weighted by the whole stack's transmittance. That weighting divides out of the average, and
-// the group's own opacity is the total transmittance with the front group's share divided off, read
-// from the wavelet at the water's normalised depth.
-//
-// Drawn before the translucent terrain pass with no depth write, so the water drawn after tints it.
-
 uniform sampler2D _gr_accumulate;
 uniform sampler2D _gr_frontAccumulate;
 uniform sampler2D _gr_depthRange;

@@ -10,14 +10,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 
-/**
- * A grid of raymarched gas volumes, the volumetric counterpart to {@link ParticleSpikeEffect}.
- *
- * <p>The point of the row is that its cost does not scale the way the particle row's does. A particle
- * fountain pays per quad; a volume pays per screen pixel it covers times its step count, and nothing else.
- * So the interesting comparison is not "same particle count" but "same screen coverage", which is why the
- * default box is sized to roughly match what {@code -Pparticles} fills.
- */
 public final class VolumeSpikeEffect implements Effect {
 
 	public static final float SIZE =
@@ -43,11 +35,6 @@ public final class VolumeSpikeEffect implements Effect {
 	private static final float EDGE =
 			Float.parseFloat(System.getProperty("gemrender.volumeedge", "0.35"));
 
-	/**
-	 * -PvolumeCells=1 builds each cloud from a cross of boxes voxelised into a cached field, instead of
-	 * the default ellipsoid. The cross is deliberately a shape no ellipsoid can be: if the row renders a
-	 * blob, the field is not reaching the shader.
-	 */
 	public static final boolean CELLS = Integer.getInteger("gemrender.volumecells", 0) > 0;
 
 	private static final float DETAIL =

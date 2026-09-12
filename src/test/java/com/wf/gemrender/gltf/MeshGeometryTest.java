@@ -23,6 +23,23 @@ class MeshGeometryTest {
 	}
 
 	@Test
+	@DisplayName("a merge reports where every part landed, single part included")
+	void concatReportsPartOffsets() {
+		MeshGeometry column = column();
+		MeshGeometry flag = flag();
+
+		List<Integer> bases = new java.util.ArrayList<>();
+		MeshGeometry.concat(List.of(column, flag, column), (part, base) -> bases.add(base));
+
+		assertThat(bases).containsExactly(0, column.vertexCount(),
+				column.vertexCount() + flag.vertexCount());
+
+		List<Integer> alone = new java.util.ArrayList<>();
+		MeshGeometry.concat(List.of(column), (part, base) -> alone.add(base));
+		assertThat(alone).containsExactly(0);
+	}
+
+	@Test
 	@DisplayName("a merge is exactly the two meshes, end to end")
 	void concatKeepsEveryVertexAndIndex() {
 		MeshGeometry column = column();

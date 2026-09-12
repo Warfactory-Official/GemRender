@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.engine_room.flywheel.impl.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "flywheel.refmap.json",
+  "client": [
+    "BlockEntityTypeMixin",
+    "ClientChunkCacheMixin",
+    "EntityRendererAccessor",
+    "EntityTypeMixin",
+    "LevelMixin",
+    "LevelRendererMixin",
+    "MinecraftMixin",
+    "ModelPartAccessor",
+    "PoseStackMixin",
+    "visualmanage.BlockEntityMixin",
+    "visualmanage.LevelChunkMixin",
+    "visualmanage.LevelRendererMixin",
+    "visualmanage.SectionCompilerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

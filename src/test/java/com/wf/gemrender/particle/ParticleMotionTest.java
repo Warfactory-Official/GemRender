@@ -216,8 +216,6 @@ class ParticleMotionTest {
 		Vector3f at = ParticleMotion.position(style, new Vector3f(),
 				new Vector3f((float) (0.01 * 20.0), (float) (0.03 * 20.0), 0.0f), ticks * TICK, scratch);
 
-		// The closed form is the continuous limit of that loop, so it lands a few per cent past a sum
-		// sampled at tick boundaries. Both axes are checked against the loop for shape, not equality.
 		assertThat(at.x).isCloseTo((float) x, withinPercentage(8.0));
 		assertThat(at.y).isCloseTo((float) y, withinPercentage(8.0));
 	}

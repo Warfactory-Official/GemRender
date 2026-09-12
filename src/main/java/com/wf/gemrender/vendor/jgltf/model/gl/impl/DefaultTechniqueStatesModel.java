@@ -26,52 +26,31 @@
  */
 package com.wf.gemrender.vendor.jgltf.model.gl.impl;
 
+import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesFunctionsModel;
+import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesModel;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesFunctionsModel;
-import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesModel;
-
 /**
  * Implementation of a {@link TechniqueStatesModel}
+ *
+ * @param enable                        The enabled states
+ * @param techniqueStatesFunctionsModel The {@link TechniqueStatesFunctionsModel}
  */
-public class DefaultTechniqueStatesModel implements TechniqueStatesModel
-{
-    /**
-     * The enabled states
-     */
-    private final List<Integer> enable;
-    
-    /**
-     * The {@link TechniqueStatesFunctionsModel}
-     */
-    private final TechniqueStatesFunctionsModel techniqueStatesFunctionsModel;
-    
+public record DefaultTechniqueStatesModel(List<Integer> enable,
+                                          TechniqueStatesFunctionsModel techniqueStatesFunctionsModel) implements TechniqueStatesModel {
     /**
      * Default constructor
-     * 
-     * @param enable The enabled states
-     * @param techniqueStatesFunctionsModel 
-     * The {@link TechniqueStatesFunctionsModel}
+     *
+     * @param enable                        The enabled states
+     * @param techniqueStatesFunctionsModel The {@link TechniqueStatesFunctionsModel}
      */
-    public DefaultTechniqueStatesModel(List<Integer> enable, 
-        TechniqueStatesFunctionsModel techniqueStatesFunctionsModel)
-    {
+    public DefaultTechniqueStatesModel(List<Integer> enable,
+                                       TechniqueStatesFunctionsModel techniqueStatesFunctionsModel) {
         this.enable = Collections.unmodifiableList(
-            new ArrayList<Integer>(enable));
+                new ArrayList<Integer>(enable));
         this.techniqueStatesFunctionsModel = techniqueStatesFunctionsModel;
-    }
-
-    @Override
-    public List<Integer> getEnable()
-    {
-        return enable;
-    }
-
-    @Override
-    public TechniqueStatesFunctionsModel getTechniqueStatesFunctionsModel()
-    {
-        return techniqueStatesFunctionsModel;
     }
 }

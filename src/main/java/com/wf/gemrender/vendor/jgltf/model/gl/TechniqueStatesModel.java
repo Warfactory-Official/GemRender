@@ -26,50 +26,47 @@
  */
 package com.wf.gemrender.vendor.jgltf.model.gl;
 
+import com.wf.gemrender.vendor.jgltf.model.GltfConstants;
+
 import java.util.Arrays;
 import java.util.List;
 
-import com.wf.gemrender.vendor.jgltf.model.GltfConstants;
-
 /**
- * Interface for technique states.  
+ * Interface for technique states.
  */
-public interface TechniqueStatesModel
-{
+public interface TechniqueStatesModel {
+    /**
+     * Returns a list containing all possible states that may be contained
+     * in a <code>technique.states.enable</code> list.
+     *
+     * @return All possible states
+     */
+    static List<Integer> getAllStates() {
+        List<Integer> allStates = Arrays.asList(
+                GltfConstants.GL_BLEND,
+                GltfConstants.GL_CULL_FACE,
+                GltfConstants.GL_DEPTH_TEST,
+                GltfConstants.GL_POLYGON_OFFSET_FILL,
+                GltfConstants.GL_SAMPLE_ALPHA_TO_COVERAGE,
+                GltfConstants.GL_SCISSOR_TEST
+        );
+        return allStates;
+    }
+
     /**
      * Returns an unmodifiable list containing the enabled states,
      * or <code>null</code> if only the default states should be
      * enabled.
-     * 
+     *
      * @return The enabled states
      */
-    List<Integer> getEnable();
-    
+    List<Integer> enable();
+
     /**
      * Returns the {@link TechniqueStatesFunctionsModel}, or <code>null</code>
      * if the default technique states functions should be used.
-     * 
+     *
      * @return The {@link TechniqueStatesFunctionsModel}
      */
-    TechniqueStatesFunctionsModel getTechniqueStatesFunctionsModel();
-    
-    
-    /**
-     * Returns a list containing all possible states that may be contained
-     * in a <code>technique.states.enable</code> list.
-     * 
-     * @return All possible states
-     */
-    public static List<Integer> getAllStates()
-    {
-        List<Integer> allStates = Arrays.asList(
-            GltfConstants.GL_BLEND,
-            GltfConstants.GL_CULL_FACE,
-            GltfConstants.GL_DEPTH_TEST,
-            GltfConstants.GL_POLYGON_OFFSET_FILL,
-            GltfConstants.GL_SAMPLE_ALPHA_TO_COVERAGE,
-            GltfConstants.GL_SCISSOR_TEST
-        );
-        return allStates;
-    }
+    TechniqueStatesFunctionsModel techniqueStatesFunctionsModel();
 }

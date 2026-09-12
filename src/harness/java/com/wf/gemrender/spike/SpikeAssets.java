@@ -8,6 +8,9 @@ import com.wf.gemrender.asset.ModelCache;
 import com.wf.gemrender.gltf.GemRenderGltfModel;
 import com.wf.gemrender.gltf.GemRenderPartsModel;
 
+import java.util.List;
+import java.util.Map;
+
 import net.minecraft.resources.ResourceLocation;
 
 public final class SpikeAssets {
@@ -32,6 +35,30 @@ public final class SpikeAssets {
 	public static final ResourceLocation PYLON_GLTF = ResourceLocation.fromNamespaceAndPath(
 			GemRender.MOD_ID, "models/pylon/pylon.gltf");
 
+	public static final ResourceLocation RADAR_SKINS = ResourceLocation.fromNamespaceAndPath(
+			GemRender.MOD_ID, "variants/radar");
+
+	private static ResourceLocation skin(String name) {
+		return ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID, "textures/models/" + name + ".png");
+	}
+
+	private static Map<ResourceLocation, ResourceLocation> allOf(String name) {
+		ResourceLocation skin = skin(name);
+		return Map.of(skin("radar_top"), skin, skin("radar_middle"), skin, skin("radar_bottom"), skin);
+	}
+
+	private static final ModelCache.Handle<GemRenderGltfModel> RADAR_VARIANTS =
+			GemRenderModels.variants(RADAR_SKINS, RADAR,
+					List.of(Map.of(), allOf("radar_bottom"), allOf("radar_top")));
+
+	public static final ResourceLocation PYLON_SKINS = ResourceLocation.fromNamespaceAndPath(
+			GemRender.MOD_ID, "variants/pylon");
+
+	private static final ModelCache.Handle<GemRenderGltfModel> PYLON_VARIANTS =
+			GemRenderModels.skins(PYLON_SKINS, PYLON, List.of(
+					ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID, "models/pylon/pylon.png"),
+					skin("pbr_plate"), skin("pbr_lamp")));
+
 	public static ResourceLocation vehicle(String name) {
 		return ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID,
 				"models/vehicles/" + name + "/" + name + ".geo.json");
@@ -47,6 +74,13 @@ public final class SpikeAssets {
 
 	@Nullable
 	public static GemRenderGltfModel model(ResourceLocation asset) {
+
+		if (RADAR_SKINS.equals(asset)) {
+			return RADAR_VARIANTS.get();
+		}
+		if (PYLON_SKINS.equals(asset)) {
+			return PYLON_VARIANTS.get();
+		}
 		return GemRenderModels.get(asset);
 	}
 

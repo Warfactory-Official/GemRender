@@ -16,43 +16,43 @@ import dev.engine_room.flywheel.lib.model.SingleMeshModel;
 import net.minecraft.resources.ResourceLocation;
 
 public final class VolumeModels {
-	public static final MaterialShaders VOLUME_SHADERS = new SimpleMaterialShaders(
-			ResourceLocation.fromNamespaceAndPath("flywheel", "material/default.vert"),
-			ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID, "material/volume.frag"));
+    public static final MaterialShaders VOLUME_SHADERS = new SimpleMaterialShaders(
+            ResourceLocation.fromNamespaceAndPath("flywheel", "material/default.vert"),
+            ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID, "material/volume.frag"));
 
-	private static final ResourceLocation WHITE =
-			ResourceLocation.withDefaultNamespace("textures/misc/white.png");
+    private static final ResourceLocation WHITE =
+            ResourceLocation.withDefaultNamespace("textures/misc/white.png");
 
-	private static final Object LOCK = new Object();
+    private static final Object LOCK = new Object();
 
-	private static Model cloud;
+    private static Model cloud;
 
-	static {
-		Absorbance.getInstance()
-				.register(VOLUME_SHADERS);
-	}
+    static {
+        Absorbance.getInstance()
+                .register(VOLUME_SHADERS);
+    }
 
-	private VolumeModels() {
-	}
+    private VolumeModels() {
+    }
 
-	public static Model cloud() {
-		synchronized (LOCK) {
-			if (cloud == null) {
-				cloud = new SingleMeshModel(ParticleQuad.INSTANCE, SimpleMaterial.builder()
-						.texture(WHITE)
-						.transparency(Transparency.ORDER_INDEPENDENT)
-						.cutout(CutoutShaders.EPSILON)
-						.shaders(VOLUME_SHADERS)
-						.fog(FogShaders.NONE)
-						.blur(false)
-						.mipmap(false)
-						.backfaceCulling(false)
-						.useOverlay(false)
-						.useLight(true)
-						.cardinalLightingMode(CardinalLightingMode.OFF)
-						.build());
-			}
-			return cloud;
-		}
-	}
+    public static Model cloud() {
+        synchronized (LOCK) {
+            if (cloud == null) {
+                cloud = new SingleMeshModel(ParticleQuad.INSTANCE, SimpleMaterial.builder()
+                        .texture(WHITE)
+                        .transparency(Transparency.ORDER_INDEPENDENT)
+                        .cutout(CutoutShaders.EPSILON)
+                        .shaders(VOLUME_SHADERS)
+                        .fog(FogShaders.NONE)
+                        .blur(false)
+                        .mipmap(false)
+                        .backfaceCulling(false)
+                        .useOverlay(false)
+                        .useLight(true)
+                        .cardinalLightingMode(CardinalLightingMode.OFF)
+                        .build());
+            }
+            return cloud;
+        }
+    }
 }

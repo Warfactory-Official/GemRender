@@ -1,14 +1,17 @@
 package com.wf.gemrender.render;
 
-import static org.lwjgl.opengl.GL31C.GL_R32F;
-import static org.lwjgl.opengl.GL31C.GL_TEXTURE_BUFFER;
-import static org.lwjgl.opengl.GL31C.glTexBuffer;
-import static org.lwjgl.opengl.GL43C.GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT;
-import static org.lwjgl.opengl.GL43C.glTexBufferRange;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.wf.gemrender.GemRender;
+import org.joml.Matrix4fc;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.system.MemoryUtil;
+
+import java.nio.FloatBuffer;
+
+import static org.lwjgl.opengl.GL31C.*;
 import static org.lwjgl.opengl.GL33C.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL33C.GL_ARRAY_BUFFER_BINDING;
 import static org.lwjgl.opengl.GL33C.GL_DYNAMIC_DRAW;
-import static org.lwjgl.opengl.GL33C.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL33C.glBindBuffer;
 import static org.lwjgl.opengl.GL33C.glBindTexture;
 import static org.lwjgl.opengl.GL33C.glBufferData;
@@ -18,238 +21,239 @@ import static org.lwjgl.opengl.GL33C.glDeleteTextures;
 import static org.lwjgl.opengl.GL33C.glGenBuffers;
 import static org.lwjgl.opengl.GL33C.glGenTextures;
 import static org.lwjgl.opengl.GL33C.glGetInteger;
-
-import java.nio.FloatBuffer;
-
-import org.joml.Matrix4fc;
-import org.lwjgl.opengl.GL;
-import org.lwjgl.system.MemoryUtil;
-
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import com.wf.gemrender.GemRender;
+import static org.lwjgl.opengl.GL43C.GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT;
+import static org.lwjgl.opengl.GL43C.glTexBufferRange;
 
 public final class BoneBuffer {
-	public static final int TEXTURE_UNIT = TextureUnits.BONES;
+    public static final int TEXTURE_UNIT = TextureUnits.BONES;
 
-	public static final int FLOATS_PER_MATRIX = 16;
-	private static final int INITIAL_MATRICES = 256;
+    public static final int FLOATS_PER_MATRIX = 16;
+    private static final int INITIAL_MATRICES = 256;
 
-	private static final int RING_REGIONS = 3;
+    private static final int RING_REGIONS = 3;
 
-	private static final boolean RING = !"false".equalsIgnoreCase(System.getProperty("gemrender.ring"));
+    private static final boolean RING = !"false".equalsIgnoreCase(System.getProperty("gemrender.ring"));
 
-	private static final boolean ORPHAN = !"false".equalsIgnoreCase(System.getProperty("gemrender.orphan"));
+    private static final boolean ORPHAN = !"false".equalsIgnoreCase(System.getProperty("gemrender.orphan"));
 
-	private static final BoneBuffer INSTANCE = new BoneBuffer();
+    private static final BoneBuffer INSTANCE = new BoneBuffer(TextureUnits.BONES, "world");
 
-	private final Object stagingLock = new Object();
+    private static final BoneBuffer DIRECT = new BoneBuffer(TextureUnits.BONES, "direct");
 
-	private int bufferId;
-	private int textureId;
-	private int capacityMatrices;
+    private final int unit;
 
-	private boolean ringActive;
+    private final String name;
 
-	private int regionStrideBytes;
+    private final Object stagingLock = new Object();
 
-	private int region;
+    private int bufferId;
+    private int textureId;
+    private int capacityMatrices;
 
-	private FloatBuffer staging;
+    private boolean ringActive;
 
-	private int floatCount;
+    private int regionStrideBytes;
 
-	private volatile int lastUploadedCount;
+    private int region;
 
-	private BoneBuffer() {
-	}
+    private FloatBuffer staging;
 
-	public static BoneBuffer getInstance() {
-		return INSTANCE;
-	}
+    private int floatCount;
 
-	public int addPalette(Matrix4fc[] palette) {
-		return addPalette(palette, palette.length);
-	}
+    private volatile int lastUploadedCount;
 
-	public int addPalette(Matrix4fc[] palette, int count) {
-		synchronized (stagingLock) {
-			ensureStagingCapacity(floatCount + count * FLOATS_PER_MATRIX);
+    private BoneBuffer(int unit, String name) {
+        this.unit = unit;
+        this.name = name;
+    }
 
-			int base = floatCount / FLOATS_PER_MATRIX;
-			for (int i = 0; i < count; i++) {
-				palette[i].get(floatCount, staging);
-				floatCount += FLOATS_PER_MATRIX;
-			}
-			return base;
-		}
-	}
+    public static BoneBuffer getInstance() {
+        return INSTANCE;
+    }
 
-	public int addMorphBlock(float[] block, int length) {
-		synchronized (stagingLock) {
-			ensureStagingCapacity(floatCount + length + FLOATS_PER_MATRIX);
+    public static BoneBuffer direct() {
+        return DIRECT;
+    }
 
-			int base = floatCount;
-			for (int i = 0; i < length; i++) {
-				staging.put(base + i, block[i]);
-			}
+    private static int alignToMatrix(int floats) {
+        int remainder = floats % FLOATS_PER_MATRIX;
+        return remainder == 0 ? floats : floats + FLOATS_PER_MATRIX - remainder;
+    }
 
-			floatCount = alignToMatrix(floatCount + length);
-			return base;
-		}
-	}
+    public int unit() {
+        return unit;
+    }
 
-	public int lastUploadedCount() {
-		return lastUploadedCount;
-	}
+    public int addPalette(Matrix4fc[] palette) {
+        return addPalette(palette, palette.length);
+    }
 
-	private static int alignToMatrix(int floats) {
-		int remainder = floats % FLOATS_PER_MATRIX;
-		return remainder == 0 ? floats : floats + FLOATS_PER_MATRIX - remainder;
-	}
+    public int addPalette(Matrix4fc[] palette, int count) {
+        synchronized (stagingLock) {
+            ensureStagingCapacity(floatCount + count * FLOATS_PER_MATRIX);
 
-	public boolean isInitialized() {
-		return textureId != 0;
-	}
+            int base = floatCount / FLOATS_PER_MATRIX;
+            for (int i = 0; i < count; i++) {
+                palette[i].get(floatCount, staging);
+                floatCount += FLOATS_PER_MATRIX;
+            }
+            return base;
+        }
+    }
 
-	public int textureId() {
-		return textureId;
-	}
+    public int addMorphBlock(float[] block, int length) {
+        synchronized (stagingLock) {
+            ensureStagingCapacity(floatCount + length + FLOATS_PER_MATRIX);
 
-	public void uploadAndBind() {
-		RenderSystem.assertOnRenderThread();
+            int base = floatCount;
+            for (int i = 0; i < length; i++) {
+                staging.put(base + i, block[i]);
+            }
 
-		int count;
-		synchronized (stagingLock) {
-			count = alignToMatrix(floatCount) / FLOATS_PER_MATRIX;
-			floatCount = 0;
+            floatCount = alignToMatrix(floatCount + length);
+            return base;
+        }
+    }
 
-			if (count == 0) {
-				lastUploadedCount = 0;
-				return;
-			}
+    public int lastUploadedCount() {
+        return lastUploadedCount;
+    }
 
-			// Restored rather than zeroed: this runs inside Flywheel's render, which has its own array
-			// buffer bound and does not re-bind it after every call it makes. Read before create(),
-			// because create() binds ours – snapshotting after it would record our own buffer as the one
-			// to go back to, and Flywheel's would stay unbound for the rest of the run. The GL audit
-			// caught exactly that, on the one frame per launch where create() runs.
-			int previousBuffer = glGetInteger(GL_ARRAY_BUFFER_BINDING);
-			try {
-				if (textureId == 0) {
-					create();
-				}
+    public boolean isInitialized() {
+        return textureId != 0;
+    }
 
-				glBindBuffer(GL_ARRAY_BUFFER, bufferId);
+    public int textureId() {
+        return textureId;
+    }
 
-				if (count > capacityMatrices) {
-					capacityMatrices = Integer.highestOneBit(count - 1) * 2;
-					allocate();
-					GemRender.LOGGER.debug("Bone buffer grown to {} matrices per region", capacityMatrices);
-				}
+    public void uploadAndBind() {
+        RenderSystem.assertOnRenderThread();
 
-				if (ringActive) {
-					region = (region + 1) % RING_REGIONS;
-				} else if (ORPHAN) {
-					glBufferData(GL_ARRAY_BUFFER, regionStrideBytes, GL_DYNAMIC_DRAW);
-				}
+        int count;
+        synchronized (stagingLock) {
+            count = alignToMatrix(floatCount) / FLOATS_PER_MATRIX;
+            floatCount = 0;
 
-				staging.position(0)
-						.limit(count * FLOATS_PER_MATRIX);
-				glBufferSubData(GL_ARRAY_BUFFER, (long) region * regionStrideBytes, staging);
-				staging.clear();
-			} finally {
-				glBindBuffer(GL_ARRAY_BUFFER, previousBuffer);
-			}
-		}
+            if (count == 0) {
+                lastUploadedCount = 0;
+                return;
+            }
 
-		bind();
-		lastUploadedCount = count;
-	}
+            int previousBuffer = glGetInteger(GL_ARRAY_BUFFER_BINDING);
+            try {
+                if (textureId == 0) {
+                    create();
+                }
 
-	public void bind() {
-		int previousUnit = TextureUnits.activate(TEXTURE_UNIT);
-		try {
-			glBindTexture(GL_TEXTURE_BUFFER, textureId);
-			if (ringActive) {
-				glTexBufferRange(GL_TEXTURE_BUFFER, GL_R32F, bufferId,
-						(long) region * regionStrideBytes, regionStrideBytes);
-			}
-		} finally {
-			TextureUnits.restore(previousUnit);
-		}
-	}
+                glBindBuffer(GL_ARRAY_BUFFER, bufferId);
 
-	private void create() {
-		bufferId = glGenBuffers();
-		textureId = glGenTextures();
+                if (count > capacityMatrices) {
+                    capacityMatrices = Integer.highestOneBit(count - 1) * 2;
+                    allocate();
+                    GemRender.LOGGER.debug("Bone buffer grown to {} matrices per region", capacityMatrices);
+                }
 
-		ringActive = RING && GL.getCapabilities().OpenGL43;
+                if (ringActive) {
+                    region = (region + 1) % RING_REGIONS;
+                } else if (ORPHAN) {
+                    glBufferData(GL_ARRAY_BUFFER, regionStrideBytes, GL_DYNAMIC_DRAW);
+                }
 
-		capacityMatrices = INITIAL_MATRICES;
-		allocate();
+                staging.position(0)
+                        .limit(count * FLOATS_PER_MATRIX);
+                glBufferSubData(GL_ARRAY_BUFFER, (long) region * regionStrideBytes, staging);
+                staging.clear();
+            } finally {
+                glBindBuffer(GL_ARRAY_BUFFER, previousBuffer);
+            }
+        }
 
-		GemRender.LOGGER.info("Bone buffer created on texture unit {}, capacity {} matrices x {} region(s){}",
-				TEXTURE_UNIT, capacityMatrices, ringActive ? RING_REGIONS : 1,
-				ringActive ? "" : RING ? " (no glTexBufferRange; ring disabled)" : " (ring switched off)");
-	}
+        bind();
+        lastUploadedCount = count;
+    }
 
-	private void allocate() {
-		int regionBytes = capacityMatrices * FLOATS_PER_MATRIX * Float.BYTES;
+    public void bind() {
+        int previousUnit = TextureUnits.activate(unit);
+        try {
+            glBindTexture(GL_TEXTURE_BUFFER, textureId);
+            if (ringActive) {
+                glTexBufferRange(GL_TEXTURE_BUFFER, GL_R32F, bufferId,
+                        (long) region * regionStrideBytes, regionStrideBytes);
+            }
+        } finally {
+            TextureUnits.restore(previousUnit);
+        }
+    }
 
-		int alignment = ringActive ? Math.max(1, glGetInteger(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT)) : 1;
-		regionStrideBytes = (regionBytes + alignment - 1) / alignment * alignment;
+    private void create() {
+        bufferId = glGenBuffers();
+        textureId = glGenTextures();
 
-		// Leaves ours bound on purpose: uploadAndBind writes into it immediately afterwards, and owns
-		// putting the caller's back.
-		glBindBuffer(GL_ARRAY_BUFFER, bufferId);
-		glBufferData(GL_ARRAY_BUFFER, (long) regionStrideBytes * (ringActive ? RING_REGIONS : 1),
-				GL_DYNAMIC_DRAW);
+        ringActive = RING && GL.getCapabilities().OpenGL43;
 
-		int previousUnit = TextureUnits.activate(TEXTURE_UNIT);
-		try {
-			glBindTexture(GL_TEXTURE_BUFFER, textureId);
-			if (!ringActive) {
-				glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, bufferId);
-			}
-		} finally {
-			TextureUnits.restore(previousUnit);
-		}
-	}
+        capacityMatrices = INITIAL_MATRICES;
+        allocate();
 
-	private void ensureStagingCapacity(int floats) {
-		if (staging != null && staging.capacity() >= floats) {
-			return;
-		}
+        GemRender.LOGGER.info("Bone buffer '{}' created on texture unit {}, capacity {} matrices x {} "
+                        + "region(s){}", name, unit, capacityMatrices, ringActive ? RING_REGIONS : 1,
+                ringActive ? "" : RING ? " (no glTexBufferRange; ring disabled)" : " (ring switched off)");
+    }
 
-		int newCapacity = Math.max(floats, INITIAL_MATRICES * FLOATS_PER_MATRIX);
-		FloatBuffer grown = MemoryUtil.memAllocFloat(newCapacity);
-		if (staging != null) {
-			staging.position(0)
-					.limit(floatCount);
-			grown.put(staging);
-			MemoryUtil.memFree(staging);
-		}
-		grown.clear();
-		staging = grown;
-	}
+    private void allocate() {
+        int regionBytes = capacityMatrices * FLOATS_PER_MATRIX * Float.BYTES;
 
-	public void delete() {
-		if (textureId != 0) {
-			glDeleteTextures(textureId);
-			glDeleteBuffers(bufferId);
-			textureId = 0;
-			bufferId = 0;
-			capacityMatrices = 0;
-			regionStrideBytes = 0;
-			region = 0;
-		}
-		synchronized (stagingLock) {
-			if (staging != null) {
-				MemoryUtil.memFree(staging);
-				staging = null;
-			}
-			floatCount = 0;
-		}
-	}
+        int alignment = ringActive ? Math.max(1, glGetInteger(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT)) : 1;
+        regionStrideBytes = (regionBytes + alignment - 1) / alignment * alignment;
+
+        glBindBuffer(GL_ARRAY_BUFFER, bufferId);
+        glBufferData(GL_ARRAY_BUFFER, (long) regionStrideBytes * (ringActive ? RING_REGIONS : 1),
+                GL_DYNAMIC_DRAW);
+
+        int previousUnit = TextureUnits.activate(unit);
+        try {
+            glBindTexture(GL_TEXTURE_BUFFER, textureId);
+            if (!ringActive) {
+                glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, bufferId);
+            }
+        } finally {
+            TextureUnits.restore(previousUnit);
+        }
+    }
+
+    private void ensureStagingCapacity(int floats) {
+        if (staging != null && staging.capacity() >= floats) {
+            return;
+        }
+
+        int newCapacity = Math.max(floats, INITIAL_MATRICES * FLOATS_PER_MATRIX);
+        FloatBuffer grown = MemoryUtil.memAllocFloat(newCapacity);
+        if (staging != null) {
+            staging.position(0)
+                    .limit(floatCount);
+            grown.put(staging);
+            MemoryUtil.memFree(staging);
+        }
+        grown.clear();
+        staging = grown;
+    }
+
+    public void delete() {
+        if (textureId != 0) {
+            glDeleteTextures(textureId);
+            glDeleteBuffers(bufferId);
+            textureId = 0;
+            bufferId = 0;
+            capacityMatrices = 0;
+            regionStrideBytes = 0;
+            region = 0;
+        }
+        synchronized (stagingLock) {
+            if (staging != null) {
+                MemoryUtil.memFree(staging);
+                staging = null;
+            }
+            floatCount = 0;
+        }
+    }
 }

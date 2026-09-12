@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.wf.gemrender.mixin.direct",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "GuiGraphicsMixin",
+    "ItemInHandRendererMixin",
+    "LevelRendererMixin",
+    "RenderSystemAccessor"
+  ]
+}

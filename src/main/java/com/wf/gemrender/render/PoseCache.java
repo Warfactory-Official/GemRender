@@ -1,287 +1,411 @@
 package com.wf.gemrender.render;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.wf.gemrender.gltf.GltfAnimation;
+import com.wf.gemrender.gltf.GltfPaletteLayout;
+import com.wf.gemrender.gltf.GltfPose;
+import com.wf.gemrender.gltf.NodeTable;
+import com.wf.gemrender.gltf.morph.GltfMorphLayout;
+import com.wf.gemrender.gltf.skin.SkinnedBounds;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.joml.Vector4fc;
 
-import com.wf.gemrender.gltf.GltfAnimation;
-import com.wf.gemrender.gltf.GltfPaletteLayout;
-import com.wf.gemrender.gltf.GltfPose;
-import com.wf.gemrender.gltf.morph.GltfMorphLayout;
-import com.wf.gemrender.gltf.skin.SkinnedBounds;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
-/** Shares one palette evaluation between instances that land in the same quantised instant. */
+/**
+ * Shares one palette evaluation between instances that land in the same quantised instant.
+ */
 public final class PoseCache {
-	public static final float DEFAULT_QUANTUM_SECONDS = 1.0f / 128.0f;
+    public static final float DEFAULT_QUANTUM_SECONDS = 1.0f / 128.0f;
 
-	private static final PoseCache INSTANCE = new PoseCache(
-			Float.parseFloat(System.getProperty("gemrender.posequantum",
-					Float.toString(DEFAULT_QUANTUM_SECONDS))));
+    private static final PoseCache INSTANCE = new PoseCache(
+            Float.parseFloat(System.getProperty("gemrender.posequantum",
+                    Float.toString(DEFAULT_QUANTUM_SECONDS))));
+    private final float quantumSeconds;
+    private final Map<Key, Pose> poses = new ConcurrentHashMap<>();
+    /**
+     * Palettes, by size, reused frame to frame.
+     *
+     * <p>An evaluation used to compose into a per-thread scratch array, which was free but left the
+     * matrices unreadable the moment the next pose on that thread was evaluated -- fine while the only
+     * consumer was the GPU buffer, and useless to anything wanting to know where a bone is. Each pose
+     * now owns its palette for the frame instead, and the pool is what keeps that from being an
+     * allocation: a crowd settles on a steady number of live poses within a frame or two and then
+     * allocates nothing.
+     */
+    private final Map<Integer, Queue<Matrix4f[]>> palettes = new ConcurrentHashMap<>();
+    private final ThreadLocal<Local> local = ThreadLocal.withInitial(Local::new);
+    private final AtomicInteger requests = new AtomicInteger();
+    private final AtomicInteger evaluations = new AtomicInteger();
+    private final AtomicInteger lodSum = new AtomicInteger();
+    private final AtomicInteger lodMax = new AtomicInteger();
+    private volatile int requestsLastFrame;
+    private volatile int evaluationsLastFrame;
+    private volatile int lodSumLastFrame;
+    private volatile int lodMaxLastFrame;
+    PoseCache(float quantumSeconds) {
+        this.quantumSeconds = quantumSeconds;
+    }
 
-	public record Pose(int boneBase, int morphBase, Vector4fc sphere) {
-	}
+    public static PoseCache getInstance() {
+        return INSTANCE;
+    }
 
-	/**
-	 * Mutable so a lookup costs nothing: {@link #probe} is set and handed to {@code get}, which never
-	 * keeps it, and only a miss copies one to store.
-	 */
-	private static final class Key {
-		private GltfPaletteLayout layout;
-		private GltfAnimation[] clips;
-		private int[] buckets;
-		private int layers;
-		private int lod;
+    public float quantumSeconds() {
+        return quantumSeconds;
+    }
 
-		private Key set(GltfPaletteLayout layout, GltfAnimation[] clips, int[] buckets, int layers, int lod) {
-			this.layout = layout;
-			this.clips = clips;
-			this.buckets = buckets;
-			this.layers = layers;
-			this.lod = lod;
-			return this;
-		}
+    public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfAnimation clip, float timeSeconds) {
+        return pose(layout, bounds, GltfMorphLayout.NONE, clip, timeSeconds, 0);
+    }
 
-		private Key copy() {
-			return new Key().set(layout, Arrays.copyOf(clips, layers), Arrays.copyOf(buckets, layers), layers,
-					lod);
-		}
+    public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
+                     GltfAnimation clip, float timeSeconds) {
+        return pose(layout, bounds, morphs, clip, timeSeconds, 0);
+    }
 
-		@Override
-		public boolean equals(Object other) {
-			if (!(other instanceof Key that) || layers != that.layers || lod != that.lod
-					|| layout != that.layout) {
-				return false;
-			}
-			for (int layer = 0; layer < layers; layer++) {
-				if (buckets[layer] != that.buckets[layer]
-						|| !Objects.equals(clips[layer], that.clips[layer])) {
-					return false;
-				}
-			}
-			return true;
-		}
+    /**
+     * The only supported way to get a {@code boneBase}. Keyed on layout, clip, lod and quantised time.
+     *
+     * <p>Two calls collide, and so cost one evaluation between them, when all four agree: the same
+     * {@link GltfPaletteLayout} by identity, {@linkplain GltfAnimation#equals equal} clips, the same lod,
+     * and times that round into one bucket of {@link #quantumSeconds(int)}. Anything else is a miss and
+     * costs a full palette evaluation, so <b>the caller decides the cost of the frame by choosing what it
+     * passes as the time</b>. Sharing lasts a frame; {@link #endFrame()} clears the table.
+     *
+     * <p>That makes a continuous per-instance clock the one thing to avoid. A value integrated per
+     * instance -- elapsed time in a state, distance travelled, an accumulating angle -- lands every
+     * instance in a bucket of its own, and a hundred copies cost a hundred evaluations instead of one.
+     * Where instances must differ, draw their times from a fixed set rather than a continuum; see
+     * {@link com.wf.gemrender.gltf.AnimationPhase#snap} for the counting argument. Whether that was achieved is observable:
+     * {@link #evaluationsLastFrame()} over {@link #requestsLastFrame()} is the sharing actually obtained,
+     * and it reaching 1 means none.
+     */
+    public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
+                     GltfAnimation clip, float timeSeconds, int lod) {
+        Local thread = local.get();
+        thread.oneClip[0] = clip;
+        thread.oneBucket[0] = bucket(timeSeconds, lod);
+        return pose(layout, bounds, morphs, thread.oneClip, thread.oneBucket, 1, lod, thread);
+    }
 
-		@Override
-		public int hashCode() {
-			int hash = System.identityHashCode(layout) * 31 + lod;
-			for (int layer = 0; layer < layers; layer++) {
-				hash = (hash * 31 + Objects.hashCode(clips[layer])) * 31 + buckets[layer];
-			}
-			return hash;
-		}
-	}
+    /**
+     * Several clips at once, each at its own instant, layered in order onto one pose.
+     *
+     * <p>For a copy whose parts answer to different things: a mob whose legs run on distance travelled
+     * and whose jaws run on an attack timer cannot express both on one clock, and merging the two into
+     * one clip would need a clip per pair of instants. Layered, the two are separate keys, so a swarm
+     * mid-stride and a swarm mid-bite cost what each costs on its own rather than the product.
+     *
+     * <p>Everything {@link #pose(GltfPaletteLayout, SkinnedBounds, GltfMorphLayout, GltfAnimation, float,
+     * int) the single-clip form} says about sharing still holds, once per layer: two calls collide only
+     * when <em>every</em> layer agrees, so an extra layer can only ever split the table further. Adding a
+     * layer that hardly ever varies -- a damage state, a variant -- is close to free; adding one that
+     * varies per instance is what makes a crowd cost a pose each.
+     *
+     * <p>{@code clips} and {@code times} must be the same length, and a layer may be null to sit out.
+     */
+    public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
+                     GltfAnimation[] clips, float[] times, int lod) {
+        if (clips.length != times.length) {
+            throw new IllegalArgumentException("pose has " + clips.length + " clips but " + times.length
+                    + " times");
+        }
 
-	private static final class Local {
-		private final Key probe = new Key();
-		private final GltfPose.Scratch scratch = new GltfPose.Scratch();
+        Local thread = local.get();
+        int[] buckets = thread.buckets(clips.length);
+        for (int layer = 0; layer < clips.length; layer++) {
+            buckets[layer] = bucket(times[layer], lod);
+        }
+        return pose(layout, bounds, morphs, clips, buckets, clips.length, lod, thread);
+    }
 
-		/** Reused so the single-layer call, which is nearly all of them, allocates nothing on a hit. */
-		private final GltfAnimation[] oneClip = new GltfAnimation[1];
-		private final int[] oneBucket = new int[1];
+    private Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
+                      GltfAnimation[] clips, int[] buckets, int layers, int lod, Local thread) {
+        requests.incrementAndGet();
+        lodSum.addAndGet(lod);
+        lodMax.accumulateAndGet(lod, Math::max);
 
-		private int[] buckets = new int[4];
-		private float[] times = new float[4];
+        Key probe = thread.probe.set(layout, clips, buckets, layers, lod);
 
-		private int[] buckets(int layers) {
-			if (buckets.length < layers) {
-				buckets = new int[layers];
-			}
-			return buckets;
-		}
+        Pose hit = poses.get(probe);
+        if (hit != null) {
+            return hit;
+        }
 
-		private float[] times(int layers) {
-			if (times.length < layers) {
-				times = new float[layers];
-			}
-			return times;
-		}
-	}
+        return poses.computeIfAbsent(probe.copy(), key -> evaluate(key, bounds, morphs, thread));
+    }
 
-	private final float quantumSeconds;
-	private final Map<Key, Pose> poses = new ConcurrentHashMap<>();
+    private Pose evaluate(Key key, SkinnedBounds bounds, GltfMorphLayout morphs, Local thread) {
+        evaluations.incrementAndGet();
+        long startNanos = System.nanoTime();
 
-	private final ThreadLocal<Local> local = ThreadLocal.withInitial(Local::new);
+        GltfPose.Scratch scratch = thread.scratch;
+        int size = key.layout.size();
+        Matrix4f[] palette = borrowPalette(size);
 
-	private final AtomicInteger requests = new AtomicInteger();
-	private final AtomicInteger evaluations = new AtomicInteger();
+        int morphFloats = morphs.blockFloats();
+        float[] morphBlock = morphs.isEmpty() ? null : scratch.morphBlock(morphFloats);
 
-	private final AtomicInteger lodSum = new AtomicInteger();
-	private final AtomicInteger lodMax = new AtomicInteger();
+        float[] times = thread.times(key.layers);
+        for (int layer = 0; layer < key.layers; layer++) {
+            times[layer] = representativeTime(key.buckets[layer], key.lod);
+        }
 
-	private volatile int requestsLastFrame;
-	private volatile int evaluationsLastFrame;
-	private volatile int lodSumLastFrame;
-	private volatile int lodMaxLastFrame;
+        GltfPose.evaluate(key.layout, key.clips, times, palette, morphs, morphBlock, scratch);
 
-	PoseCache(float quantumSeconds) {
-		this.quantumSeconds = quantumSeconds;
-	}
+        Vector4f sphere = new Vector4f();
+        bounds.evaluate(palette, sphere);
 
-	public static PoseCache getInstance() {
-		return INSTANCE;
-	}
+        int boneBase = BoneBuffer.getInstance()
+                .addPalette(palette, size);
+        int morphBase = morphBlock == null ? 0
+                : BoneBuffer.getInstance()
+                .addMorphBlock(morphBlock, morphFloats);
 
-	public float quantumSeconds() {
-		return quantumSeconds;
-	}
+        FrameCost.getInstance()
+                .addPoseNanos(System.nanoTime() - startNanos);
 
-	public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfAnimation clip, float timeSeconds) {
-		return pose(layout, bounds, GltfMorphLayout.NONE, clip, timeSeconds, 0);
-	}
+        return new Pose(boneBase, morphBase, sphere, key.layout, palette);
+    }
 
-	public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
-			GltfAnimation clip, float timeSeconds) {
-		return pose(layout, bounds, morphs, clip, timeSeconds, 0);
-	}
+    /**
+     * Palettes parked in the pool at this size. Package-private: the pool is not part of the API.
+     */
+    int pooledPalettes(int size) {
+        Queue<Matrix4f[]> queue = palettes.get(size);
+        return queue == null ? 0 : queue.size();
+    }
 
-	/**
-	 * The only supported way to get a {@code boneBase}. Keyed on layout, clip, lod and quantised time.
-	 *
-	 * <p>Two calls collide, and so cost one evaluation between them, when all four agree: the same
-	 * {@link GltfPaletteLayout} by identity, {@linkplain GltfAnimation#equals equal} clips, the same lod,
-	 * and times that round into one bucket of {@link #quantumSeconds(int)}. Anything else is a miss and
-	 * costs a full palette evaluation, so <b>the caller decides the cost of the frame by choosing what it
-	 * passes as the time</b>. Sharing lasts a frame; {@link #endFrame()} clears the table.
-	 *
-	 * <p>That makes a continuous per-instance clock the one thing to avoid. A value integrated per
-	 * instance -- elapsed time in a state, distance travelled, an accumulating angle -- lands every
-	 * instance in a bucket of its own, and a hundred copies cost a hundred evaluations instead of one.
-	 * Where instances must differ, draw their times from a fixed set rather than a continuum; see
-	 * {@link com.wf.gemrender.gltf.AnimationPhase#snap} for the counting argument. Whether that was achieved is observable:
-	 * {@link #evaluationsLastFrame()} over {@link #requestsLastFrame()} is the sharing actually obtained,
-	 * and it reaching 1 means none.
-	 */
-	public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
-			GltfAnimation clip, float timeSeconds, int lod) {
-		Local thread = local.get();
-		thread.oneClip[0] = clip;
-		thread.oneBucket[0] = bucket(timeSeconds, lod);
-		return pose(layout, bounds, morphs, thread.oneClip, thread.oneBucket, 1, lod, thread);
-	}
+    private Matrix4f[] borrowPalette(int size) {
+        Matrix4f[] pooled = palettes.computeIfAbsent(size, ignored -> new ConcurrentLinkedQueue<>())
+                .poll();
+        if (pooled != null) {
+            return pooled;
+        }
 
-	/**
-	 * Several clips at once, each at its own instant, layered in order onto one pose.
-	 *
-	 * <p>For a copy whose parts answer to different things: a mob whose legs run on distance travelled
-	 * and whose jaws run on an attack timer cannot express both on one clock, and merging the two into
-	 * one clip would need a clip per pair of instants. Layered, the two are separate keys, so a swarm
-	 * mid-stride and a swarm mid-bite cost what each costs on its own rather than the product.
-	 *
-	 * <p>Everything {@link #pose(GltfPaletteLayout, SkinnedBounds, GltfMorphLayout, GltfAnimation, float,
-	 * int) the single-clip form} says about sharing still holds, once per layer: two calls collide only
-	 * when <em>every</em> layer agrees, so an extra layer can only ever split the table further. Adding a
-	 * layer that hardly ever varies -- a damage state, a variant -- is close to free; adding one that
-	 * varies per instance is what makes a crowd cost a pose each.
-	 *
-	 * <p>{@code clips} and {@code times} must be the same length, and a layer may be null to sit out.
-	 */
-	public Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
-			GltfAnimation[] clips, float[] times, int lod) {
-		if (clips.length != times.length) {
-			throw new IllegalArgumentException("pose has " + clips.length + " clips but " + times.length
-					+ " times");
-		}
+        Matrix4f[] fresh = new Matrix4f[size];
+        for (int i = 0; i < size; i++) {
+            fresh[i] = new Matrix4f();
+        }
+        return fresh;
+    }
 
-		Local thread = local.get();
-		int[] buckets = thread.buckets(clips.length);
-		for (int layer = 0; layer < clips.length; layer++) {
-			buckets[layer] = bucket(times[layer], lod);
-		}
-		return pose(layout, bounds, morphs, clips, buckets, clips.length, lod, thread);
-	}
+    public void endFrame() {
+        for (Pose pose : poses.values()) {
+            palettes.computeIfAbsent(pose.palette.length, ignored -> new ConcurrentLinkedQueue<>())
+                    .add(pose.palette);
+        }
+        poses.clear();
+        requestsLastFrame = requests.getAndSet(0);
+        evaluationsLastFrame = evaluations.getAndSet(0);
+        lodSumLastFrame = lodSum.getAndSet(0);
+        lodMaxLastFrame = lodMax.getAndSet(0);
+    }
 
-	private Pose pose(GltfPaletteLayout layout, SkinnedBounds bounds, GltfMorphLayout morphs,
-			GltfAnimation[] clips, int[] buckets, int layers, int lod, Local thread) {
-		requests.incrementAndGet();
-		lodSum.addAndGet(lod);
-		lodMax.accumulateAndGet(lod, Math::max);
+    public int requestsLastFrame() {
+        return requestsLastFrame;
+    }
 
-		Key probe = thread.probe.set(layout, clips, buckets, layers, lod);
+    public int evaluationsLastFrame() {
+        return evaluationsLastFrame;
+    }
 
-		Pose hit = poses.get(probe);
-		if (hit != null) {
-			return hit;
-		}
+    public int lodMaxLastFrame() {
+        return lodMaxLastFrame;
+    }
 
-		return poses.computeIfAbsent(probe.copy(), key -> evaluate(key, bounds, morphs, thread));
-	}
+    public int lodMeanCentisLastFrame() {
+        int requests = requestsLastFrame;
+        return requests == 0 ? 0 : lodSumLastFrame * 100 / requests;
+    }
 
-	private Pose evaluate(Key key, SkinnedBounds bounds, GltfMorphLayout morphs, Local thread) {
-		evaluations.incrementAndGet();
-		long startNanos = System.nanoTime();
+    public float quantumSeconds(int lod) {
+        return quantumSeconds * PoseLod.quantumScale(lod);
+    }
 
-		GltfPose.Scratch scratch = thread.scratch;
-		int size = key.layout.size();
-		Matrix4f[] palette = scratch.palette(size);
+    private int bucket(float timeSeconds, int lod) {
+        if (quantumSeconds <= 0.0f) {
+            return Float.floatToIntBits(timeSeconds == 0.0f ? 0.0f : timeSeconds);
+        }
+        return Math.round(timeSeconds / quantumSeconds(lod));
+    }
 
-		int morphFloats = morphs.blockFloats();
-		float[] morphBlock = morphs.isEmpty() ? null : scratch.morphBlock(morphFloats);
+    private float representativeTime(int bucket, int lod) {
+        return quantumSeconds <= 0.0f ? Float.intBitsToFloat(bucket) : bucket * quantumSeconds(lod);
+    }
 
-		float[] times = thread.times(key.layers);
-		for (int layer = 0; layer < key.layers; layer++) {
-			times[layer] = representativeTime(key.buckets[layer], key.lod);
-		}
+    /**
+     * One evaluated palette: what an instance carries, and where its bones ended up.
+     *
+     * <p>Valid for the frame it was obtained in and no longer. {@link #endFrame()} returns the palette
+     * to the pool it came from, so a {@code Pose} held across frames reads whatever was evaluated into
+     * that array next. Ask again rather than keeping one.
+     */
+    public static final class Pose {
+        private final int boneBase;
+        private final int morphBase;
+        private final Vector4fc sphere;
+        private final GltfPaletteLayout layout;
+        private final Matrix4f[] palette;
 
-		GltfPose.evaluate(key.layout, key.clips, times, palette, morphs, morphBlock, scratch);
+        private Pose(int boneBase, int morphBase, Vector4fc sphere, GltfPaletteLayout layout,
+                     Matrix4f[] palette) {
+            this.boneBase = boneBase;
+            this.morphBase = morphBase;
+            this.sphere = sphere;
+            this.layout = layout;
+            this.palette = palette;
+        }
 
-		Vector4f sphere = new Vector4f();
-		bounds.evaluate(palette, sphere);
+        public int boneBase() {
+            return boneBase;
+        }
 
-		int boneBase = BoneBuffer.getInstance()
-				.addPalette(palette, size);
-		int morphBase = morphBlock == null ? 0
-				: BoneBuffer.getInstance()
-						.addMorphBlock(morphBlock, morphFloats);
+        public int morphBase() {
+            return morphBase;
+        }
 
-		FrameCost.getInstance()
-				.addPoseNanos(System.nanoTime() - startNanos);
+        public Vector4fc sphere() {
+            return sphere;
+        }
 
-		return new Pose(boneBase, morphBase, sphere);
-	}
+        /**
+         * Where a bone ended up, in model space, for anything that has to be attached to one.
+         *
+         * <p>A muzzle flash, a held item, a light, a sound, a child model, a hitbox: all of them need
+         * the answer to "where is this bone now", and until this existed the pose was written straight
+         * into a GPU buffer and thrown away. It costs nothing to ask -- the palette is already
+         * composed, and this reads one matrix out of it.
+         *
+         * <p>Model space, so composing it with the instance transform is the caller's job and depends
+         * on the space that instance is in:
+         *
+         * <pre>{@code
+         * Matrix4f socket = pose.boneMatrix(muzzleSlot, new Matrix4f());
+         * socket.mulLocal(instance.pose);          // now relative to the render origin
+         * Vector3f at = socket.transformPosition(new Vector3f(0, 0, 0));
+         * double worldX = at.x + renderOrigin().getX();
+         * }</pre>
+         *
+         * <p><b>Node slots only</b> -- {@link NodeTable#slotOf} or {@link NodeTable#slotOfName}, not a
+         * slot out of {@link GltfPaletteLayout#jointSlots}. A skin's block of the palette holds
+         * {@code global x inverseBind}, which is the matrix that moves a bound vertex and is not where
+         * the joint is; the node slot for that same joint is, and every joint has one. Passing a skin
+         * slot throws rather than returning a plausible wrong transform.
+         *
+         * <p>The instant is the one the pose was <em>evaluated</em> at, which is its time bucket's
+         * representative and not exactly what was asked for -- at most half a {@linkplain
+         * #quantumSeconds() quantum} out, and more than that under {@link PoseLod} at distance, by the
+         * same octave the pose itself is coarsened by. That is the intended trade: a socket is exactly
+         * as accurate as the model it is attached to, and no copy sharing a pose can disagree with
+         * another about where its bones are.
+         */
+        public Matrix4f boneMatrix(int nodeSlot, Matrix4f out) {
+            NodeTable nodes = layout.nodeTable();
+            if (nodeSlot < 0 || nodeSlot >= nodes.nodeCount()) {
+                throw new IllegalArgumentException("bone " + nodeSlot + " is not one of the model's "
+                        + nodes.nodeCount() + " nodes. Palette slots at or past " + nodes.nodeCount()
+                        + " belong to a skin and hold global x inverseBind, which is not where the joint "
+                        + "is; ask for the node slot of that joint instead.");
+            }
+            return out.set(palette[nodeSlot]);
+        }
 
-	public void endFrame() {
-		poses.clear();
-		requestsLastFrame = requests.getAndSet(0);
-		evaluationsLastFrame = evaluations.getAndSet(0);
-		lodSumLastFrame = lodSum.getAndSet(0);
-		lodMaxLastFrame = lodMax.getAndSet(0);
-	}
+        /**
+         * As {@link #boneMatrix(int, Matrix4f)}, for a bone the asset names.
+         */
+        public Matrix4f boneMatrix(String nodeName, Matrix4f out) {
+            int slot = layout.nodeTable()
+                    .slotOfName(nodeName);
+            if (slot < 0) {
+                throw new IllegalArgumentException("this model has no node named '" + nodeName + "'");
+            }
+            return boneMatrix(slot, out);
+        }
+    }
 
-	public int requestsLastFrame() {
-		return requestsLastFrame;
-	}
+    /**
+     * Mutable so a lookup costs nothing: {@link #probe} is set and handed to {@code get}, which never
+     * keeps it, and only a miss copies one to store.
+     */
+    private static final class Key {
+        private GltfPaletteLayout layout;
+        private GltfAnimation[] clips;
+        private int[] buckets;
+        private int layers;
+        private int lod;
 
-	public int evaluationsLastFrame() {
-		return evaluationsLastFrame;
-	}
+        private Key set(GltfPaletteLayout layout, GltfAnimation[] clips, int[] buckets, int layers, int lod) {
+            this.layout = layout;
+            this.clips = clips;
+            this.buckets = buckets;
+            this.layers = layers;
+            this.lod = lod;
+            return this;
+        }
 
-	public int lodMaxLastFrame() {
-		return lodMaxLastFrame;
-	}
+        private Key copy() {
+            return new Key().set(layout, Arrays.copyOf(clips, layers), Arrays.copyOf(buckets, layers), layers,
+                    lod);
+        }
 
-	public int lodMeanCentisLastFrame() {
-		int requests = requestsLastFrame;
-		return requests == 0 ? 0 : lodSumLastFrame * 100 / requests;
-	}
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof Key that) || layers != that.layers || lod != that.lod
+                    || layout != that.layout) {
+                return false;
+            }
+            for (int layer = 0; layer < layers; layer++) {
+                if (buckets[layer] != that.buckets[layer]
+                        || !Objects.equals(clips[layer], that.clips[layer])) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
-	public float quantumSeconds(int lod) {
-		return quantumSeconds * PoseLod.quantumScale(lod);
-	}
+        @Override
+        public int hashCode() {
+            int hash = System.identityHashCode(layout) * 31 + lod;
+            for (int layer = 0; layer < layers; layer++) {
+                hash = (hash * 31 + Objects.hashCode(clips[layer])) * 31 + buckets[layer];
+            }
+            return hash;
+        }
+    }
 
-	private int bucket(float timeSeconds, int lod) {
-		if (quantumSeconds <= 0.0f) {
-			return Float.floatToIntBits(timeSeconds == 0.0f ? 0.0f : timeSeconds);
-		}
-		return Math.round(timeSeconds / quantumSeconds(lod));
-	}
+    private static final class Local {
+        private final Key probe = new Key();
+        private final GltfPose.Scratch scratch = new GltfPose.Scratch();
 
-	private float representativeTime(int bucket, int lod) {
-		return quantumSeconds <= 0.0f ? Float.intBitsToFloat(bucket) : bucket * quantumSeconds(lod);
-	}
+        /**
+         * Reused so the single-layer call, which is nearly all of them, allocates nothing on a hit.
+         */
+        private final GltfAnimation[] oneClip = new GltfAnimation[1];
+        private final int[] oneBucket = new int[1];
+
+        private int[] buckets = new int[4];
+        private float[] times = new float[4];
+
+        private int[] buckets(int layers) {
+            if (buckets.length < layers) {
+                buckets = new int[layers];
+            }
+            return buckets;
+        }
+
+        private float[] times(int layers) {
+            if (times.length < layers) {
+                times = new float[layers];
+            }
+            return times;
+        }
+    }
 }

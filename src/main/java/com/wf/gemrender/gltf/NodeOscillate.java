@@ -17,37 +17,39 @@ package com.wf.gemrender.gltf;
  * not the {@code Ry(a+dy)Rz(b+dz)} the rig meant.
  */
 public record NodeOscillate(int offset, float axisX, float axisY, float axisZ, float baseRadians,
-		float amplitudeRadians, float periodSeconds, float phaseTurns) implements PoseDriver {
-	private static final float TAU = (float) (Math.PI * 2.0);
+                            float amplitudeRadians, float periodSeconds, float phaseTurns) implements PoseDriver {
+    private static final float TAU = (float) (Math.PI * 2.0);
 
-	public static NodeOscillate about(NodeTable table, int slot, float axisX, float axisY, float axisZ,
-			float baseRadians, float amplitudeRadians, float periodSeconds, float phaseTurns) {
-		if (periodSeconds <= 0.0f) {
-			throw new IllegalArgumentException("oscillation period must be positive, was " + periodSeconds);
-		}
+    public static NodeOscillate about(NodeTable table, int slot, float axisX, float axisY, float axisZ,
+                                      float baseRadians, float amplitudeRadians, float periodSeconds, float phaseTurns) {
+        if (periodSeconds <= 0.0f) {
+            throw new IllegalArgumentException("oscillation period must be positive, was " + periodSeconds);
+        }
 
-		float[] axis = NodeRotation.axis(axisX, axisY, axisZ);
-		return new NodeOscillate(NodeRotation.offsetOf(table, slot), axis[0], axis[1], axis[2], baseRadians,
-				amplitudeRadians, periodSeconds, phaseTurns);
-	}
+        float[] axis = NodeRotation.axis(axisX, axisY, axisZ);
+        return new NodeOscillate(NodeRotation.offsetOf(table, slot), axis[0], axis[1], axis[2], baseRadians,
+                amplitudeRadians, periodSeconds, phaseTurns);
+    }
 
-	/** A fixed angle: the same node, the same axis, nothing moving. */
-	public static NodeOscillate fixed(NodeTable table, int slot, float axisX, float axisY, float axisZ,
-			float radians) {
-		return about(table, slot, axisX, axisY, axisZ, radians, 0.0f, 1.0f, 0.0f);
-	}
+    /**
+     * A fixed angle: the same node, the same axis, nothing moving.
+     */
+    public static NodeOscillate fixed(NodeTable table, int slot, float axisX, float axisY, float axisZ,
+                                      float radians) {
+        return about(table, slot, axisX, axisY, axisZ, radians, 0.0f, 1.0f, 0.0f);
+    }
 
-	@Override
-	public void apply(float timeSeconds, float[] scratch) {
-		float angle = baseRadians;
-		if (amplitudeRadians != 0.0f) {
-			angle += amplitudeRadians * (float) Math.sin(TAU * (timeSeconds / periodSeconds + phaseTurns));
-		}
-		NodeRotation.compose(scratch, offset, axisX, axisY, axisZ, angle);
-	}
+    @Override
+    public void apply(float timeSeconds, float[] scratch) {
+        float angle = baseRadians;
+        if (amplitudeRadians != 0.0f) {
+            angle += amplitudeRadians * (float) Math.sin(TAU * (timeSeconds / periodSeconds + phaseTurns));
+        }
+        NodeRotation.compose(scratch, offset, axisX, axisY, axisZ, angle);
+    }
 
-	@Override
-	public float cycleSeconds() {
-		return amplitudeRadians == 0.0f ? 0.0f : periodSeconds;
-	}
+    @Override
+    public float cycleSeconds() {
+        return amplitudeRadians == 0.0f ? 0.0f : periodSeconds;
+    }
 }

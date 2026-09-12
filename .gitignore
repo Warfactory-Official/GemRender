@@ -5,10 +5,16 @@ out/
 bin/
 mcmodsrepo/
 
-# Dev run directories
+# Dev run directories. Per-version and kept at the repository root, so run-*/ covers every version
+# but the reference one -- see gemrender-internal/docs/MULTIVERSION.md.
 run/
 run-data/
 run-*/
+
+# Stonecutter version subprojects: their gradle.properties IS the configuration and is tracked;
+# everything else in them is generated. build/ above already covers versions/<v>/build, but the
+# legacy-Forge toolchain also drops a log directory beside it.
+versions/*/logs/
 
 # Generated data
 src/generated/resources/.cache/

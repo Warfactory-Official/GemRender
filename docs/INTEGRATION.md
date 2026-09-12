@@ -7,8 +7,23 @@ This is the consumer-facing guide, and it is self-contained: everything you need
 here. Where a rule below looks arbitrary, the reasoning is in the maintainers' notes
 (`gemrender-internal/docs/`), which are kept outside this repository.
 
-Requires Minecraft 1.21.1 and NeoForge 21.1.248. Flywheel 1.0.6 rides inside GemRender's jar, so
-there is nothing else to install. Everything here is client side.
+GemRender ships for three Minecraft versions, built from one source tree:
+
+| Minecraft | Loader | Java |
+|---|---|---|
+| 1.21.1 | NeoForge 21.1.248 | 21 |
+| 1.20.1 | MinecraftForge 47.4.23 | 17 |
+| 26.1 | NeoForge 26.1.2.109 | 25 |
+
+Flywheel rides inside GemRender's jar -- 1.0.6 before 26.1, a port of it on 26.1 -- so there is
+nothing else to install. On 26.1 that also means a Flywheel of your own in `mods/` is a duplicate mod
+id and a hard load failure. Everything here is client side.
+
+**The API is the same on all three**, and that is a checked claim rather than an intention: the public
+signatures of every type below are identical across the three built jars except at two seams, both of
+them vanilla's doing -- how an item claims a renderer and how armour does. Those are in
+[section 6](#6-items-armour-and-the-hand), beside the code that differs, and
+[Version differences](#version-differences) is the complete list.
 
 ---
 
@@ -28,11 +43,12 @@ Two consequences shape the whole API:
   the API as intended and lethal the moment you read a mesh yourself. See
   [the vertex format trap](#the-vertex-format-trap).
 
-There is a second path for the shape this one is bad at – a handful of vehicles whose parts each
-answer to something different, rather than a crowd of machines sharing a clock. Sections 1 and 2 are
-the crowd; [section 3](#3-vehicles-and-animation-driven-by-something-other-than-time) is the vehicle.
+Sections 1 to 3 are that shape: register an asset, then draw it on a block entity or on an entity.
+There is a second path for the shape this one is bad at – a handful of vehicles whose parts each answer
+to something different, rather than a crowd sharing a clock;
+[section 4](#4-vehicles-and-animation-driven-by-something-other-than-time) is the vehicle.
 
-Both assume the asset arrives with a skeleton in it. [Section 4](#4-rigging-a-model-that-has-none) is
+Both assume the asset arrives with a skeleton in it. [Section 5](#5-rigging-a-model-that-has-none) is
 for when it does not: loose part meshes and an animation written in code, joined into a rig here.
 
 ---
@@ -55,17 +71,17 @@ src/main/resources/assets/mymod/models/drill/drill.glb
 ### Declaring the handle
 
 `GemRenderModels.handle(id)` is cheap, idempotent and lazy. It does not load anything. What it does
-is mark the asset as *wanted*, which is what gets it imported at the end of a resource reload, on the
-render thread, at a defined moment. Hold it in a `static final` and the import never happens mid-frame
-on a Flywheel task thread.
+is mark the asset as *wanted*, which is what gets it re-imported after every resource reload. Hold it
+in a `static final` so that a reload brings your model back without waiting for something to ask for
+it again.
 
 ```java
 public final class MyModels {
     public static final ResourceLocation DRILL =
             ResourceLocation.fromNamespaceAndPath("mymod", "models/drill/drill.glb");
 
-    // Declaring the handle is the registration. Held in a static final so the asset is
-    // imported at reload time rather than by whichever visual happens to want it first.
+    // Declaring the handle is the registration. Held in a static final so a resource
+    // reload re-imports it, rather than waiting for something to ask for it again.
     public static final ModelCache.Handle<GemRenderGltfModel> DRILL_MODEL =
             GemRenderModels.handle(DRILL);
 
@@ -74,8 +90,97 @@ public final class MyModels {
 }
 ```
 
-Read the model with `handle.get()`, which returns `null` if the asset failed to import.
-`GemRenderModels.get(id)` is the same thing keyed by id.
+Read the model with `handle.get()`. `GemRenderModels.get(id)` is the same thing keyed by id.
+
+**`get()` never blocks, and returns `null` until the model is there.** The first call starts the
+import on a loader thread and answers `null`; a later frame answers the model. Importing is not
+cheap — a model with a stitched atlas takes a few hundred milliseconds the first time it is ever
+seen — and the alternative is a render thread stopped for that long at whatever moment a player first
+looks at your block.
+
+So handle `null` by drawing nothing and asking again next frame. Do not cache the answer, do not
+treat it as a failure, and do not block on it:
+
+```java
+GemRenderGltfModel model = MyModels.DRILL_MODEL.get();
+if (model == null) {
+    return;          // not loaded yet, or broken. Either way, not this frame.
+}
+```
+
+Calling `get()` every frame is the intended usage: the import is started once, further calls join it
+rather than starting another, and a failure is remembered so a broken file is not re-parsed each
+frame. `handle.isLoading()` distinguishes "still importing" from "broken" if you want to say so in a
+tooltip; `handle.getBlocking()` waits, and is for a command or a test, never for a frame.
+
+### Bedrock geometry and its texture
+
+A `.geo.json` names no texture — the format has none — so the importer looks for a `.png` beside it,
+or a `gemrender:texture` in the geometry's description. When neither is right, because the same hull
+is worn with several skins and the texture is decided elsewhere, hand it in:
+
+```java
+GemRenderModels.built(
+        ResourceLocation.fromNamespaceAndPath("mymod", "hull/" + skin.getPath()),
+        id -> BedrockImporter.load(GEOMETRY, skin));
+```
+
+The texture is baked into the material at import, so **one geometry with two textures is two models**.
+That is what the id is for: build it from both, or the second skin quietly gets the first one's model.
+
+When the skins are known up front, declare them together instead and get one model back – see below.
+
+### Variants: one model, several skins
+
+A mob's colour, a vehicle's livery, a team's paint, a gun's camo: same geometry, same rig, same clips,
+different pixels. Declared together, they are stitched into one sheet at import and **all of them draw
+in one batch** – what separates two copies is two floats on the instance.
+
+```java
+private static final ResourceLocation SKINS =
+        ResourceLocation.fromNamespaceAndPath("mymod", "variants/drone");
+
+public static final ModelCache.Handle<GemRenderGltfModel> DRONE = GemRenderModels.variants(
+        SKINS, ResourceLocation.fromNamespaceAndPath("mymod", "models/drone.gltf"),
+        List.of(Map.of(),                          // 0: as the file describes it
+                Map.of(HULL, HULL_DESERT),         // 1
+                Map.of(HULL, HULL_WINTER)));       // 2
+```
+
+A variant is a **texture substitution**, keyed on the location the asset itself names, so one entry
+reskins every material that shares that texture and a material a variant does not mention keeps the one
+it had. Variant 0 is the base, and is normally an empty map.
+
+For Bedrock geometry, where there is only ever one texture to substitute, name the skins directly:
+
+```java
+GemRenderModels.skins(SKINS, GEOMETRY, List.of(PLAIN, DESERT, WINTER));
+```
+
+Put a variant on an instance with the offset the model hands you:
+
+```java
+instance.variant(gltf.variant(drone.liveryIndex()));
+```
+
+`gltf.variantCount()` is how many there are, and an index past the end is clamped rather than thrown –
+a variant is content, the count changes when a pack is swapped, and a drone briefly wearing skin 0 is a
+better failure inside a visual than an exception. The item and armour paths take the same value:
+`ItemAppearance.variant(stack, context)` and `ArmorAppearance.variant(entity, stack, slot)`, asked per
+stack, so a gun can wear one camo in the hand and another in the inventory.
+
+**What it costs.** One addition in the vertex shader and 8 bytes on the instance. No second sampler, no
+second material, no second draw: nine copies of a model in three skins is one draw and one palette.
+
+**The ceiling is the sheet.** Every variant is a full copy of the model's textures, and the packer
+declines rather than exceeding 4096 pixels – it logs what did not fit and the model imports unatlased.
+A 64x64 texture leaves room for dozens; a model whose sheet is already 1028x3084 has room for three. A
+PBR sheet is three times as tall before any of this, so variants tile across it rather than down.
+
+**Every variant's textures have to be the same size as variant 0's**, because they share one packed
+layout. A skin of another size throws at import with both sizes named. That is deliberate: dropping it
+quietly would ship a model wearing the wrong skin, and that is a content bug which never announces
+itself.
 
 ### Reloads and failures
 
@@ -87,6 +192,28 @@ behind it is replaced, so a stored handle can never hand you a disposed model. A
 An import that throws does not propagate: you get `null`, the failure is cached so a broken file is
 not re-parsed every frame, and the reason is logged once. A reload retries everything that failed,
 because that is the moment the answer can have changed.
+
+**Imports run on a small pool of loader threads, and nothing on them touches the GPU.** Parsing,
+material baking, atlas stitching and mesh building are arithmetic; the texture registrations route
+themselves through `RenderSystem.recordRenderCall`, and the vertex upload happens on the render
+thread on the model's first draw. A `Builder` passed to `GemRenderModels.built` runs there too, so it
+must build geometry and nothing else — no GL, no render state, no `Minecraft` field that is only safe
+on the render thread.
+
+A reload re-imports everything wanted in parallel and does not wait: the reload finishes, and the
+models arrive over the next few frames. Nothing needs handling for that beyond the `null` above.
+
+### The block cache
+
+Compressing a stitched atlas to BC7 is the single most expensive thing an import does — 153 ms for a
+1028x3084 sheet — and it is perfectly reproducible, so the blocks are kept in `.gemrender/blocks`
+under the instance directory and the encode only ever happens on the launch that first sees a given
+sheet. The same atlas costs **16 ms** on every launch after that.
+
+Entries are named by a hash of the pixels, so nothing has to be invalidated: a pack that changes a
+texture stitches a different sheet and asks a different question. The directory is capped at 512 MB
+and evicts least-recently-used; `-Dgemrender.blockcache=<MB>` changes the cap, and `0` switches the
+cache off. Deleting the directory is always safe.
 
 ---
 
@@ -126,25 +253,26 @@ instance transform), `blockState` and `relight(...)`.
 public class DrillVisual extends AbstractBlockEntityVisual<DrillBlockEntity>
         implements SimpleDynamicVisual {
 
-    private final GemRenderGltfModel gltf;
-    private final AnimationPhase phase;
+    private GemRenderGltfModel gltf;
+    private AnimationPhase phase;
     private GemRenderInstance instance;
 
     public DrillVisual(VisualizationContext ctx, DrillBlockEntity be, float partialTick) {
         super(ctx, be, partialTick);
 
-        this.gltf = MyModels.DRILL_MODEL.get();
+        // Nothing else: the model may still be importing. See below.
+    }
+
+    /** Takes an instance once the model is in. False while it is not. */
+    private boolean acquire() {
+        gltf = MyModels.DRILL_MODEL.get();
         if (gltf == null) {
-            // The asset did not import and the registry has already logged why. Render
-            // nothing rather than throw from a Flywheel task thread, where the stack
-            // trace would name none of the responsible code.
-            this.phase = AnimationPhase.REST;
-            return;
+            return false;
         }
 
         // Seeded off the block position, so this machine is at the same point in its
         // cycle after a restart, on another client, and after the chunk reloads.
-        this.phase = AnimationPhase.scattered(gltf.animationOrAny("run"), pos.asLong());
+        phase = AnimationPhase.scattered(gltf.animationOrAny("run"), pos.asLong());
 
         instance = instancerProvider()
                 .instancer(GemRenderInstanceTypes.SKINNED, gltf.model())
@@ -155,11 +283,12 @@ public class DrillVisual extends AbstractBlockEntityVisual<DrillBlockEntity>
         // Per instance, because the per-vertex light attribute carries joint indices.
         relight(instance);
         instance.setChanged();
+        return true;
     }
 
     @Override
     public void beginFrame(Context ctx) {
-        if (instance == null) {
+        if (instance == null && !acquire()) {
             return;
         }
 
@@ -199,14 +328,52 @@ public class DrillVisual extends AbstractBlockEntityVisual<DrillBlockEntity>
 }
 ```
 
+**Do not resolve the model in the constructor.** Imports run on loader threads, so a visual built while
+its asset is still importing gets `null` – and a visual that gave up there draws nothing for the rest of
+its life, because nothing rebuilds it until the next resource reload. Asking the handle each frame until
+it answers is a field read and a generation compare once the model is in. `GemRenderEntityVisual` in the
+next section does this for you.
+
+**Flywheel never culls your visual for you.** `AbstractBlockEntityVisual.isVisible(frustum)` and
+`doDistanceLimitThisFrame(ctx)` look like framework hooks and are not — nothing in Flywheel calls
+either, as its own javadoc says ("You may optionally do this check"). They are helpers your
+`beginFrame` has to apply, so a visual that *overrides* `isVisible` and never calls it has written dead
+code, and one that never mentions it updates every model in the level every frame, behind you included.
+
+```java
+@Override
+public void beginFrame(Context ctx) {
+    if (!isVisible(ctx.frustum()) || doDistanceLimitThisFrame(ctx)) {
+        return;
+    }
+    ...
+}
+```
+
+And override `isVisible` whenever the model is bigger than the block: the default is a sphere around
+**one block**, so a machine that reaches past its controller stops updating — freezing mid-animation
+with most of it still on screen — as soon as that one block leaves the frustum. `PosedBound.test` is
+that test, against the bound `PoseCache.Pose.sphere()` gave you for the pose you last drew:
+
+```java
+@Override
+public boolean isVisible(FrustumIntersection frustum) {
+    return super.isVisible(frustum) || PosedBound.test(frustum, instance.pose, lastSphere);
+}
+```
+
+Union, not replacement — the bound is last frame's. `GemRenderEntityVisual` does all of this for you on
+the entity path, where the default is the entity's hitbox and the mismatch is the same one.
+
 **You do not manage the buffers.** Uploading the bone palette, binding it to texture unit 10, binding
 the morph deltas to unit 11 and clearing the pose cache all happen once a frame before any Flywheel
 draw. You never call `BoneBuffer.uploadAndBind()` or `PoseCache.endFrame()` yourself.
 
 ### The four fields
 
-A `GemRenderInstance` has four things a consumer sets. Three of them fail loudly. One fails quietly,
-which is why it is worth naming.
+A `GemRenderInstance` has five things a consumer sets, and only four of them matter for a model with one
+skin. Three fail loudly, one fails quietly – which is why it is worth naming – and one has a default
+that is simply correct.
 
 | Field | What it is | If you forget it |
 |---|---|---|
@@ -214,6 +381,7 @@ which is why it is worth naming.
 | `light` | Packed lightmap, per instance. Set it with `relight(instance)` | The model is black. Per-vertex light is unavailable, it carries joint indices |
 | `boneBase`, `morphBase` | Offsets into the shared buffers, from `PoseCache.Pose`. Never compute these yourself | Every copy shows another machine's pose, or the rest pose forever |
 | `boneSphere` | Bounding sphere of the *posed* model, also from `PoseCache.Pose` | **Geometry vanishes near the edge of the screen.** The default is a deliberately small one-block sphere, so the mistake is visible rather than silently disabling culling forever |
+| `uvOffset` | Which variant the copy wears, from `gltf.variant(i)`. Only for a model that declares any | The copy wears variant 0, which is the right default and the only value a model without variants has |
 
 **Flywheel's own bounding sphere is unusable.** Do not fall back to `gltf.model().boundingSphere()`.
 Flywheel builds it from every primitive's raw vertices heaped into one space, and a GemRender model's
@@ -269,11 +437,111 @@ question of how much it varies:
 
 The counting argument in `AnimationPhase.snap` applies unchanged, once per layer.
 
+### Attaching something to a bone
+
+A muzzle flash, a held item, a light, a particle emitter, a child model: all of them need to know where
+a bone ended up this frame. The palette is already composed on the CPU, so asking costs a matrix copy.
+
+```java
+Matrix4f socket = pose.boneMatrix("muzzle", new Matrix4f());   // model space
+socket.mulLocal(instance.pose);                                // relative to the render origin
+Vector3f at = socket.transformPosition(new Vector3f());
+
+double worldX = at.x + renderOrigin().getX();
+```
+
+`boneMatrix` takes a **node** slot – `NodeTable.slotOf`, `slotOfName`, or the name as above – and not a
+slot out of `jointSlots`. A skin's block of the palette holds `global x inverseBind`, which is the
+matrix that moves a bound vertex and is *not* where the joint is; every joint has a node slot as well,
+and that is the one to ask for. Passing a skin slot throws rather than returning a plausible wrong
+transform.
+
+Two things follow from the pose being shared. The instant is the one it was **evaluated** at, which is
+its time bucket's representative rather than exactly what you asked for – at most half a quantum out,
+and coarser at distance by the same octave `PoseLod` coarsens the model by. And the matrices are valid
+for the frame only: the cache hands them back to its pool at the end of it, so keep what you read
+rather than the `Pose`.
+
 ---
 
-## 3. Vehicles, and animation driven by something other than time
+## 3. Draw it on an entity
 
-Everything above assumes the shape section 2 is good at: many copies of one machine, all reading one
+A mob, a vehicle, a projectile, a drone: everything section 2 does, on something that moves. Same one
+draw per model per batch, same skinning in the vertex shader, same shared palettes, same temporal LOD.
+
+Register a visualizer for the entity type, at client setup, on the mod bus:
+
+```java
+@SubscribeEvent
+static void onClientSetup(FMLClientSetupEvent event) {
+    event.enqueueWork(() -> SimpleEntityVisualizer.builder(MyEntities.DRONE.get())
+            .factory(DroneVisual::new)
+            // The visual draws the whole entity, so the vanilla renderer must not.
+            .skipVanillaRender(entity -> true)
+            .apply());
+}
+```
+
+Then extend `GemRenderEntityVisual<T>`, which owns the instance, the transform, the pose and the light:
+
+```java
+public class DroneVisual extends GemRenderEntityVisual<Drone> {
+    private final GltfAnimation hover;
+
+    public DroneVisual(VisualizationContext ctx, Drone drone, float partialTick) {
+        super(ctx, drone, partialTick, MyModels.DRONE);   // the handle, not the model
+
+        addComponent(new ShadowComponent(ctx, drone).radius(0.7f));
+
+        this.hover = ...;
+    }
+
+    @Override
+    protected void animate(float partialTick, GltfAnimation[] clips, float[] times) {
+        clips[0] = hover;
+        times[0] = (level.getGameTime() + partialTick) / 20.0f;
+    }
+}
+```
+
+That is the whole of the common case. `animate` writes a clip and an instant into each layer; the
+arrays are `layers()` long, are reused between frames, and a layer left `null` sits out. Everything
+[section 2 says about several clips at once](#several-clips-at-once) applies here unchanged.
+
+**Where the model goes** is `transform(Matrix4f, float)`, which by default is the entity's interpolated
+position and `getYRot()`. Override it for anything else – a mob whose body and head turn separately
+usually wants `yBodyRot` here and a head bone driven from the difference, and a vehicle wants pitch and
+roll too. The matrix is applied after skinning, so it moves the posed model as a whole.
+
+**Shadow, fire and hitbox are Flywheel's own components** and none is added by default, because a flying
+machine wants none of them. `addComponent(new ShadowComponent(...))`, `new FireComponent(...)`,
+`new HitboxComponent(...)`.
+
+Three things the base class handles that a hand-written visual gets wrong:
+
+- **The model may not be loaded yet.** Imports run on loader threads, so an entity that comes into view
+  during one gets `null` from its handle. The instance is taken on the first frame the model answers,
+  not in the constructor. A visual that resolved it once would draw nothing for that entity's whole
+  life.
+- **Culling is on the model's bound, not the entity's box.** Flywheel tests an entity's own bounding box
+  inflated a little, which is right for a model drawn at the size of the thing carrying it. A GemRender
+  model is under no obligation to be entity-sized, and a two-block entity wearing a twenty-block machine
+  would stop being updated as soon as its box left the frustum – which looks like a model frozen
+  mid-animation with most of it still on screen.
+- **Lighting is sampled through Flywheel's distance limiter**, so a crowd does not all re-read the
+  lightmap on the same frame. The transform is written every frame regardless, because it has to be.
+
+**What a crowd costs.** An entity moves, so its instance is rewritten every frame – a few dozen bytes,
+and Flywheel uploads only what changed. The pose is the expensive half, and it is expensive exactly when
+a crowd disagrees about the time: three hundred mobs mid-stride at three hundred different points in a
+walk cycle is three hundred palette evaluations, because that is genuinely three hundred poses. That is
+what `PoseLod` is for, and it is on by default. What is under your control is the instant `animate`
+writes; see the counting argument in section 2.
+
+---
+## 4. Vehicles, and animation driven by something other than time
+
+Everything above assumes the shape sections 2 and 3 are good at: many copies of one machine, all reading one
 clock, so the pose cache collapses them. A vehicle is the other shape. There are a few of them, not a
 few thousand, and each one's parts answer to different things – the left tread to how far that side
 has travelled, the turret to where its gunner is looking. Nothing is shared between two of them,
@@ -297,9 +565,10 @@ Bedrock `.geo.json` only; `GemRenderModels.partsHandle` on a `.glb` throws.
 
 ### Registering
 
-Same rule as section 1 – declare it in a `static final` so the import happens at reload rather than
-on a Flywheel task thread. `GemRenderModels.parts(id)` resolves through the same cache but loads on
-the spot, which inside a visual's constructor is an import mid-frame.
+Same rule as section 1 – declare it in a `static final` so a reload re-imports it.
+`GemRenderModels.parts(id)` resolves through the same cache, with the same contract: `null` until it
+has loaded. A visual built from a `null` model holds no parts and is not rebuilt when the model
+arrives, so gate the visual on the model rather than building one around a `null`.
 
 ```java
 public static final ModelCache.Handle<GemRenderPartsModel> TANK =
@@ -419,9 +688,49 @@ move must be declared in `gemrender:gameplay_bones` so the partition cuts above 
 error naming the bone and the part it was baked into, which is the first thing to check when a turret
 will not turn.
 
+### When the pose is not a clip at all
+
+Everything above scrubs a clip, because a clip is what an asset ships with. A mod that already has an
+animation system – a state machine, a blend graph, a script – has something else: a transform per
+bone, computed per frame, that no clip describes. Nothing about a bone palette requires a clip, so
+that case is a supported one.
+
+Write the bones into a **node state**, which is the same `float[]` a clip's drivers write into, and
+compose it yourself:
+
+```java
+NodeTable table = gltf.layout().nodeTable();
+float[] state = table.newScratch();          // hold this; it is per copy
+table.resetToRest(state);                    // anything not written stays at rest
+
+int slot = table.slotOfName("turret");       // -1 for a bone the model does not have
+if (slot >= 0 && table.isPosable(slot)) {    // false for a node the file declared as a matrix
+    table.setTranslation(state, slot, x, y, z);
+    table.setRotation(state, slot, quaternion);
+    table.setScale(state, slot, sx, sy, sz);
+}
+
+GltfPose.evaluate(gltf.layout(), state, palette, gltf.morphs(), morphBlock, scratch);
+gltf.bounds().evaluate(palette, sphere);
+
+instance.boneBase = BoneBuffer.getInstance().addPalette(palette, gltf.jointCount());
+instance.boneSphere.set(sphere);
+instance.setChanged();
+```
+
+`table.restTranslation(slot, axis)` and `restRotation(slot, out)` are there for expressing a pose as
+an offset from the rest one, which is what an additive animation system produces.
+
+**This gives up sharing, and that is the whole cost.** `PoseCache` keys on a clip and an instant, and
+this has neither, so it is one palette evaluation and one upload per copy per frame — the cost class
+[the table above](#3-vehicles-and-animation-driven-by-something-other-than-time) calls "skinned, one
+palette per copy". For a few dozen vehicles that is nothing; for a crowd, use a clip. And the two
+arrays are yours: compose on one thread and read on another and you will upload a half-written pose,
+so either do both on the same thread or publish whole palettes and alternate between two of them.
+
 ---
 
-## 4. Rigging a model that has none
+## 5. Rigging a model that has none
 
 Sections 1 to 3 assume the asset arrives with a skeleton in it. A lot of them do not. A mod that has
 been drawing a machine for years usually has a folder of `.obj` parts and a hand-written animation:
@@ -539,67 +848,288 @@ one instance and a mob costing one per moving part.
 
 ---
 
-## 5. Items and BEWLR
+## 6. Items, armour and the hand
 
-GemRender **cannot** render an item, in hand, in a GUI or in an inventory, and this is structural
-rather than a missing feature.
+The same models, drawn where vanilla draws items: in a hand, in an inventory, on the ground, in a
+frame, on a head, and worn as armour. It is the same retained path as everywhere else -- geometry
+uploaded once, skinning in the vertex shader, one instanced draw per model -- not a CPU mirror of it.
 
-### Why it cannot work
+> Earlier versions of this document said this could not work. What follows is what changed.
 
-A `BlockEntityWithoutLevelRenderer` draws into the item pipeline, which has no level and no Flywheel.
-Three separate things in the stack are keyed to the world pass:
+### Why it looked structural
 
-- `VisualizationManager.get(...)` takes a `LevelAccessor`. There is no manager, no instancer and no
-  visual outside a level.
-- The bone palette is bound from Flywheel's `DrawManager.render`, which only runs in the level render
-  pass. In an item context texture unit 10 holds whatever was there last.
-- Instance transforms are relative to `renderOrigin()`, a world coordinate, and are consumed by
-  Flywheel's own view and projection uniforms rather than by the pose stack a BEWLR is handed.
+Three things are true and none of them is the obstacle they appeared to be:
 
-So there is no flag to set. Item rendering means a completely separate CPU path that shares the
-imported asset and nothing else.
+- `VisualizationManager.get(...)` takes a `LevelAccessor`, so there is no manager, instancer or visual
+  outside a level. **GemRender therefore owns the draw here instead of Flywheel** -- its own program,
+  its own vertex arrays, its own instance buffers.
+- The palette is bound from Flywheel's `DrawManager.render`, which runs only in the level pass. So this
+  path binds its own (`BoneBuffer.direct()`), on the same texture unit, immediately before its draws.
+- Instance transforms are relative to `renderOrigin()` and consumed by Flywheel's view and projection
+  uniforms. Here the caller's `PoseStack` rides on the instance and the camera matrices are read at
+  flush time.
 
-### The vertex format trap
+What none of that touches is the part worth keeping. `skin_lbs.glsl` and `morph.glsl` are concatenated
+into this path's vertex shader from the same shipped files Flywheel `#include`s, so a machine in a
+hotbar is skinned by the code that skins it in the world, and neither can be quietly forked.
 
-The obvious idea is to walk `gltf.model().meshes()`, call `Mesh.write(MutableVertexList)` and copy
-the result into a `VertexConsumer`. That compiles, runs, and renders nonsense, because in a GemRender
-mesh those channels do not mean what they are named.
+### Drawing an item
 
-| Vertex channel | What it actually holds | Naive result |
+Two pieces, both on your mod.
+
+**Build the renderer and give it a name.** Same call on every version:
+
+```java
+public static final ResourceLocation RIFLE = ResourceLocation.fromNamespaceAndPath("mymod", "rifle");
+
+GemRenderItemRenderer.register(RIFLE, GemRenderItemRenderer.of(MY_MODEL.get(),
+        MY_MODEL.get().animation("idle")));
+```
+
+**Then let the item claim it**, and this is one of the two places the version matters. Vanilla changed
+which half of the claim is Java and which is data.
+
+*Before 26.1*, an item model JSON inheriting `builtin/entity` is what makes a baked model report
+`isCustomRenderer()` and route here at all -- without it nothing below is ever called and the item
+draws as a missing model -- and the item names the renderer from client code:
+
+```json
+{ "parent": "builtin/entity", "gui_light": "side" }
+```
+
+```java
+@Override
+public void initializeClient(Consumer<IClientItemExtensions> consumer) {
+    consumer.accept(new IClientItemExtensions() {
+        @Override
+        public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+            return GemRenderItemRenderer.get(RIFLE);
+        }
+    });
+}
+```
+
+`gui_light: side` asks for three-dimensional item lighting rather than the flat lighting a sprite gets.
+A model that looks correct in the world and flat in the inventory is this line.
+
+*On 26.1* there is no `getCustomRenderer` and no `builtin/entity`. The item model names its renderer in
+data and the item needs no client code at all:
+
+```json
+// assets/mymod/items/rifle.json
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "mymod:item/rifle_base",
+    "model": { "type": "gemrender:model", "key": "mymod:rifle" }
+  }
+}
+```
+
+`base` is an ordinary item model, used only for the display transforms and the particle texture; the
+geometry drawn is GemRender's. `key` is the name passed to `register`.
+
+That one renderer covers **every** item context, on every version. Vanilla hands the display context to
+the same hook, so in-hand, first person, the ground, the inventory, an item frame and a head are all
+served by it.
+
+### Per-context models, clips and placement
+
+`GemRenderItemRenderer.of` is the fixed case. The general one is `ItemAppearance`, which asks your mod
+four questions per copy, all of them functions of the stack **and** the `ItemDisplayContext`:
+
+| Method | What it decides |
+|---|---|
+| `model` | which asset, or `null` to draw nothing |
+| `clip` | which animation, or `null` for the model at rest |
+| `seconds` | where in the clip this copy is |
+| `transform` | how it sits, on top of vanilla's own item transform |
+| `variant` | which of the model's variant skins this copy wears |
+| `tint` | a colour multiplied over the model |
+
+(Six questions, not four -- the heading is older than `variant`.)
+
+That shape is deliberate, and it is what a real item model needs: a gun is a different mesh in the hand
+than in the inventory, is held differently in first person than in third, and animates on a reload
+timer rather than the world clock. `variant` is asked per (stack, context) like the rest, so the same
+sheet and the same batch cover a chest full of differently painted guns -- still one draw.
+
+`seconds` **must be a pure function of things that do not change within a frame.** Two calls for the
+same stack in one frame that return different instants make the copy flicker -- and returning the same
+instant is also what lets a chest of thirty-six identical items share one palette.
+
+**`transform`'s origin is the CENTRE of the item cell, not a corner.** Vanilla's own convention is the
+corner -- a vanilla item is a block model living in `[0,1]^3`, and every version translates by
+`(-0.5, -0.5, -0.5)` after the display transform and before it calls a custom renderer. GemRender undoes
+that, so a glTF's own origin is the anchor and one asset sits the same way on all three versions. So an
+implementation that scales the model to fit within half a unit of the origin -- and moves the model's
+centre of mass there if the asset did not put it there -- fills the cell and nothing more. Scaling is
+not fitting: a bounding sphere that is not centred on the model's own origin still hangs out of the
+cell after the most careful `scale`.
+
+Fitting inside the cell matters on 26.1 and nowhere else. 26.1 renders each distinct item model once
+into a slot of an offscreen atlas and blits it, and the slot is **scissored** -- so anything outside
+the cell is clipped away there where 1.20.1 and 1.21.1 merely let it overflow. An item that means to
+overflow says so in its client item JSON:
+
+```json
+{ "oversized_in_gui": true }
+```
+
+### Drawing armour
+
+Vanilla's armour hook wants a `HumanoidModel`, so `GemRenderArmorModel` is one, and being one is what
+makes it work rather than a formality. `HumanoidArmorLayer` copies the wearer's animated part
+transforms onto the model before rendering it, so the six vanilla parts already hold this frame's walk
+cycle; those rotations are written onto the glTF's own nodes and the model is posed from them, through
+the same external-pose seam a vehicle's turret uses (§4).
+
+```java
+private static final GemRenderArmorModel ARMOR = new GemRenderArmorModel(
+        (entity, stack, slot) -> switch (slot) {
+            case HEAD -> HELMET_MODEL.get();
+            case CHEST -> VEST_MODEL.get();
+            default -> null;          // nothing on this slot
+        });
+```
+
+The hook that hands vanilla that model is the **second** place the version matters. It keeps its name
+on all three and changes its arguments on 26.1, because the wearer is no longer there to pass.
+
+*Before 26.1:*
+
+```java
+@Override
+public void initializeClient(Consumer<IClientItemExtensions> consumer) {
+    consumer.accept(new IClientItemExtensions() {
+        @Override
+        public HumanoidModel<?> getHumanoidArmorModel(LivingEntity entity, ItemStack stack,
+                EquipmentSlot slot, HumanoidModel<?> original) {
+            return ARMOR.prepare(entity, stack, slot);
+        }
+    });
+}
+```
+
+*On 26.1* the signature is `getHumanoidArmorModel(ItemStack, EquipmentClientInfo.LayerType, Model)`:
+armour is chosen during the submit phase, which is handed the wearer's `HumanoidRenderState` rather
+than the wearer, and a layer type rather than a slot. `prepare` is unchanged and still takes all three,
+so what a mod writes there is the same call with a `null` entity and the slot it derives from the layer
+type.
+
+**`ArmorAppearance`'s `entity` is `null` on 26.1, and only there.** The entity is extracted a phase
+earlier and deliberately not carried forward, so there is no truthful way to produce one. Everything on
+the stack is still available; a mod that varies a model by the wearer rather than by the item has to
+carry what it needs on the item. This is the one behavioural difference in the whole API that a
+signature does not show, which is why it is stated here and in the interface's own javadoc.
+
+**One model per slot, not one model with hidden bones.** Vanilla asks four separate times, so a model
+returned for two slots is drawn twice; `null` is how a helmet-only item says so.
+
+**A piece is drawn once per `prepare`, and vanilla asks for it more than once.** `HumanoidArmorLayer`
+renders the model once per `ArmorMaterial.Layer` -- two for anything dyeable -- again for an armour
+trim, and again for the enchantment glint, all through the same `renderToBuffer`, because for a vanilla
+model those are the same cubes under different textures. A GemRender model carries its own materials
+and is drawn whole, so every call after the first is the same picture again: an enchanted chestplate
+would cost two instances and composite any blended geometry twice. `prepare` is what marks a piece as
+owing a draw, so it is not optional -- returning this model from `getHumanoidArmorModel` without it
+draws nothing at all.
+
+The glTF's node names are matched to the vanilla parts by `head`, `body`, `left_arm`, `right_arm`,
+`left_leg`, `right_leg`. Pass a map to the constructor if your exporter called them something else. A
+name that matches nothing is ignored rather than rejected -- a helmet has no leg bone.
+
+### Batching, and where it happens
+
+Nothing draws at the moment you submit. Copies join a batch and the batch is drawn when its pass
+flushes, so **n copies of one model in one pass are one draw**, and copies of one model at one instant
+share a single palette.
+
+| Pass | Contains | Flushed at |
 |---|---|---|
-| `r g b a` | The four quantised bone weights | Model tinted by its own skin weighting |
-| `light` | Four packed joint indices | Lightmap sampled at a joint index |
-| `overlay.x` | Morph set index | Damage overlay from a morph id |
-| `x y z` | Bind-pose position, unskinned | The model never moves |
+| `GUI` | inventories, hotbars, anything through `GuiGraphics`, and any entity rendered into a screen | `GuiGraphics.flush()` |
+| `LEVEL` | armour, third-person held, dropped items, frames, block entity renderers | after entities, and after block entities |
+| `HAND` | the first-person hand | the tail of the hand render |
 
-A correct CPU path therefore has to undo all of it: evaluate a palette with
-`GltfPose.evaluate(layout, clip, time, palette)`, decode each vertex's joints with
-`BoneAttributeCodec.unpackJoint(packed, i)` and weights with `BoneAttributeCodec.decodeWeight(...)`,
-blend the four matrices, transform position and normal, and then write real colour and real light. It
-is a genuine piece of work, roughly the CPU mirror of `skin_lbs.glsl`, and **none of it exists in
-GemRender today**.
+Those are vanilla's own flush points, not points of GemRender's choosing, which is what makes deferring
+safe: vanilla already batches its item geometry and flushes it exactly where ordering starts to matter.
+The three are separate because each has its own projection, and batching across them would draw copies
+under the wrong matrices.
 
-### What to do instead
+**A pass is chosen by where the copy will be drawn, not by who queued it.** Vanilla renders entities
+outside the level too -- the player in an inventory screen, the totem-of-undying animation -- through
+the same renderers and the same armour layer, and nothing out there will ever flush the level pass. A
+copy queued for `LEVEL` while the level render is not running is therefore queued for `GUI` instead,
+which is where it will actually be drawn: in the frame it was queued in, inside whatever scissor and
+lighting the screen set up for it. Armour on the player in your own inventory is that case, and it is
+not one a consuming mod can see coming -- `HumanoidArmorLayer` hands out the same model either way.
 
-For almost every machine, the pragmatic answer is that the item does not need the animated model. In
-rough order of effort:
+### What it costs
 
-1. **Ship an ordinary JSON item model.** An item in a hotbar is 16 pixels tall. A static baked model
-   is usually indistinguishable and costs nothing.
-2. **Render a still of the glTF.** Export one frame of the asset to a normal block model at build
-   time and use that for the item, keeping the glTF for the world.
-3. **Write the CPU path.** Only worth it if the item genuinely must animate. Budget for palette
-   evaluation, skinning and a tessellator upload every frame the item is on screen, which is exactly
-   the per-copy cost the whole project exists to avoid.
+Measured on the radar (1468 vertices, three primitives merged to one mesh), as the mean over ~10,000
+frames of `-Pdirect=<n> -Pdirectstats`. The GPU figure brackets the **whole** flush -- palette upload,
+uniform writes, draws and the state restore -- not only the draw.
 
-If you do build it, keep it in your own mod rather than reaching into GemRender internals. The seams
-safe to depend on are `GemRenderGltfModel.model().meshes()`, `GltfPose.evaluate`, `GltfPaletteLayout`
-and `BoneAttributeCodec`. Everything under `com.wf.gemrender.render` assumes a live GL context and a
-Flywheel frame.
+| copies, one model | palettes | draws | GPU per flush | CPU per flush |
+|---|---|---|---|---|
+| 1 | 1 | 1 | 5.5 us | 1.8 us |
+| 36 | 1 | 1 | 9.2 us | 1.3 us |
+| 576 | 1 | 1 | 100 us | 6.6 us |
+| 576, each at its own instant | 576 | **1** | 110 us | 15 us |
 
----
+The other two passes behave the same way and need no trick, because vanilla does not flush inside
+either. Both hands are one flush at the tail of the hand render: three copies there measured one draw,
+one palette and one flush per frame. Everything drawn in the level -- armour on every wearer, every
+dropped item, every frame -- is one flush after entities, because vanilla's entity loop contains no
+flush at all; a dropped stack of more than one draws up to five copies of the model at one instant, so
+they share a palette as well.
 
-## 6. Particles
+So a flush costs about **5 us before it draws anything**, and about **0.17 us per additional copy**.
+Palette sharing is worth roughly 0.19 us per copy it saves; when it cannot help at all -- 576 copies at
+576 different instants, a chest of guns each on its own reload timer -- the draw count still does not
+move.
+
+**The GUI needs one extra trick, because vanilla flushes per item.** `GuiGraphics.renderItem` ends with
+an unconditional `this.flush()`, once per slot, so honouring every flush would mean a draw per slot --
+36 items measured 266 us of GPU per frame against 9 us for the same 36 in one flush.
+
+GemRender skips exactly that one flush -- the one inside `renderItem`, identified by its call site --
+and vanilla still makes it, so vanilla's own item geometry is resolved as it always was. Everything
+else drains the queue first: a decoration, a label, a scissor change, the tooltip, the frame's final
+flush. A run of items with nothing drawn over them accumulates into one batch, so a chest of 36
+undamaged, unstacked items is **one draw and one flush**, at the same 9 us as if they had been batched
+by hand.
+
+It cannot go further than that, and should not. Vanilla draws the count, durability bar and cooldown
+sweep through `RenderType.guiOverlay`, which is `NO_DEPTH_TEST` with a `COLOR_WRITE` mask: those carry
+no depth of their own and are correct only because they are painted after the item. Deferring past them
+-- flushing once at the end of the screen, say -- puts the model over the durability bar. So an item
+that *has* a decoration flushes at its decoration instead of at itself, which costs a flush and keeps
+the picture right; only stacks of more than one, damaged items and items on cooldown pay it.
+
+The skip is keyed on that one call site -- the `flush()` at the tail of `GuiGraphics.renderItem` -- and
+on nothing else, so a `DirectRenderer.submit(..., DirectPass.GUI)` from your own screen code is drawn
+at the next `GuiGraphics.flush()` like anything else. Measured with two real vanilla items drawn
+between every copy: 36 models and 72 vanilla items still come out as **one flush and one draw**.
+
+What still costs a flush is an item that draws something over itself -- a decoration, a label, a
+cooldown sweep. And one thing to know if you draw with a scissor: an item's own flush is deferred, so
+if you enable a scissor immediately after drawing GemRender items and before anything else draws, call
+`DirectRenderer.flush(DirectPass.GUI)` first.
+
+### What this path does not do
+
+- **PBR is not applied.** A PBR model's sheet carries its extra bands and the vertex UVs address the
+  base one, so what draws is the correct base colour under vanilla's item lighting -- plainer than the
+  same model in the world, not wrong.
+- **Blended geometry is not sorted.** The world path answers transparency with OIT; here blended
+  batches are drawn after opaque ones but in queue order within that, so two blended items can
+  composite wrongly against each other. Alpha-masked geometry, which is nearly all of it, is unaffected.
+- **Shader packs.** This path draws with its own program, so a pack neither shades it nor breaks it;
+  it looks the same under a pack as without one. That is the opposite of the world path's behaviour
+  (§8).
+
+## 7. Particles
 
 The same idea as section 1, applied to a different problem. A particle's position, size, colour and
 spin are a **closed form of its age**: given where it was born, how fast, and when, the shader can
@@ -805,7 +1335,7 @@ number.
 Reproduce and tune any of it with:
 
 ```
-./gradlew runClient -PspikeExit=400 -PquickPlay=spike -Ppitch=0 -Pparticles=3000 \
+./gradlew client -PspikeExit=400 -PquickPlay=spike -Ppitch=0 -Pparticles=3000 \
     -PparticleBlend=cutout   # additive | translucent | cutout
     -PparticleSize=0.15      # multiplies every particle's size
     -PparticleEmitters=200   # splits the count across that many emitters
@@ -815,7 +1345,8 @@ Reproduce and tune any of it with:
 ### The water split taxes order-independent particles
 
 GemRender's own `WaterSplit` resubmits every `ORDER_INDEPENDENT` draw a fourth time, so that
-Flywheel's OIT geometry interleaves per pixel with vanilla's translucent terrain. Particles are not
+Flywheel's OIT geometry interleaves per pixel with vanilla's translucent terrain **and with the
+clouds**. Particles are not
 exempt, and they pay it whether or not there is anything to interleave with: `-PwaterSplit=false`
 took the 3 000 `translucent` row from 655 to 878 fps and the 30 000 one from 98 to 152 fps – 34% and
 56%, in a scene with no water in it at all.
@@ -839,6 +1370,28 @@ fire. The numbers above are close to a best case for it, not a typical one.
 Two things do reliably avoid the tax: **Fabulous graphics**, where `modeActive()` is false and the
 split never runs at all, and not being on the `ORDER_INDEPENDENT` path in the first place. The second
 is the one you control, and the fill numbers above already recommend it on their own.
+
+### Clouds are in the split too
+
+Water is not the only vanilla translucent surface drawn after Flywheel's composite. That composite
+writes the closest OIT depth with the depth mask on, and clouds are drawn much later in the frame, so
+before this a cloud behind an `ORDER_INDEPENDENT` model was depth-rejected and the model had plain sky
+behind it. The cloud surface is folded into the same prepass depth the water uses, so a cloud is now
+one more thing a model can be in front of or behind.
+
+It needs no extra pass. The cloud depth rides into the prepass on the full-screen copy that already
+seeds it with opaque depth, and the front half of the composite is split into the pixels with a cloud
+over them and the pixels without -- the ones without are composited exactly where they always were, and
+only the ones with wait until `AFTER_WEATHER`, by which time the cloud is down. What the fold costs is
+one more rasterisation of vanilla's cloud mesh, skipped entirely on a frame whose view does not reach
+the cloud layer at all.
+
+`-PcloudSplit=false` takes it back out and leaves the water split as it was; `-Pclouds=off` is the
+other half of the A/B. With no cloud in the level the two are the same picture to the pixel, measured.
+
+One residual, and it is the same one the water half accepts: there is **one split point per pixel**, so
+a fragment that is in front of the water and behind a cloud in the same pixel is composited against the
+nearer of the two. Clouds are far and water is not, so the two rarely contend.
 
 ### Time resolution
 
@@ -864,7 +1417,7 @@ the pool ten to twenty per cent above `rate x life` if you want the full count o
 
 ---
 
-## 7. Things that will bite
+## 8. Things that will bite
 
 Failure modes that render something plausible rather than throwing.
 
@@ -919,6 +1472,34 @@ instead, as the example does when the model is null.
 
 ## Reference
 
+### Where a model can be drawn
+
+Every place vanilla draws a model or an item, and what carries it there. All three versions.
+
+| Target | How | Section |
+|---|---|---|
+| Block entity in the world | Flywheel `BlockEntityVisualizer` + `GemRenderInstance` | [2](#2-draw-it-on-a-block-entity) |
+| Entity in the world | `GemRenderEntityVisual` | [3](#3-draw-it-on-an-entity) |
+| Item in an inventory or the HUD | `GemRenderItemRenderer`, GUI pass | [6](#6-items-armour-and-the-hand) |
+| Item in the first person | the same, hand pass | 6 |
+| Dropped item, item frame, third person, head slot | the same, level pass | 6 |
+| Worn armour, on a mob and in a screen | `GemRenderArmorModel` | 6 |
+| Entity or item drawn *inside a screen* | rerouted automatically; you do not pick the pass | 6 |
+| Particles | `ParticleEmitter` + `ParticlePool` | [7](#7-particles) |
+
+Two things that are deliberately not on it. **A static block is not a target** -- a GemRender model needs
+a block entity, because Flywheel does no static-block instancing and there is no chunk-mesh route.
+**A Flywheel visual does not run outside the level render**, so an entity drawn into a screen shows its
+vanilla renderer there; its *armour* still comes from GemRender, because armour goes through the item
+path and that one is rerouted.
+
+You never choose which pass a copy joins. `GemRenderItemRenderer` picks it from the display context, and
+the choice is then overridden by where the copy will actually be flushed -- a level copy submitted while
+the level render is not running becomes a GUI copy. That is the whole reason an armour layer, which is
+handed the same model in an inventory screen as in the world, needs to know nothing about the difference.
+
+### The types
+
 The types a consumer actually touches.
 
 | Type | Purpose |
@@ -946,11 +1527,16 @@ The types a consumer actually touches.
 | `GemRenderParticleTypes` | `BILLBOARD` and `MESH`, the two instance types to pass to `ParticlePool` |
 | `ParticleModels` | `additive`, `cutout` and `translucent` billboards; `cutout` is the cheap one |
 | `ParticleMotion` | the closed form in Java, for tests and for CPU-side code that needs a particle's position |
+| `GemRenderItemRenderer` | items, in every context (section 6). `of(model, clip)`, `register(id, renderer)`, `get(id)`, `animates(stack, context)` |
+| `ItemAppearance` | what a stack looks like per context: `model`, `clip`, `seconds`, `transform`, `variant`, `tint` |
+| `GemRenderArmorModel` | worn armour. `prepare(entity, stack, slot)`, `DEFAULT_BONES` |
+| `ArmorAppearance` | which model a piece draws per slot: `model`, `variant`, `tint` |
+| `VariantUv` | one model's variant skins. `NONE`, and `GemRenderGltfModel.variant(i)` |
 
 ### The SKINNED instance layout
 
-Ninety-six bytes. Worth knowing only if you are writing your own instance type against the same
-shaders; the writer must match exactly, because it writes raw memory and a mismatch produces wrong
+One hundred and four bytes. Worth knowing only if you are writing your own instance type against the
+same shaders; the writer must match exactly, because it writes raw memory and a mismatch produces wrong
 geometry rather than an error.
 
 | Offset | Size | Field | Representation |
@@ -961,7 +1547,34 @@ geometry rather than an error.
 | 12 | 4 | `morphBase` | unsigned int, in floats |
 | 16 | 16 | `boneSphere` | vec4, centre and radius |
 | 32 | 64 | `pose` | mat4 |
+| 96 | 8 | `uvOffset` | vec2, the variant's tile |
 
 Note what is absent: **overlay**. Stock instance types carry one because their vertex shaders assign
 it over the per-vertex value, and GemRender spends the per-vertex overlay on the morph set index, so
 there is nothing to overlay onto.
+
+### Version differences
+
+The complete list, read off the three built jars rather than remembered. Everything not named here has
+the same public signature on 1.21.1, 1.20.1 and 26.1 -- every type in the table above, the whole of
+sections 1 to 5 and 7, and the two appearance interfaces in section 6.
+
+| | 1.20.1 and 1.21.1 | 26.1 |
+|---|---|---|
+| An item claims its renderer | `IClientItemExtensions.getCustomRenderer()`, plus an item model inheriting `builtin/entity` | an item model of `"type": "minecraft:special"` naming `gemrender:model` and a `key`; no client code |
+| `GemRenderItemRenderer` is a | `BlockEntityWithoutLevelRenderer` | `SpecialModelRenderer<ItemStack>` |
+| Armour hook | `getHumanoidArmorModel(LivingEntity, ItemStack, EquipmentSlot, HumanoidModel)` | `getHumanoidArmorModel(ItemStack, EquipmentClientInfo.LayerType, Model)` |
+| `GemRenderArmorModel` is a | `HumanoidModel<LivingEntity>` | `HumanoidModel<HumanoidRenderState>` |
+| `ArmorAppearance`'s `entity` | the wearer | `null` -- see section 6 |
+| A model that overflows its item cell in the GUI | overflows the slot | is clipped, unless the client item JSON says `"oversized_in_gui": true` |
+
+Three capabilities are absent on a version rather than different, and none of them is API:
+
+- **Iris/shader-pack support is 1.21.1 only.** `iris-flw-compat` is pinned to one Sodium and Iris pair
+  for that version; there is no 1.20.1 or 26.1 equivalent to bind against.
+- **KTX2/BC7 model textures need LWJGL 3.3.2.** 1.20.1 ships 3.3.1, so the feature is compiled out
+  there and model textures fall back to PNG. On 26.1 the atlas is compressed but the upload has no
+  path yet, so a model whose sheet gets compressed renders as the missing texture -- keep assets under
+  the compression threshold on 26.1 for now.
+- **The water split, and with it the cloud half, is off on 26.1.** Translucent models there occlude
+  the vanilla translucent surfaces behind them, as they did everywhere before the split.

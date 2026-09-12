@@ -26,7 +26,6 @@ public final class ParticleSpikeEffect implements Effect {
 
 	private static final int SPACING = Integer.getInteger("gemrender.particlespacing", 4);
 
-
 	private static final Object STYLE_LOCK = new Object();
 
 	private static int styleIndex = -1;

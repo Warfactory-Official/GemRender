@@ -256,8 +256,14 @@ public final class PartsVisual extends AbstractVisual
 
 		PoseCache poses = PoseCache.getInstance();
 		PoseLod lod = PoseLod.getInstance();
+
+		//? if >=26.1 {
+		/*Vec3 camera = ctx.camera()
+				.position();
+*///?} else {
 		Vec3 camera = ctx.camera()
 				.getPosition();
+		//?}
 
 		for (int copy = 0; copy < base.length; copy++) {
 			double dx = worldPositions[copy * 3] - camera.x;

@@ -16,15 +16,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.Level;
 
-/**
- * One {@link Volume} and one {@link VolumeInstance} per cloud in the grid.
- *
- * <p>The centres are pushed every frame even though the grid does not move, because the thing they are
- * measured against does: Flywheel's render origin shifts as the camera does, and an instance holding a
- * position computed against a stale origin is drawn at the difference. The harness teleports the camera
- * one tick after staging the scene, so writing the centre once put every cloud tens of blocks to the side
- * -- which looks exactly like the volume failing to draw, since the box lands off frame.
- */
 public final class VolumeSpikeVisual extends AbstractVisual
 		implements EffectVisual<VolumeSpikeEffect>, SimpleDynamicVisual {
 
@@ -94,14 +85,8 @@ public final class VolumeSpikeVisual extends AbstractVisual
 		}
 	}
 
-	/**
-	 * A three-armed cross of boxes filling the volume's own [-size, size] cube, standing in for the box
-	 * cells a real gas cloud decomposes into. Nothing about it is ellipsoidal, so the row fails loudly if
-	 * the field is ignored.
-	 */
 	private static void buildCross(VolumeField field, float ex, float ey, float ez) {
-		// The field's bounds must be the volume's own extents: the shader maps local/extent onto the grid,
-		// so a grid built over a different box comes out sheared along whichever axis disagrees.
+
 		field.begin(-ex, -ey, -ez, ex, ey, ez);
 
 		float tx = ex * 0.35f;
@@ -127,7 +112,7 @@ public final class VolumeSpikeVisual extends AbstractVisual
 		}
 		for (Volume volume : volumes) {
 			if (volume != null) {
-				// Closing the volume releases its field tile too.
+
 				volume.close();
 			}
 		}

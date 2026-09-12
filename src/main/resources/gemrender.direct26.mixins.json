@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.wf.gemrender.mixin.direct26",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "EquipmentLayerRendererMixin",
+    "GuiItemAtlasMixin",
+    "ItemInHandRendererMixin",
+    "ItemStackRenderStateMixin",
+    "LightingMixin",
+    "PictureInPictureRendererMixin",
+    "ProjectionMatrixBufferMixin",
+    "ScreenEffectRendererMixin",
+    "SpecialModelWrapperMixin"
+  ]
+}

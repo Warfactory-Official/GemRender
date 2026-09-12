@@ -18,17 +18,17 @@ package com.wf.gemrender.gltf;
  * @see com.wf.gemrender.render.PoseCache#pose
  */
 public interface PoseDriver {
-	void apply(float timeSeconds, float[] scratch);
+    void apply(float timeSeconds, float[] scratch);
 
-	float cycleSeconds();
+    float cycleSeconds();
 
-	/**
-	 * Where in the pose this writes, so a caller can work out what the clip can and cannot move; -1
-	 * for a driver that will not say, which callers must read as "anywhere".
-	 *
-	 * @see NodeTable#slotOfOffset(int)
-	 */
-	default int offset() {
-		return -1;
-	}
+    /**
+     * Where in the pose this writes, so a caller can work out what the clip can and cannot move; -1
+     * for a driver that will not say, which callers must read as "anywhere".
+     *
+     * @see NodeTable#slotOfOffset(int)
+     */
+    default int offset() {
+        return -1;
+    }
 }

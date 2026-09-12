@@ -1,0 +1,54 @@
+# GemRender: MinecraftForge 1.20.1 mod metadata.
+#
+# The sibling of ../../neoforge/META-INF/neoforge.mods.toml. These are kept as two files rather than
+# one preprocessed template because the format genuinely differs rather than merely drifting:
+#
+#   - the file has a different NAME (mods.toml vs neoforge.mods.toml), and the loader finds it by name
+#   - a dependency is `mandatory = true` here and `type = "required"` on NeoForge
+#   - there is no [[mixins]] section: Forge 1.20.1 discovers mixin configs from the jar manifest's
+#     MixinConfigs attribute, which build.gradle writes. Declaring them here does nothing.
+#
+# The dollar-brace tokens are expanded by the generateModMetadata task in build.gradle.
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "${mod_license}"
+
+[[mods]]
+modId = "gemrender"
+version = "${mod_version}"
+displayName = "${mod_name}"
+authors = "${mod_authors}"
+description = '''${mod_description}'''
+# GemRender is client-only, so a server must not refuse a client that has it or vice versa.
+displayTest = "IGNORE_ALL_VERSION"
+
+# --- Required: Minecraft ---
+[[dependencies.gemrender]]
+modId = "minecraft"
+mandatory = true
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# --- Required: Forge ---
+[[dependencies.gemrender]]
+modId = "forge"
+mandatory = true
+versionRange = "${platform_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# --- Required: Flywheel ---
+# GemRender is a layer on top of Flywheel, not an alternative to it: models are Flywheel Models, draws
+# are Flywheel Instancers, culling is Flywheel's. Without it there is nothing to render through.
+#
+# Jar-in-jar'd, under the same group:artifact Create nests Flywheel under, so the loader resolves the
+# two as one dependency and loads a single copy. A Flywheel installed in mods/ wins over both.
+#
+# ordering = AFTER so Flywheel's backends are registered before GemRender asks for an Instancer.
+[[dependencies.gemrender]]
+modId = "flywheel"
+mandatory = true
+versionRange = "${flywheel_version_range}"
+ordering = "AFTER"
+side = "CLIENT"

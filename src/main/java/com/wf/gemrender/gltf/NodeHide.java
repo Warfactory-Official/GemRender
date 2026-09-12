@@ -19,23 +19,23 @@ import static com.wf.gemrender.vendor.mcgltf.animation.GltfAnimationCreator.SCAL
  * which the rasteriser then throws away; it is the same trade as Flywheel's own zero transform.
  */
 public record NodeHide(int offset) implements PoseDriver {
-	public static NodeHide of(NodeTable table, int slot) {
-		int offset = table.offsetFor(slot, SCALE_PATH);
-		if (offset < 0) {
-			throw new IllegalArgumentException("no node in slot " + slot + " to hide");
-		}
-		return new NodeHide(offset);
-	}
+    public static NodeHide of(NodeTable table, int slot) {
+        int offset = table.offsetFor(slot, SCALE_PATH);
+        if (offset < 0) {
+            throw new IllegalArgumentException("no node in slot " + slot + " to hide");
+        }
+        return new NodeHide(offset);
+    }
 
-	@Override
-	public void apply(float timeSeconds, float[] scratch) {
-		scratch[offset] = 0.0f;
-		scratch[offset + 1] = 0.0f;
-		scratch[offset + 2] = 0.0f;
-	}
+    @Override
+    public void apply(float timeSeconds, float[] scratch) {
+        scratch[offset] = 0.0f;
+        scratch[offset + 1] = 0.0f;
+        scratch[offset + 2] = 0.0f;
+    }
 
-	@Override
-	public float cycleSeconds() {
-		return 0.0f;
-	}
+    @Override
+    public float cycleSeconds() {
+        return 0.0f;
+    }
 }

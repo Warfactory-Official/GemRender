@@ -22,17 +22,35 @@ class ModelCacheTest {
 
 	private static final class Recorder {
 		final AtomicInteger loads = new AtomicInteger();
+
+		final CountDownLatch gate = new CountDownLatch(0);
+
+		volatile CountDownLatch holding = gate;
+
+		volatile CountDownLatch entered = new CountDownLatch(0);
+
 		final List<ResourceLocation> disposed = Collections.synchronizedList(new ArrayList<>());
 		final List<String> failing = Collections.synchronizedList(new ArrayList<>());
 
 		final List<Integer> disposedWhenLoaded = Collections.synchronizedList(new ArrayList<>());
 
 		ModelCache<String> cache() {
+			return new ModelCache<>("test", this::load, this::dispose, Runnable::run);
+		}
+
+		ModelCache<String> threadedCache() {
 			return new ModelCache<>("test", this::load, this::dispose);
 		}
 
 		String load(ResourceLocation location) {
 			loads.incrementAndGet();
+			entered.countDown();
+			try {
+				holding.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread()
+						.interrupt();
+			}
 			disposedWhenLoaded.add(disposed.size());
 			if (failing.contains(location.getPath())) {
 				throw new IllegalStateException("deliberately broken: " + location);
@@ -203,8 +221,10 @@ class ModelCacheTest {
 		ModelCache<String> cache = new Recorder().cache();
 
 		assertThat(cache.generation()).isZero();
-		assertThat(cache.reload()).isEqualTo(1);
-		assertThat(cache.reload()).isEqualTo(2);
+		assertThat(cache.reload()
+				.join()).isEqualTo(1);
+		assertThat(cache.reload()
+				.join()).isEqualTo(2);
 		assertThat(cache.generation()).isEqualTo(2);
 	}
 
@@ -239,5 +259,136 @@ class ModelCacheTest {
 		assertThat(recorder.loads).hasValue(1);
 		assertThat(results).hasSize(threads)
 				.containsOnly(results.get(0));
+	}
+
+	@Test
+	@DisplayName("a cold get starts the import and answers null, and answers the model once it lands")
+	void getIsAsynchronous() throws InterruptedException {
+		Recorder recorder = new Recorder();
+		CountDownLatch importing = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		recorder.entered = importing;
+		recorder.holding = release;
+
+		ModelCache<String> cache = recorder.threadedCache();
+
+		assertThat(cache.get(id("a")))
+				.as("the render thread must not wait 300ms for an import")
+				.isNull();
+		assertThat(importing.await(10, TimeUnit.SECONDS)).isTrue();
+		assertThat(cache.handle(id("a"))
+				.isLoading()).isTrue();
+
+		release.countDown();
+		cache.awaitIdle();
+
+		assertThat(cache.get(id("a"))).isEqualTo("a#1");
+		assertThat(recorder.loads)
+				.as("asking every frame while it imports must not import it every frame")
+				.hasValue(1);
+	}
+
+	@Test
+	@DisplayName("a frame that asks repeatedly while an import runs still only starts one")
+	void repeatedGetsJoinTheImportInFlight() throws InterruptedException {
+		Recorder recorder = new Recorder();
+		CountDownLatch importing = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		recorder.entered = importing;
+		recorder.holding = release;
+
+		ModelCache<String> cache = recorder.threadedCache();
+
+		cache.get(id("a"));
+		assertThat(importing.await(10, TimeUnit.SECONDS)).isTrue();
+		for (int i = 0; i < 100; i++) {
+			assertThat(cache.get(id("a"))).isNull();
+		}
+
+		release.countDown();
+		cache.awaitIdle();
+
+		assertThat(recorder.loads).hasValue(1);
+	}
+
+	@Test
+	@DisplayName("a blocking get waits for the import a plain get started")
+	void blockingGetWaits() {
+		Recorder recorder = new Recorder();
+		ModelCache<String> cache = recorder.threadedCache();
+
+		assertThat(cache.get(id("a"))).isNull();
+		assertThat(cache.getBlocking(id("a"))).isEqualTo("a#1");
+		assertThat(recorder.loads).hasValue(1);
+	}
+
+	@Test
+	@DisplayName("quiescing waits for the imports in flight, so shared state can be reset behind it")
+	void quiesceDrainsImportsInFlight() throws InterruptedException {
+		Recorder recorder = new Recorder();
+		CountDownLatch importing = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		recorder.entered = importing;
+		recorder.holding = release;
+
+		ModelCache<String> cache = recorder.threadedCache();
+		cache.get(id("a"));
+		assertThat(importing.await(10, TimeUnit.SECONDS)).isTrue();
+
+		AtomicInteger quiesced = new AtomicInteger();
+		Thread waiter = new Thread(() -> {
+			cache.quiesce();
+			quiesced.set(cache.loadingCount());
+		});
+		waiter.start();
+
+		Thread.sleep(50);
+		assertThat(waiter.isAlive())
+				.as("the morph buffer must not be reset while an import is still writing into it")
+				.isTrue();
+
+		release.countDown();
+		waiter.join(10_000);
+
+		assertThat(waiter.isAlive()).isFalse();
+		assertThat(quiesced).hasValue(0);
+	}
+
+	@Test
+	@DisplayName("a quiesced cache starts no import, so nothing can publish into the old generation")
+	void quiescedCacheRefusesRequests() {
+		Recorder recorder = new Recorder();
+		ModelCache<String> cache = recorder.threadedCache();
+
+		cache.quiesce();
+
+		assertThat(cache.get(id("a"))).isNull();
+		assertThat(recorder.loads).hasValue(0);
+		assertThat(cache.loadingCount()).isZero();
+
+		cache.reload()
+				.join();
+
+		assertThat(cache.get(id("a")))
+				.as("the reload lifts it again")
+				.isEqualTo("a#1");
+	}
+
+	@Test
+	@DisplayName("a reload's future completes only once every import has")
+	void reloadFutureAwaitsEveryImport() {
+		Recorder recorder = new Recorder();
+		ModelCache<String> cache = recorder.threadedCache();
+
+		cache.handle(id("a"));
+		cache.handle(id("b"));
+		cache.handle(id("c"));
+
+		assertThat(cache.reload()
+				.join()).isEqualTo(1);
+
+		assertThat(cache.loadedCount()).isEqualTo(3);
+		assertThat(cache.loadingCount()).isZero();
+		assertThat(recorder.loads).hasValue(3);
 	}
 }

@@ -1,85 +1,99 @@
 package com.wf.gemrender.water;
 
-import static org.lwjgl.opengl.GL33C.GL_BLEND;
-import static org.lwjgl.opengl.GL33C.GL_BLEND_DST_ALPHA;
-import static org.lwjgl.opengl.GL33C.GL_BLEND_DST_RGB;
-import static org.lwjgl.opengl.GL33C.GL_BLEND_EQUATION_ALPHA;
-import static org.lwjgl.opengl.GL33C.GL_BLEND_EQUATION_RGB;
-import static org.lwjgl.opengl.GL33C.GL_BLEND_SRC_ALPHA;
-import static org.lwjgl.opengl.GL33C.GL_BLEND_SRC_RGB;
-import static org.lwjgl.opengl.GL33C.GL_DEPTH_FUNC;
-import static org.lwjgl.opengl.GL33C.GL_DEPTH_TEST;
-import static org.lwjgl.opengl.GL33C.GL_DEPTH_WRITEMASK;
-import static org.lwjgl.opengl.GL33C.GL_DRAW_FRAMEBUFFER_BINDING;
-import static org.lwjgl.opengl.GL33C.GL_FRAMEBUFFER;
-import static org.lwjgl.opengl.GL33C.glGetInteger;
-
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.wf.gemrender.render.GlState;
 
-/**
- * The blend, depth and framebuffer state a full-screen pass changes, saved on the way in and put back
- * on the way out.
- *
- * <p>Writing the defaults back instead – {@code disableBlend}, {@code depthMask(true)},
- * {@code depthFunc(GL_LEQUAL)} – is the mistake this class exists to stop. These passes run inside
- * Minecraft's level render at a point where blend is on, the depth mask is off and the bound target is
- * not the main one; restoring the defaults there is a leak that happens to look like tidying up.
- *
- * <p>Every write goes through {@link RenderSystem} or {@link GlStateManager} so Minecraft's shadow copy
- * of this state follows the real thing. One instance per pass, reused; the reads are plain state
- * queries, which drivers answer from their own CPU-side copy.
- */
+import static org.lwjgl.opengl.GL33C.*;
+
 public final class PassState {
-	private int drawFramebuffer;
 
-	private boolean blend;
-	private int blendSrcRgb;
-	private int blendDstRgb;
-	private int blendSrcAlpha;
-	private int blendDstAlpha;
-	private int blendEquationRgb;
-	private int blendEquationAlpha;
+    private static final int[] DEEP_UNITS = {0, 1, 2};
+    private final int[] unitTexture = new int[DEEP_UNITS.length];
+    private final int[] unitSampler = new int[DEEP_UNITS.length];
+    private int drawFramebuffer;
+    private int program;
+    private boolean blend;
+    private int blendSrcRgb;
+    private int blendDstRgb;
+    private int blendSrcAlpha;
+    private int blendDstAlpha;
+    private int blendEquationRgb;
+    private int blendEquationAlpha;
+    private boolean depthTest;
+    private boolean depthMask;
+    private int depthFunc;
+    private boolean deep;
+    private int vertexArray;
+    private int activeTexture;
 
-	private boolean depthTest;
-	private boolean depthMask;
-	private int depthFunc;
+    public void save() {
+        deep = false;
+        saveCore();
+    }
 
-	public void save() {
-		drawFramebuffer = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
+    public void saveDeep() {
+        deep = true;
+        saveCore();
 
-		blend = glGetInteger(GL_BLEND) != 0;
-		blendSrcRgb = glGetInteger(GL_BLEND_SRC_RGB);
-		blendDstRgb = glGetInteger(GL_BLEND_DST_RGB);
-		blendSrcAlpha = glGetInteger(GL_BLEND_SRC_ALPHA);
-		blendDstAlpha = glGetInteger(GL_BLEND_DST_ALPHA);
-		blendEquationRgb = glGetInteger(GL_BLEND_EQUATION_RGB);
-		blendEquationAlpha = glGetInteger(GL_BLEND_EQUATION_ALPHA);
+        vertexArray = glGetInteger(GL_VERTEX_ARRAY_BINDING);
+        activeTexture = GlState.activeTexture();
+        for (int i = 0; i < DEEP_UNITS.length; i++) {
+            GlStateManager._activeTexture(GL_TEXTURE0 + DEEP_UNITS[i]);
+            unitTexture[i] = glGetInteger(GL_TEXTURE_BINDING_2D);
+            unitSampler[i] = glGetInteger(GL_SAMPLER_BINDING);
+        }
+        GlStateManager._activeTexture(activeTexture);
+    }
 
-		depthTest = glGetInteger(GL_DEPTH_TEST) != 0;
-		depthMask = glGetInteger(GL_DEPTH_WRITEMASK) != 0;
-		depthFunc = glGetInteger(GL_DEPTH_FUNC);
-	}
+    private void saveCore() {
+        drawFramebuffer = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
+        program = glGetInteger(GL_CURRENT_PROGRAM);
 
-	public void restore() {
-		GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
+        blend = glGetInteger(GL_BLEND) != 0;
+        blendSrcRgb = glGetInteger(GL_BLEND_SRC_RGB);
+        blendDstRgb = glGetInteger(GL_BLEND_DST_RGB);
+        blendSrcAlpha = glGetInteger(GL_BLEND_SRC_ALPHA);
+        blendDstAlpha = glGetInteger(GL_BLEND_DST_ALPHA);
+        blendEquationRgb = glGetInteger(GL_BLEND_EQUATION_RGB);
+        blendEquationAlpha = glGetInteger(GL_BLEND_EQUATION_ALPHA);
 
-		GlStateManager._blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
-		if (blendEquationRgb == blendEquationAlpha) {
-			RenderSystem.blendEquation(blendEquationRgb);
-		}
-		if (blend) {
-			RenderSystem.enableBlend();
-		} else {
-			RenderSystem.disableBlend();
-		}
+        depthTest = glGetInteger(GL_DEPTH_TEST) != 0;
+        depthMask = glGetInteger(GL_DEPTH_WRITEMASK) != 0;
+        depthFunc = glGetInteger(GL_DEPTH_FUNC);
+    }
 
-		RenderSystem.depthFunc(depthFunc);
-		RenderSystem.depthMask(depthMask);
-		if (depthTest) {
-			RenderSystem.enableDepthTest();
-		} else {
-			RenderSystem.disableDepthTest();
-		}
-	}
+    public void restore() {
+        GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
+        GlStateManager._glUseProgram(program);
+
+        GlStateManager._blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+        if (blendEquationRgb == blendEquationAlpha) {
+            GlState.blendEquation(blendEquationRgb);
+        }
+        if (blend) {
+            GlStateManager._enableBlend();
+        } else {
+            GlStateManager._disableBlend();
+        }
+
+        GlStateManager._depthFunc(depthFunc);
+        GlStateManager._depthMask(depthMask);
+        if (depthTest) {
+            GlStateManager._enableDepthTest();
+        } else {
+            GlStateManager._disableDepthTest();
+        }
+
+        if (!deep) {
+            return;
+        }
+
+        GlStateManager._glBindVertexArray(vertexArray);
+        for (int i = 0; i < DEEP_UNITS.length; i++) {
+            GlStateManager._activeTexture(GL_TEXTURE0 + DEEP_UNITS[i]);
+            GlStateManager._bindTexture(unitTexture[i]);
+            GlState.restoreSampler(DEEP_UNITS[i], unitSampler[i]);
+        }
+        GlStateManager._activeTexture(activeTexture);
+    }
 }

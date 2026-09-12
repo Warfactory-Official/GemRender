@@ -20,11 +20,13 @@ import com.wf.gemrender.render.PoseLod;
 import com.wf.gemrender.render.SkinnedCubeMesh;
 import com.wf.gemrender.spike.GltfEffect;
 import com.wf.gemrender.spike.GltfVisual;
+import dev.engine_room.flywheel.lib.visualization.SimpleEntityVisualizer;
 import com.wf.gemrender.particle.ParticleBuffer;
 import com.wf.gemrender.particle.ParticleClock;
 import com.wf.gemrender.spike.ParticleSpikeEffect;
 import com.wf.gemrender.spike.PartsEffect;
 import com.wf.gemrender.spike.SpikeAssets;
+import com.wf.gemrender.spike.SpikeEntityVisual;
 import com.wf.gemrender.spike.SpikeClock;
 import com.wf.gemrender.spike.SpikeEffect;
 import com.wf.gemrender.spike.SpikeVisual;
@@ -37,12 +39,22 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
+//? if neoforge {
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+//?} else {
+/*import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.RegisterClientCommandsEvent;
+*///?}
 
 @EventBusSubscriber(modid = GemRender.MOD_ID, value = Dist.CLIENT)
 public final class GemRenderClient {
@@ -57,12 +69,6 @@ public final class GemRenderClient {
 
 	private static final float PARTICLE_EXTENT = 10.0f;
 
-	/**
-	 * -PparticlePlacement=front|behind|between places the water column relative to the fountain. The camera
-	 * sits at origin minus back on both axes, so a smaller x+z is nearer to it: "front" means the particles
-	 * are in front of the water and the column goes behind them, which is the case where order-independent
-	 * geometry stamps depth over water that is drawn later.
-	 */
 	private static final String PARTICLE_PLACEMENT =
 			System.getProperty("gemrender.particleplacement", "front");
 
@@ -99,6 +105,8 @@ public final class GemRenderClient {
 
 	private static final String AUTO_GRAPHICS = System.getProperty("gemrender.autographics", "");
 
+	private static final String AUTO_CLOUDS = System.getProperty("gemrender.clouds", "");
+
 	public static final String VERDICT_PREFIX = "GEMRENDER-SPIKE-VERDICT";
 
 	private static final int SCENE_ALTITUDE = 60;
@@ -109,6 +117,8 @@ public final class GemRenderClient {
 
 	private static final int CAMERA_BACK = Integer.getInteger("gemrender.cameraback", 0);
 
+	private static final int CAMERA_UP = Integer.getInteger("gemrender.cameraup", Integer.MIN_VALUE);
+
 	private static final int AUTO_YAW = Integer.getInteger("gemrender.autoyaw", 0);
 
 	private static final int AUTO_PITCH = Integer.getInteger("gemrender.autopitch", 20);
@@ -116,6 +126,19 @@ public final class GemRenderClient {
 	private static final int CAMERA_BASE_YAW = -45;
 
 	private static final boolean AUTO_SYNC = Boolean.getBoolean("gemrender.autosync");
+
+	private static final boolean STAND_VISIBLE = Boolean.getBoolean("gemrender.standvisible");
+
+	private static final boolean SKIP_VANILLA_RENDER =
+			!"false".equalsIgnoreCase(System.getProperty("gemrender.skipvanillarender"));
+
+	private static final boolean AUTO_ENTITY = Boolean.getBoolean("gemrender.autoentity");
+
+	private static final boolean AUTO_VARIANTS = Boolean.getBoolean("gemrender.autovariants");
+
+	private static boolean entityVisualizerRegistered;
+
+	private static boolean entitiesSummoned;
 
 	private static final float AUTO_SPIN =
 			Float.parseFloat(System.getProperty("gemrender.autospin", "0"));
@@ -137,6 +160,8 @@ public final class GemRenderClient {
 	private static int ticksSinceSpike;
 
 	private static boolean sceneQueued;
+
+	private static boolean rebuildAfterReload;
 
 	private static final int QUEUE_DELAY_TICKS = 20;
 
@@ -161,7 +186,11 @@ public final class GemRenderClient {
 				.append(mc.options.graphicsMode()
 						.get())
 				.append("  shaderTransparency=")
-				.append(Minecraft.useShaderTransparency() ? "ON" : "off");
+				.append(Minecraft.useShaderTransparency() ? "ON" : "off")
+
+				.append("  clouds=")
+				.append(mc.options.cloudStatus()
+						.get());
 
 		if (AUTO_PARTICLES > 0) {
 			out.append("  blend=")
@@ -265,6 +294,14 @@ public final class GemRenderClient {
 		SpikeHud.status(status.toString(), !loaded);
 	}
 
+	private static boolean autoAssetLoaded() {
+		ResourceLocation asset = autoAsset();
+		if (asset == null) {
+			return true;
+		}
+		return autoIsParts() ? SpikeAssets.parts(asset) != null : SpikeAssets.model(asset) != null;
+	}
+
 	@Nullable
 	private static org.joml.Vector4fc autoSphere() {
 		ResourceLocation asset = autoAsset();
@@ -288,7 +325,7 @@ public final class GemRenderClient {
 			return SpikeAssets.PYLON_GLTF;
 		}
 		if (AUTO_PYLON > 0) {
-			return SpikeAssets.PYLON;
+			return AUTO_VARIANTS ? SpikeAssets.PYLON_SKINS : SpikeAssets.PYLON;
 		}
 		if (AUTO_PBR > 0) {
 			return SpikeAssets.PBR;
@@ -302,7 +339,10 @@ public final class GemRenderClient {
 		if (AUTO_RIG > 0) {
 			return SpikeAssets.RIG;
 		}
-		return AUTO_RADAR > 0 ? SpikeAssets.RADAR : null;
+		if (AUTO_RADAR > 0) {
+			return AUTO_VARIANTS ? SpikeAssets.RADAR_SKINS : SpikeAssets.RADAR;
+		}
+		return null;
 	}
 
 	private static int autoCount() {
@@ -336,8 +376,7 @@ public final class GemRenderClient {
 		if (AUTO_PARTICLES > 0) {
 			return AUTO_PARTICLES;
 		}
-		// A volume row has no particles and no cube grid, so without this the whole tick handler bails on
-		// its first line and the run sits at the title screen until the timeout.
+
 		if (AUTO_VOLUMES > 0) {
 			return AUTO_VOLUMES;
 		}
@@ -358,8 +397,16 @@ public final class GemRenderClient {
 		}
 	}
 
+	//? if neoforge {
 	@SubscribeEvent
 	public static void onClientTick(ClientTickEvent.Post event) {
+	//?} else {
+	/*@SubscribeEvent
+	public static void onClientTick(TickEvent.ClientTickEvent event) {
+		if (event.phase != TickEvent.Phase.END) {
+			return;
+		}
+*///?}
 		if (autoCount() <= 0) {
 			return;
 		}
@@ -371,9 +418,15 @@ public final class GemRenderClient {
 			worldRequested = true;
 			if (VoidWorld.exists(mc, MAKE_WORLD)) {
 				GemRender.LOGGER.info("Auto-spike: void world '{}' already exists; opening it.", MAKE_WORLD);
+
+				//? if >=1.21 {
 				mc.createWorldOpenFlows()
 						.openWorld(MAKE_WORLD, () -> {
 						});
+				//?} else {
+				/*mc.createWorldOpenFlows()
+						.loadLevel(mc.screen, MAKE_WORLD);
+*///?}
 			} else {
 				GemRender.LOGGER.info("Auto-spike: creating void world '{}'.", MAKE_WORLD);
 				VoidWorld.create(mc, MAKE_WORLD);
@@ -401,14 +454,25 @@ public final class GemRenderClient {
 			mc.options.pauseOnLostFocus = false;
 
 			applyGraphicsMode(mc);
+			applyCloudStatus(mc);
 
+			//? if >=26.1 {
+			/*BlockPos origin = level.getRespawnData()
+					.globalPos()
+					.pos()
+					.offset(3, SCENE_ALTITUDE, 3);
+*///?} else {
 			BlockPos origin = level.getSharedSpawnPos()
 					.offset(3, SCENE_ALTITUDE, 3);
+			//?}
 			sceneOrigin = origin;
 			ResourceLocation asset = autoAsset();
 
 			var connection = mc.player.connection;
-			connection.sendCommand("gamemode spectator");
+
+			connection.sendCommand(com.wf.gemrender.spike.DirectSpike.needsHand()
+					? "gamemode creative"
+					: "gamemode spectator");
 			connection.sendCommand("time set noon");
 			connection.sendCommand("weather clear");
 
@@ -421,13 +485,12 @@ public final class GemRenderClient {
 			int back = CAMERA_BACK > 0
 					? CAMERA_BACK
 					: Math.max(CAMERA_MIN_BACK, Math.round(extent * CAMERA_BACK_FACTOR));
-			// A volume row is one object at a known height, not a grid whose top edge you want in shot, so
-			// the camera goes to the cloud's own centre height and looks level at it. The grid factor put
-			// the eye above the box and the default pitch then aimed under it, which is a framing bug that
-			// looks exactly like the volume failing to draw.
-			int up = AUTO_VOLUMES > 0 && asset == null
-					? Math.max(1, Math.round(com.wf.gemrender.spike.VolumeSpikeEffect.SIZE * 0.8f))
-					: Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
+
+			int up = CAMERA_UP != Integer.MIN_VALUE
+					? CAMERA_UP
+					: AUTO_VOLUMES > 0 && asset == null
+							? Math.max(1, Math.round(com.wf.gemrender.spike.VolumeSpikeEffect.SIZE * 0.8f))
+							: Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
 
 			clearStagingArea(connection, origin, extent);
 
@@ -443,9 +506,6 @@ public final class GemRenderClient {
 				buildVanillaControls(connection, origin, asset);
 			}
 
-			// A particle row has no diagonal copy grid to frame, so it looks straight down +Z. That lets
-			// the water column be one axis-aligned fill instead of a staircase of one-block slices, whose
-			// exposed interior faces banded the wall with seams that read as a rendering artefact.
 			boolean particleRow = asset == null && (AUTO_PARTICLES > 0 || AUTO_VOLUMES > 0);
 			connection.sendCommand(particleRow
 					? String.format(java.util.Locale.ROOT, "tp @s %d %d %d %d %d",
@@ -498,16 +558,35 @@ public final class GemRenderClient {
 			mc.gui.getChat()
 					.clearMessages(true);
 		}
+		//? if >=26.1 {
+		/*mc.getToastManager()
+				.clear();
+*///?} else {
 		mc.getToasts()
 				.clear();
+		//?}
 
-		// Staging moves the render distance, and that runs levelRenderer.allChanged() a tick or two
-		// later, which throws away every visual Flywheel is holding. Queueing on a delay outlasts the
-		// reload; queueing inline produced a scene that was built, silently discarded and never ticked.
 		if (!sceneQueued && ticksSinceSpike >= QUEUE_DELAY_TICKS && sceneOrigin != null
-				&& mc.level != null && VisualizationManager.supportsVisualization(mc.level)) {
+				&& mc.level != null && VisualizationManager.supportsVisualization(mc.level)
+				&& autoAssetLoaded()) {
 			sceneQueued = true;
 			queueScene(mc.level, sceneOrigin);
+
+			if (rebuildAfterReload) {
+				rebuildAfterReload = false;
+				GemRender.LOGGER.info("Auto-spike: rebuilt the scene after reload (morph buffer {} "
+						+ "floats, model generation {})",
+						MorphBuffer.getInstance()
+								.floatCount(),
+						GemRenderModels.generation());
+			}
+		}
+
+		if (com.wf.gemrender.spike.DirectSpike.needsHand() && mc.player != null
+				&& mc.player.getAbilities().mayfly
+				&& !mc.player.getAbilities().flying) {
+			mc.player.getAbilities().flying = true;
+			mc.player.onUpdateAbilities();
 		}
 
 		SpikeHud.progress((AUTO_ROW.isEmpty() ? "" : "[" + AUTO_ROW + "] ") + "tick " + ticksSinceSpike
@@ -531,11 +610,18 @@ public final class GemRenderClient {
 			com.wf.gemrender.volume.Volumetrics.getInstance()
 					.resetRun();
 			com.wf.gemrender.render.GlAudit.resetRun();
+			com.wf.gemrender.direct.DirectStats.reset();
 		}
 
 		if (ticksSinceSpike >= AUTO_EXIT_TICKS) {
+
+			//? if >=26.1 {
+			/*Screenshot.grab(mc.gameDirectory, "gemrender-spike.png", mc.getMainRenderTarget(), 1,
+					message -> GemRender.LOGGER.info("Spike screenshot: {}", message.getString()));
+*///?} else {
 			Screenshot.grab(mc.gameDirectory, "gemrender-spike.png", mc.getMainRenderTarget(),
 					message -> GemRender.LOGGER.info("Spike screenshot: {}", message.getString()));
+			//?}
 
 			BoneBuffer bones = BoneBuffer.getInstance();
 			PoseCache poses = PoseCache.getInstance();
@@ -638,6 +724,18 @@ public final class GemRenderClient {
 							.uploadCalls(),
 					ParticleBuffer.getInstance()
 							.uploadBytes());
+
+			String direct = com.wf.gemrender.spike.DirectSpike.verdict();
+			if (!direct.isEmpty()) {
+				GemRender.LOGGER.info("{}-DIRECT{}", VERDICT_PREFIX, direct);
+			}
+
+			if (AUTO_ENTITY) {
+				GemRender.LOGGER.info("{}-ENTITY entityVisuals={} entityLive={} entityFrames={} "
+						+ "entityWaitFrames={} entityCount={}", VERDICT_PREFIX,
+						SpikeEntityVisual.built(), SpikeEntityVisual.live(), SpikeEntityVisual.drawn(),
+						SpikeEntityVisual.waited(), autoCount());
+			}
 			mc.stop();
 		}
 	}
@@ -769,6 +867,30 @@ public final class GemRenderClient {
 				Minecraft.useShaderTransparency() ? "on" : "off");
 	}
 
+	private static void applyCloudStatus(Minecraft mc) {
+		if (AUTO_CLOUDS.isEmpty()) {
+			return;
+		}
+
+		net.minecraft.client.CloudStatus status = switch (AUTO_CLOUDS.toLowerCase(java.util.Locale.ROOT)) {
+			case "off" -> net.minecraft.client.CloudStatus.OFF;
+			case "fast" -> net.minecraft.client.CloudStatus.FAST;
+			case "fancy" -> net.minecraft.client.CloudStatus.FANCY;
+			default -> null;
+		};
+		if (status == null) {
+			GemRender.LOGGER.error("Auto-spike: unknown -Pclouds={}; expected off, fast or fancy.",
+					AUTO_CLOUDS);
+			return;
+		}
+
+		mc.options.cloudStatus()
+				.set(status);
+		mc.options.save();
+
+		GemRender.LOGGER.info("Auto-spike: clouds {}.", status);
+	}
+
 	private static void clearStagingArea(net.minecraft.client.multiplayer.ClientPacketListener connection,
 			BlockPos origin, float extent) {
 		int reach = Math.min(CLEAR_MAX_EXTENT, Math.round(extent));
@@ -804,9 +926,7 @@ public final class GemRenderClient {
 	private static void buildWaterColumn(Minecraft mc,
 			net.minecraft.client.multiplayer.ClientPacketListener connection, BlockPos origin,
 			@Nullable ResourceLocation asset, float extent, int back) {
-		// A particle fountain is not a grid of copies, so the copy-grid maths that places the plane for a
-		// model row would put the column a hundred blocks past it. Run the plane through the origin
-		// instead and let -PparticleStraddle put emitters on either side of it.
+
 		boolean particles = asset == null && AUTO_PARTICLES > 0;
 
 		float spacing = particles ? PARTICLE_EXTENT : GltfVisual.spacingOf(autoSphere());
@@ -832,8 +952,6 @@ public final class GemRenderClient {
 				origin.getX() + Math.round(3.0f * spacing), yBottom + 1, origin.getZ(),
 				"minecraft:white_concrete"));
 
-		// The fountain stays at the origin and the water moves, so "in front of" and "behind" are one knob
-		// rather than a rebuild of the scene. Between is simply both planes at once.
 		boolean nearer = particles && !"front".equals(PARTICLE_PLACEMENT);
 		boolean further = particles && !"behind".equals(PARTICLE_PLACEMENT);
 
@@ -851,7 +969,7 @@ public final class GemRenderClient {
 		}
 
 		double far = Math.hypot(reach, Math.sqrt(2.0) * (back + (rank - 0.5f) * spacing / 2.0f));
-		int chunks = Math.clamp((int) Math.ceil(far * 1.5 / 16.0), 8, 32);
+		int chunks = Mth.clamp((int) Math.ceil(far * 1.5 / 16.0), 8, 32);
 		mc.options.renderDistance()
 				.set(chunks);
 
@@ -984,6 +1102,8 @@ public final class GemRenderClient {
 					.queueAdd(new PartsEffect(level, origin, asset, autoCount(),
 							System.getProperty("gemrender.autoanimation", "running_loop"), AUTO_SYNC,
 							AUTO_SPIN, AUTO_SPIN_BONE, AUTO_SPIN_DUTY));
+		} else if (asset != null && AUTO_ENTITY) {
+			queueEntityScene(asset, origin);
 		} else if (asset != null) {
 			int spinNode = autoSpinNode(asset);
 			VisualizationManager.getOrThrow(level)
@@ -997,25 +1117,62 @@ public final class GemRenderClient {
 					.queueAdd(new SpikeEffect(level, origin, AUTO_SPIKE));
 		}
 
-		// Additive to the asset rather than an alternative to it. An asset and a particle fountain in
-		// one frame is the only way to stage two transparency modes at once, which is what a row
-		// pairing -Pglass with -PparticleBlend=absorbance is for: glass is wavelet content and gas is
-		// not, and the pair has to composite from separate accumulators without either eating the
-		// other. Without both on screen that path never runs.
 		if (AUTO_PARTICLES > 0) {
 			VisualizationManager.getOrThrow(level)
 					.effects()
 					.queueAdd(new ParticleSpikeEffect(level, origin, AUTO_PARTICLES));
 		}
 
-		// Additive for the same reason. -Pvolume paired with -Pparticles is the row that proves a
-		// raymarched cloud and a billboard cloud both reach the absorbance accumulator, and paired with
-		// -Pglass that neither of them eats the wavelet content sharing the frame.
 		if (AUTO_VOLUMES > 0) {
 			VisualizationManager.getOrThrow(level)
 					.effects()
 					.queueAdd(new com.wf.gemrender.spike.VolumeSpikeEffect(level, origin, AUTO_VOLUMES));
 		}
+	}
+
+	private static void queueEntityScene(ResourceLocation asset, BlockPos origin) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) {
+			return;
+		}
+
+		if (!entityVisualizerRegistered) {
+			entityVisualizerRegistered = true;
+
+			String clip = System.getProperty("gemrender.autoanimation", "running_loop");
+			SimpleEntityVisualizer.builder(EntityType.ARMOR_STAND)
+					.factory((ctx, entity, partialTick) ->
+							new SpikeEntityVisual(ctx, entity, partialTick, asset, clip, AUTO_SYNC))
+					.skipVanillaRender(entity -> SKIP_VANILLA_RENDER)
+					.apply();
+		}
+
+		if (entitiesSummoned) {
+
+			return;
+		}
+		entitiesSummoned = true;
+
+		mc.player.connection.sendCommand("kill @e[type=minecraft:armor_stand]");
+
+		SpikeEntityVisual.reset();
+
+		int count = autoCount();
+		float spacing = GltfVisual.spacing(SpikeAssets.model(asset));
+		int stride = GltfVisual.stride(count);
+
+		for (int i = 0; i < count; i++) {
+			double x = origin.getX() + (i % stride) * spacing;
+			double z = origin.getZ() + (i / stride) * spacing;
+
+			mc.player.connection.sendCommand(String.format(java.util.Locale.ROOT,
+					"summon minecraft:armor_stand %.3f %d %.3f "
+							+ "{NoGravity:1b,Invisible:%s,Invulnerable:1b,NoBasePlate:1b,Rotation:[0f,0f]}",
+					x, origin.getY(), z, STAND_VISIBLE ? "0b" : "1b"));
+		}
+
+		GemRender.LOGGER.info("Auto-spike: summoned {} armour stands for {} at spacing {}", count, asset,
+				spacing);
 	}
 
 	private static void reloadResources(Minecraft mc) {
@@ -1028,17 +1185,8 @@ public final class GemRenderClient {
 
 		mc.reloadResourcePacks()
 				.thenRun(() -> mc.execute(() -> {
-					Level level = mc.level;
-					if (level == null || sceneOrigin == null
-							|| !VisualizationManager.supportsVisualization(level)) {
-						return;
-					}
-					queueScene(level, sceneOrigin);
-					GemRender.LOGGER.info("Auto-spike: rebuilt the scene after reload (morph buffer {} "
-							+ "floats, model generation {})",
-							MorphBuffer.getInstance()
-									.floatCount(),
-							GemRenderModels.generation());
+					sceneQueued = false;
+					rebuildAfterReload = true;
 				}));
 	}
 

@@ -30,53 +30,24 @@ import java.nio.ByteBuffer;
 
 /**
  * Default implementation of a {@link PixelData}
+ *
+ * @param width      The width
+ * @param height     The height
+ * @param pixelsRGBA The pixels, as RGBA values
  */
-final class DefaultPixelData implements PixelData
-{
-    /**
-     * The width
-     */
-    private final int width;
-    
-    /**
-     * The height
-     */
-    private final int height;
-    
-    /**
-     * The pixels, as RGBA values
-     */
-    private final ByteBuffer pixelsRGBA;
-    
+record DefaultPixelData(int width, int height, ByteBuffer pixelsRGBA) implements PixelData {
     /**
      * Creates a new instance
-     * 
-     * @param width The width
-     * @param height The height
+     *
+     * @param width      The width
+     * @param height     The height
      * @param pixelsRGBA The pixels, as RGBA values
      */
-    DefaultPixelData(int width, int height, ByteBuffer pixelsRGBA)
-    {
-        this.width = width;
-        this.height = height;
-        this.pixelsRGBA = pixelsRGBA;
-    }
-    
-    @Override
-    public int getWidth()
-    {
-        return width;
+    DefaultPixelData {
     }
 
     @Override
-    public int getHeight()
-    {
-        return height;
-    }
-
-    @Override
-    public ByteBuffer getPixelsRGBA()
-    {
+    public ByteBuffer pixelsRGBA() {
         // The slice is BIG_ENDIAN by default
         return pixelsRGBA.slice();
     }

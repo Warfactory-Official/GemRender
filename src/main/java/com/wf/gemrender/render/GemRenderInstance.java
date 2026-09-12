@@ -1,14 +1,13 @@
 package com.wf.gemrender.render;
 
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
-import org.joml.Vector4fc;
-
-import com.wf.gemrender.gltf.skin.SkinnedBounds;
-
+import com.wf.gemrender.texture.VariantUv;
 import dev.engine_room.flywheel.api.instance.InstanceHandle;
 import dev.engine_room.flywheel.api.instance.InstanceType;
 import dev.engine_room.flywheel.lib.instance.ColoredLitInstance;
+import org.joml.Matrix4f;
+import org.joml.Vector2f;
+import org.joml.Vector4f;
+import org.joml.Vector4fc;
 
 /**
  * The instance a visual writes: {@code pose}, {@code boneBase}, {@code morphBase}, {@code boneSphere}.
@@ -16,45 +15,59 @@ import dev.engine_room.flywheel.lib.instance.ColoredLitInstance;
  * <p>Leaving {@code boneSphere} at its default culls the geometry away without an error.
  */
 public class GemRenderInstance extends ColoredLitInstance {
-	public final Matrix4f pose = new Matrix4f();
+    public final Matrix4f pose = new Matrix4f();
+    public final Vector4f boneSphere = new Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
+    /**
+     * Which variant of the model's sheet this copy wears, as an offset added to every texture
+     * coordinate. Zero is the tile the mesh's coordinates were baked into.
+     *
+     * <p>Set it from {@code model.variant(i)}; the numbers are decided at import by where the packer
+     * put each tile, and computing one by hand will read a neighbouring skin at the edges rather than
+     * fail.
+     */
+    public final Vector2f uvOffset = new Vector2f();
+    public int boneBase = 0;
+    public int morphBase = 0;
 
-	public int boneBase = 0;
+    public GemRenderInstance(InstanceType<? extends GemRenderInstance> type, InstanceHandle handle) {
+        super(type, handle);
+    }
 
-	public int morphBase = 0;
+    public GemRenderInstance boneBase(int boneBase) {
+        this.boneBase = boneBase;
+        return this;
+    }
 
-	public final Vector4f boneSphere = new Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
+    public GemRenderInstance boneSphere(Vector4fc sphere) {
+        this.boneSphere.set(sphere);
+        return this;
+    }
 
-	public GemRenderInstance(InstanceType<? extends GemRenderInstance> type, InstanceHandle handle) {
-		super(type, handle);
-	}
+    /**
+     * Wears one of the model's variants. {@link VariantUv#NONE} is the base.
+     */
+    public GemRenderInstance variant(VariantUv variant) {
+        uvOffset.set(variant.u(), variant.v());
+        return this;
+    }
 
-	public GemRenderInstance boneBase(int boneBase) {
-		this.boneBase = boneBase;
-		return this;
-	}
+    public GemRenderInstance setPose(Matrix4f pose) {
+        this.pose.set(pose);
+        return this;
+    }
 
-	public GemRenderInstance boneSphere(Vector4fc sphere) {
-		this.boneSphere.set(sphere);
-		return this;
-	}
-
-	public GemRenderInstance setPose(Matrix4f pose) {
-		this.pose.set(pose);
-		return this;
-	}
-
-	/**
-	 * Draws nothing, without giving the instance up.
-	 *
-	 * <p>For a pool: a crowd whose size changes every few seconds would churn the instancer's buffers if
-	 * it created and deleted instances to match, so the surplus is collapsed instead and reused when the
-	 * crowd grows again. The counterpart of Flywheel's {@code TransformedInstance.setZeroTransform}, and
-	 * it has to zero the bounding sphere as well: geometry that collapses to a point still costs a
-	 * vertex shader run per vertex unless the culling pass throws the instance away first.
-	 */
-	public GemRenderInstance setZeroTransform() {
-		pose.zero();
-		boneSphere.set(0.0f, 0.0f, 0.0f, 0.0f);
-		return this;
-	}
+    /**
+     * Draws nothing, without giving the instance up.
+     *
+     * <p>For a pool: a crowd whose size changes every few seconds would churn the instancer's buffers if
+     * it created and deleted instances to match, so the surplus is collapsed instead and reused when the
+     * crowd grows again. The counterpart of Flywheel's {@code TransformedInstance.setZeroTransform}, and
+     * it has to zero the bounding sphere as well: geometry that collapses to a point still costs a
+     * vertex shader run per vertex unless the culling pass throws the instance away first.
+     */
+    public GemRenderInstance setZeroTransform() {
+        pose.zero();
+        boneSphere.set(0.0f, 0.0f, 0.0f, 0.0f);
+        return this;
+    }
 }

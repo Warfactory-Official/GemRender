@@ -1,0 +1,10 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "gemrender:item/spike_base",
+    "model": {
+      "type": "gemrender:model",
+      "key": "gemrender:spike"
+    }
+  }
+}

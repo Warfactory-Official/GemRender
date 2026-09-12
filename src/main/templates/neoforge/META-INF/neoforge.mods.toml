@@ -1,0 +1,103 @@
+# GemRender: NeoForge mod metadata.
+# The dollar-brace tokens below are expanded by the generateModMetadata task in build.gradle from gradle.properties.
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "${mod_license}"
+
+[[mods]]
+modId = "gemrender"
+version = "${mod_version}"
+displayName = "${mod_name}"
+authors = "${mod_authors}"
+description = '''${mod_description}'''
+
+<% if (!flywheel_dependency) { %>
+# The VENDORED engine is still a mod in its own right: its entrypoint carries @Mod("flywheel"), and
+# FML refuses to load a jar whose annotation scan finds an entrypoint for a mod id the jar does not
+# declare. So the jar declares it. Its constructor also reads its own version out of the ModContainer
+# and registers a config spec against it, both of which need a real container rather than a stub.
+#
+# The consequence to know: this jar PROVIDES `flywheel`, it does not bundle it. A real Flywheel in
+# mods/ would be a duplicate mod id and a hard load failure, not the "installed copy wins" that
+# jar-in-jar gives on the versions where Flywheel is published. There is no 26.1 Flywheel to collide
+# with today; when Engine-Room ships one, this block goes and so does the source set.
+[[mods]]
+modId = "flywheel"
+version = "${flywheel_vendored_version}"
+displayName = "Flywheel (vendored)"
+description = '''Engine-Room Flywheel, vendored into GemRender and ported to this Minecraft version. MIT, Jozufozu. See src/flywheel/NOTICE.md for what diverges from upstream.'''
+<% } %>
+
+
+# Mixin configs are declared to FML here on NeoForge (no MANIFEST MixinConfigs attribute).
+# Client-only: every mixin GemRender applies targets Flywheel's rendering internals.
+[[mixins]]
+config = "gemrender.mixins.json"
+
+<% if (direct_path) { %>
+# The retained item/armour/hand path. Its own config so it can be left out whole on a version whose
+# item pipeline it cannot hook -- see `direct_supported` in that version's gradle.properties -- and
+# so that the two eras of vanilla item pipeline can carry different mixins under one property. The
+# name is filled in from `directMixinSet` in build.gradle; only one of the two is ever in the jar.
+[[mixins]]
+config = "${direct_config}"
+<% } %>
+<% if (iris_path) { %>
+# iris-flw-compat is never on the classpath: -Piris drops it into run/mods and no other run has it.
+# Its config is required = false so a launch without it skips the mixin instead of refusing to start.
+#
+# Declared only where the shader stack exists. `required = false` covers a missing MOD, not a missing
+# CONFIG: naming a config the jar does not carry is a hard load failure, and build.gradle drops the
+# file from resources wherever iris_supported is false.
+[[mixins]]
+config = "gemrender.irisflw.mixins.json"
+<% } %>
+<% if (!flywheel_dependency) { %>
+# Where Flywheel is VENDORED into this jar there is no flywheel mod to register its own mixins, so
+# GemRender declares them. These are the engine's mixins into Minecraft, not GemRender's into the
+# engine -- without them the backend never attaches to the level renderer and nothing draws.
+[[mixins]]
+config = "flywheel.backend.mixins.json"
+
+[[mixins]]
+config = "flywheel.impl.mixins.json"
+
+[[mixins]]
+config = "flywheel.impl.neoforge.mixins.json"
+<% } %>
+
+# --- Required: NeoForge ---
+[[dependencies.gemrender]]
+modId = "neoforge"
+type = "required"
+versionRange = "${platform_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# --- Required: Minecraft ---
+[[dependencies.gemrender]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# --- Required: Flywheel ---
+# GemRender is a layer on top of Flywheel, not an alternative to it: models are Flywheel Models, draws are
+# Flywheel Instancers, culling is Flywheel's. Without it there is nothing to render through.
+#
+# Jar-in-jar'd, under the same group:artifact Create nests Flywheel under, so FML resolves the two as
+# one dependency and loads a single copy. A Flywheel installed in mods/ wins over both. Still declared
+# required: the range below is what GemRender needs of whichever copy ends up loading.
+#
+# ordering = AFTER so Flywheel's backends are registered before GemRender asks for an Instancer.
+<% if (flywheel_dependency) { %>[[dependencies.gemrender]]
+modId = "flywheel"
+type = "required"
+versionRange = "${flywheel_version_range}"
+ordering = "AFTER"
+side = "CLIENT"
+<% } else { %># Omitted deliberately: on this version Flywheel has no published build and its source is
+# VENDORED into GemRender's own jar, so there is no separate `flywheel` mod to depend on. A
+# required dependency on one would stop the mod loading. See versions/26.1/gradle.properties.
+<% } %>

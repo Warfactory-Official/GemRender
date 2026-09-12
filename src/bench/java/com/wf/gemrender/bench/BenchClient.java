@@ -11,6 +11,7 @@ import com.wf.gemrender.spike.GltfVisual;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
@@ -217,7 +218,7 @@ public final class BenchClient {
 	private static void widenRenderDistance(Minecraft mc, float extent, int back) {
 		int up = Math.round(extent * CAMERA_UP_FACTOR);
 		double diagonal = Math.sqrt(2.0 * (extent + back) * (extent + back) + (double) up * up);
-		int chunks = Math.clamp((int) Math.ceil(diagonal * 1.5 / 16.0), 8, 32);
+		int chunks = Mth.clamp((int) Math.ceil(diagonal * 1.5 / 16.0), 8, 32);
 		mc.options.renderDistance().set(chunks);
 		mc.options.save();
 		GemRender.LOGGER.info("Bench: render distance {} chunks for an extent of {} blocks at {} back.",

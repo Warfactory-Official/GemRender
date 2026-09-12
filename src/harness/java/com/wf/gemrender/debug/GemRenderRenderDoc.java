@@ -91,7 +91,8 @@ public final class GemRenderRenderDoc {
 
 		try {
 			SharedLibrary lib = APIUtil.apiCreateLibrary("librenderdoc.so");
-			long getApi = APIUtil.apiGetFunctionAddressOptional(lib, "RENDERDOC_GetAPI");
+
+			long getApi = lib.getFunctionAddress("RENDERDOC_GetAPI");
 			if (getApi == MemoryUtil.NULL) {
 				GemRender.LOGGER.warn("RenderDoc: librenderdoc.so is loaded but exports no RENDERDOC_GetAPI");
 				return MemoryUtil.NULL;

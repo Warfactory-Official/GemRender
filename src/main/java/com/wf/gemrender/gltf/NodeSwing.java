@@ -12,29 +12,31 @@ package com.wf.gemrender.gltf;
  * @see NodeSpin for a part that turns without end rather than between stops
  */
 public record NodeSwing(int offset, float axisX, float axisY, float axisZ, float fromRadians,
-		float toRadians) implements PoseDriver {
-	public static NodeSwing about(NodeTable table, int slot, float axisX, float axisY, float axisZ,
-			float fromRadians, float toRadians) {
-		float[] axis = NodeRotation.axis(axisX, axisY, axisZ);
-		return new NodeSwing(NodeRotation.offsetOf(table, slot), axis[0], axis[1], axis[2], fromRadians,
-				toRadians);
-	}
+                        float toRadians) implements PoseDriver {
+    public static NodeSwing about(NodeTable table, int slot, float axisX, float axisY, float axisZ,
+                                  float fromRadians, float toRadians) {
+        float[] axis = NodeRotation.axis(axisX, axisY, axisZ);
+        return new NodeSwing(NodeRotation.offsetOf(table, slot), axis[0], axis[1], axis[2], fromRadians,
+                toRadians);
+    }
 
-	/** A hinge that starts closed, which is how most of them are modelled. */
-	public static NodeSwing open(NodeTable table, int slot, float axisX, float axisY, float axisZ,
-			float openRadians) {
-		return about(table, slot, axisX, axisY, axisZ, 0.0f, openRadians);
-	}
+    /**
+     * A hinge that starts closed, which is how most of them are modelled.
+     */
+    public static NodeSwing open(NodeTable table, int slot, float axisX, float axisY, float axisZ,
+                                 float openRadians) {
+        return about(table, slot, axisX, axisY, axisZ, 0.0f, openRadians);
+    }
 
-	@Override
-	public void apply(float timeSeconds, float[] scratch) {
-		float unit = Math.min(1.0f, Math.max(0.0f, timeSeconds));
-		NodeRotation.compose(scratch, offset, axisX, axisY, axisZ,
-				fromRadians + (toRadians - fromRadians) * unit);
-	}
+    @Override
+    public void apply(float timeSeconds, float[] scratch) {
+        float unit = Math.min(1.0f, Math.max(0.0f, timeSeconds));
+        NodeRotation.compose(scratch, offset, axisX, axisY, axisZ,
+                fromRadians + (toRadians - fromRadians) * unit);
+    }
 
-	@Override
-	public float cycleSeconds() {
-		return 1.0f;
-	}
+    @Override
+    public float cycleSeconds() {
+        return 1.0f;
+    }
 }

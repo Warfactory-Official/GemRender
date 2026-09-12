@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        // ModDevGradle + foojay resolver are on the Gradle Plugin Portal.
+        // ModDevGradle + foojay resolver + Stonecutter are on the Gradle Plugin Portal.
         gradlePluginPortal()
         // Fallback so the moddev plugin can resolve even if the portal mirror lags.
         maven {
@@ -11,8 +11,39 @@ pluginManagement {
 }
 
 plugins {
-    // Auto-provisions the JDK 21 toolchain required by java.toolchain in build.gradle.
+    // Auto-provisions the JDK toolchains required by java.toolchain in build.gradle. Each version
+    // subproject asks for a different one (17 on 1.20.1, 21 on 1.21.1), so this is load-bearing now
+    // rather than a convenience.
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+    // Stonecutter: one source tree, one developer-facing API, several Minecraft versions. 0.9.8 is
+    // the latest published release; the 0.10 branch is unreleased.
+    id 'dev.kikugie.stonecutter' version '0.9.8'
 }
 
 rootProject.name = 'gemrender'
+
+stonecutter {
+    // The whole build is Groovy and stays Groovy: a KTS controller beside a 1200-line Groovy
+    // buildscript would mean two languages for one build. Stonecutter only warns about this.
+    kotlinController = false
+    // Every versions/<v> subproject is built by the root build.gradle (Stonecutter points each
+    // subproject's buildFileName at ../../build.gradle). Stated explicitly rather than relying on
+    // the "use build.gradle if it exists" default, because that default is silent when it flips.
+    centralScript = 'build.gradle'
+
+    create(rootProject) {
+        // Order is oldest-first so `chiseled` tasks and the version picker read in upgrade order.
+        // The identifier doubles as the subproject name AND the value every `//? if` predicate is
+        // evaluated against, so it must stay a bare Minecraft version.
+        // `vers(project, version)`: the project name is the short one that appears in task paths
+        // (`:26.1:build`), the version is the exact Minecraft version predicates are evaluated
+        // against. They differ only where Minecraft's own version has a patch component we do not
+        // want in every task path.
+        versions '1.20.1', '1.21.1'
+        vers '26.1', '26.1.2'
+
+        // The version the git tree is checked out at by default, and the one `stonecutter reset`
+        // returns to. 1.21.1 is where the work happens and what the internal docs' recipes assume.
+        vcsVersion = '1.21.1'
+    }
+}

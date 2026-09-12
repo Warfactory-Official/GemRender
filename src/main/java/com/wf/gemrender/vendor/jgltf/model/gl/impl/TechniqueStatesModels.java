@@ -26,69 +26,65 @@
  */
 package com.wf.gemrender.vendor.jgltf.model.gl.impl;
 
-import java.util.Arrays;
-import java.util.List;
-
 import com.wf.gemrender.vendor.jgltf.impl.v1.TechniqueStatesFunctions;
 import com.wf.gemrender.vendor.jgltf.model.GltfConstants;
 import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesFunctionsModel;
 import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesModel;
 import com.wf.gemrender.vendor.jgltf.model.v1.gl.TechniqueStatesFunctionsModels;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Methods to create {@link TechniqueStatesModel} instances
  */
-public class TechniqueStatesModels
-{
-    /**
-     * Create a default {@link TechniqueStatesModel}
-     * 
-     * @return The {@link TechniqueStatesModel}
-     */
-    public static TechniqueStatesModel createDefault()
-    {
-        TechniqueStatesModel techniqueStatesModel = 
-            new DefaultTechniqueStatesModel(
-                createDefaultTechniqueStatesEnable(), 
-                createDefaultTechniqueStatesFunctions());
-        return techniqueStatesModel;
-    }
-    
-    /**
-     * Create the default {@link TechniqueStatesFunctionsModel}
-     * @return The {@link TechniqueStatesFunctionsModel}
-     */
-    public static TechniqueStatesFunctionsModel 
-        createDefaultTechniqueStatesFunctions()
-    {
-        TechniqueStatesFunctions functions = 
-            com.wf.gemrender.vendor.jgltf.model.v1.gl.Techniques
-                .createDefaultTechniqueStatesFunctions();
-        TechniqueStatesFunctionsModel techniqueStatesFunctionsModel =
-            TechniqueStatesFunctionsModels.create(functions);
-        return techniqueStatesFunctionsModel;
-    }
-    
-    /**
-     * Returns the default {@link TechniqueStatesModel#getEnable() enable}
-     * states 
-     * 
-     * @return The default enable states
-     */
-    public static List<Integer> createDefaultTechniqueStatesEnable()
-    {
-        List<Integer> enable = Arrays.asList(
-            GltfConstants.GL_DEPTH_TEST, 
-            GltfConstants.GL_CULL_FACE
-        );
-        return enable;
-    }
-    
+public class TechniqueStatesModels {
     /**
      * Private constructor to prevent instantiation
      */
-    private TechniqueStatesModels()
-    {
+    private TechniqueStatesModels() {
         // Private constructor to prevent instantiation
+    }
+
+    /**
+     * Create a default {@link TechniqueStatesModel}
+     *
+     * @return The {@link TechniqueStatesModel}
+     */
+    public static TechniqueStatesModel createDefault() {
+        TechniqueStatesModel techniqueStatesModel =
+                new DefaultTechniqueStatesModel(
+                        createDefaultTechniqueStatesEnable(),
+                        createDefaultTechniqueStatesFunctions());
+        return techniqueStatesModel;
+    }
+
+    /**
+     * Create the default {@link TechniqueStatesFunctionsModel}
+     *
+     * @return The {@link TechniqueStatesFunctionsModel}
+     */
+    public static TechniqueStatesFunctionsModel
+    createDefaultTechniqueStatesFunctions() {
+        TechniqueStatesFunctions functions =
+                com.wf.gemrender.vendor.jgltf.model.v1.gl.Techniques
+                        .createDefaultTechniqueStatesFunctions();
+        TechniqueStatesFunctionsModel techniqueStatesFunctionsModel =
+                TechniqueStatesFunctionsModels.create(functions);
+        return techniqueStatesFunctionsModel;
+    }
+
+    /**
+     * Returns the default {@link TechniqueStatesModel#enable() enable}
+     * states
+     *
+     * @return The default enable states
+     */
+    public static List<Integer> createDefaultTechniqueStatesEnable() {
+        List<Integer> enable = Arrays.asList(
+                GltfConstants.GL_DEPTH_TEST,
+                GltfConstants.GL_CULL_FACE
+        );
+        return enable;
     }
 }

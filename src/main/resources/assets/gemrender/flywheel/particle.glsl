@@ -123,7 +123,7 @@ float gemrender_particleSize(in GemRenderParticle p, in GemRenderStyle s, float 
 
 vec4 gemrender_particleColor(in GemRenderParticle p, in GemRenderStyle s, float unitAge) {
     float cool = s.coolFloor
-            + (1.0 - s.coolFloor) * (1.0 - min(unitAge / max(s.coolSpan, 1e-6), 1.0));
+    + (1.0 - s.coolFloor) * (1.0 - min(unitAge / max(s.coolSpan, 1e-6), 1.0));
     float alpha = s.alphaScale * pow(1.0 - unitAge, s.alphaFalloff);
     float ramp = s.fadeIn > 1e-4 ? min(unitAge / s.fadeIn, 1.0) : 1.0;
 

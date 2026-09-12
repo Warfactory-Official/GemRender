@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.engine_room.flywheel.backend.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "backend-flywheel.refmap.json",
+  "client": [
+    "AbstractClientPlayerAccessor",
+    "GlStateManagerMixin",
+    "LevelRendererAccessor",
+    "OptionsMixin",
+    "RenderSystemMixin",
+    "light.LayerLightSectionStorageAccessor",
+    "light.LightEngineAccessor",
+    "light.SkyDataLayerStorageMapAccessor",
+    "light.SkyLightSectionStorageMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,316 +1,345 @@
 package com.wf.gemrender.water;
 
-import static org.lwjgl.opengl.GL11C.GL_ALWAYS;
-import static org.lwjgl.opengl.GL11C.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11C.GL_LEQUAL;
-import static org.lwjgl.opengl.GL11C.GL_NEAREST;
-import static org.lwjgl.opengl.GL11C.GL_TEXTURE_MAG_FILTER;
-import static org.lwjgl.opengl.GL11C.GL_TEXTURE_MIN_FILTER;
-import static org.lwjgl.opengl.GL11C.GL_TEXTURE_WRAP_S;
-import static org.lwjgl.opengl.GL11C.GL_TEXTURE_WRAP_T;
-import static org.lwjgl.opengl.GL11C.glDeleteTextures;
-import static org.lwjgl.opengl.GL11C.glGenTextures;
-import static org.lwjgl.opengl.GL11C.glTexParameteri;
-import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
-import static org.lwjgl.opengl.GL30C.GL_COLOR_ATTACHMENT0;
-import static org.lwjgl.opengl.GL30C.GL_DEPTH_ATTACHMENT;
-import static org.lwjgl.opengl.GL30C.GL_FRAMEBUFFER;
-import static org.lwjgl.opengl.GL30C.GL_RGBA16F;
-import static org.lwjgl.opengl.GL32C.glFramebufferTexture;
-import static org.lwjgl.opengl.GL33C.GL_TEXTURE_2D;
-import static org.lwjgl.opengl.GL33C.glTexImage2D;
-
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import com.wf.gemrender.render.GlAudit;
-
+import com.wf.gemrender.render.GlState;
+import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.backend.engine.indirect.OitFramebuffer;
 import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
+import static org.lwjgl.opengl.GL11C.*;
+import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
+import static org.lwjgl.opengl.GL30C.*;
+import static org.lwjgl.opengl.GL32C.glFramebufferTexture;
+import static org.lwjgl.opengl.GL33C.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL33C.glTexImage2D;
+
+//? if neoforge {
+//?} else {
+/*import net.minecraftforge.client.event.RenderLevelStageEvent;
+ *///?}
+
 public final class WaterSplit {
-	private static final boolean ENABLED = !"false".equalsIgnoreCase(System.getProperty("gemrender.watersplit"));
+    private static final boolean ENABLED = !"false".equalsIgnoreCase(System.getProperty("gemrender.watersplit"));
 
-	private static final WaterSplit INSTANCE = new WaterSplit();
+    private static final boolean CLOUDS = !"false".equalsIgnoreCase(System.getProperty("gemrender.cloudsplit"));
 
-	private final WaterSplitPrograms programs = new WaterSplitPrograms();
-	private final WaterDepthPrepass prepass = new WaterDepthPrepass();
+    private static final float CLOUD_PHASE_ALL = -1.0f;
 
-	private final PassState compositeState = new PassState();
-	private final PassState frontState = new PassState();
+    private static final float CLOUD_PHASE_CLEAR = 0.0f;
 
-	private final GpuPassTimer prepassTimer = new GpuPassTimer();
-	private final GpuPassTimer midTimer = new GpuPassTimer();
-	private final GpuPassTimer lateTimer = new GpuPassTimer();
+    private static final float CLOUD_PHASE_CLOUDED = 1.0f;
 
-	private int frontTexture;
-	private int frontWidth = -1;
-	private int frontHeight = -1;
+    private static final WaterSplit INSTANCE = new WaterSplit();
 
-	private boolean prepassValid;
+    private final WaterSplitPrograms programs = new WaterSplitPrograms();
+    private final WaterDepthPrepass prepass = new WaterDepthPrepass();
 
-	private boolean armedComposite;
+    private final PassState compositeState = new PassState();
+    private final PassState frontState = new PassState();
+    private final PassState cloudFrontState = new PassState();
 
-	private boolean pendingFront;
+    private final GpuPassTimer prepassTimer = new GpuPassTimer();
+    private final GpuPassTimer midTimer = new GpuPassTimer();
+    private final GpuPassTimer lateTimer = new GpuPassTimer();
+    private final GpuPassTimer cloudTimer = new GpuPassTimer();
 
-	private boolean absorbanceFrame;
+    private int frontTexture;
+    private int frontWidth = -1;
+    private int frontHeight = -1;
 
-	private boolean waveletFrame;
+    private boolean prepassValid;
 
-	private boolean oitDrawsThisFrame;
-	private boolean oitDrawsLastFrame;
+    private boolean armedComposite;
 
-	private int stashedAccumulate;
-	private int stashedDepthBounds;
-	private int stashedCoefficients;
+    private boolean pendingFront;
 
-	private long framesSplit;
+    private boolean pendingLateFront;
 
-	private WaterSplit() {
-	}
+    private boolean cloudFrame;
 
-	public static WaterSplit getInstance() {
-		return INSTANCE;
-	}
+    private boolean absorbanceFrame;
 
-	private static boolean modeActive() {
-		return ENABLED && !Minecraft.useShaderTransparency();
-	}
+    private boolean waveletFrame;
 
-	public void onAfterEntities(RenderLevelStageEvent event) {
-		oitDrawsLastFrame = oitDrawsThisFrame;
-		oitDrawsThisFrame = false;
-		prepassValid = false;
-		armedComposite = false;
-		pendingFront = false;
+    private boolean oitDrawsThisFrame;
+    private boolean oitDrawsLastFrame;
 
-		if (!modeActive() || !oitDrawsLastFrame || !programs.ensureCreated()) {
-			return;
-		}
+    private int stashedAccumulate;
+    private int stashedDepthBounds;
+    private int stashedCoefficients;
 
-		prepassTimer.begin();
-		prepass.run(event, programs);
-		prepassTimer.end();
-		prepassValid = true;
-	}
+    private long framesSplit;
 
-	public void beforeOitComposite(OitFramebuffer oit, Runnable resubmit) {
-		oitDrawsThisFrame = true;
+    private WaterSplit() {
+    }
 
-		if (!prepassValid || !modeActive()) {
-			return;
-		}
+    public static WaterSplit getInstance() {
+        return INSTANCE;
+    }
 
-		midTimer.begin();
+    private static boolean modeActive() {
+        return ENABLED && !Minecraft.useShaderTransparency();
+    }
 
-		RenderTarget main = Minecraft.getInstance()
-				.getMainRenderTarget();
-		ensureFrontTexture(main.width, main.height);
+    static boolean supported() {
+        return WaterDepthPrepass.SUPPORTED;
+    }
 
-		GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, oit.fbo);
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 5, frontTexture, 0);
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, prepass.textureId(), 0);
-		RenderSystem.clearColor(0f, 0f, 0f, 0f);
-		RenderSystem.clear(GL_COLOR_BUFFER_BIT, false);
+    private static boolean cloudsFolded() {
+        return CLOUDS && WaterDepthPrepass.CLOUDS_SUPPORTED;
+    }
 
-		// Flywheel's OIT framebuffer is borrowed here, not owned. If the resubmitted draws throw, its
-		// attachments must still go back: leaving them pointing at our front and prepass textures is
-		// invisible until every later frame composites the wrong image, with nothing naming the cause.
-		Absorbance.getInstance()
-				.beginFrontResubmit();
+    public void onAfterEntities(RenderLevelStageEvent event) {
+        oitDrawsLastFrame = oitDrawsThisFrame;
+        oitDrawsThisFrame = false;
+        prepassValid = false;
+        armedComposite = false;
+        pendingFront = false;
+        pendingLateFront = false;
+        cloudFrame = false;
 
-		GlAudit.Scope audit = GlAudit.open("water:oit-front");
-		try {
-			resubmit.run();
-		} finally {
-			audit.close();
-			Absorbance.getInstance()
-					.endFrontResubmit();
-			glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 5, oit.accumulate, 0);
-			glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, main.getDepthTextureId(), 0);
-		}
+        if (!modeActive() || !WaterDepthPrepass.SUPPORTED || !oitDrawsLastFrame
+                || !programs.ensureCreated()) {
+            return;
+        }
 
-		stashedAccumulate = oit.accumulate;
-		stashedDepthBounds = oit.depthBounds;
-		stashedCoefficients = oit.coefficients;
-		armedComposite = true;
-	}
+        prepassTimer.begin();
+        prepass.run(event, programs, cloudsFolded());
+        prepassTimer.end();
+        prepassValid = true;
+        cloudFrame = prepass.foldedClouds();
+    }
 
-	public boolean compositeInstead(OitFramebuffer oit) {
-		Absorbance absorbance = Absorbance.getInstance();
+    public void beforeOitComposite(OitFramebuffer oit, Runnable resubmit) {
+        oitDrawsThisFrame = true;
 
-		if (!armedComposite) {
-			if (!absorbance.present() || !programs.ensureCreated()) {
-				return false;
-			}
-			compositeAbsorbance(absorbance);
-			return absorbance.exclusive();
-		}
-		armedComposite = false;
-		absorbanceFrame = absorbance.present();
-		waveletFrame = !absorbance.exclusive();
+        if (!prepassValid || !modeActive()) {
+            return;
+        }
 
-		GlAudit.Scope audit = GlAudit.open("water:composite");
-		compositeState.save();
-		try {
-			Minecraft.getInstance()
-					.getMainRenderTarget()
-					.bindWrite(false);
+        midTimer.begin();
 
-			RenderSystem.depthMask(false);
-			RenderSystem.colorMask(true, true, true, true);
-			RenderSystem.enableBlend();
-			RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
-					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE,
-					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-			RenderSystem.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
-			RenderSystem.depthFunc(GL_ALWAYS);
+        RenderTarget main = Minecraft.getInstance()
+                .getMainRenderTarget();
+        ensureFrontTexture(main.width, main.height);
 
-			if (absorbanceFrame) {
-				programs.drawAbsorbanceBehind(absorbance.accumulateTexture(), absorbance.frontTexture());
-			}
-			if (waveletFrame) {
-				programs.drawBehind(oit.accumulate, frontTexture, oit.depthBounds, oit.coefficients,
-						prepass.textureId());
-			}
-		} finally {
-			compositeState.restore();
-			Minecraft.getInstance()
-					.getMainRenderTarget()
-					.bindWrite(false);
-			audit.close();
-		}
-		midTimer.end();
+        GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, oit.fbo);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 5, frontTexture, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, prepass.textureId(), 0);
+        GlState.clearColor(0f, 0f, 0f, 0f);
+        GlState.clear(GL_COLOR_BUFFER_BIT);
 
-		pendingFront = true;
-		framesSplit++;
-		return true;
-	}
+        Absorbance.getInstance()
+                .beginFrontResubmit();
 
-	public void onAfterTranslucent(RenderLevelStageEvent event) {
-		if (prepass.isRendering() || !pendingFront) {
-			return;
-		}
-		pendingFront = false;
+        GlAudit.Scope audit = GlAudit.open("water:oit-front");
+        try {
+            resubmit.run();
+        } finally {
+            audit.close();
+            Absorbance.getInstance()
+                    .endFrontResubmit();
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 5, oit.accumulate, 0);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, Vanilla.depthTextureId(main), 0);
+        }
 
-		lateTimer.begin();
+        stashedAccumulate = oit.accumulate;
+        stashedDepthBounds = oit.depthBounds;
+        stashedCoefficients = oit.coefficients;
+        armedComposite = true;
+    }
 
-		GlAudit.Scope audit = GlAudit.open("water:front");
-		frontState.save();
-		try {
-			Minecraft.getInstance()
-					.getMainRenderTarget()
-					.bindWrite(false);
+    public boolean compositeInstead(OitFramebuffer oit) {
+        Absorbance absorbance = Absorbance.getInstance();
 
-			RenderSystem.depthMask(true);
-			RenderSystem.colorMask(true, true, true, true);
-			RenderSystem.enableBlend();
-			RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
-					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE,
-					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-			RenderSystem.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
-			RenderSystem.enableDepthTest();
-			RenderSystem.depthFunc(GL_LEQUAL);
+        if (!armedComposite) {
+            if (!absorbance.present() || !programs.ensureCreated()) {
+                return false;
+            }
+            compositeAbsorbance(absorbance);
+            return absorbance.exclusive();
+        }
+        armedComposite = false;
+        absorbanceFrame = absorbance.present();
+        waveletFrame = !absorbance.exclusive();
 
-			if (absorbanceFrame) {
-				RenderSystem.depthMask(false);
-				programs.drawAbsorbanceFront(Absorbance.getInstance()
-						.frontTexture());
-			}
-			if (waveletFrame) {
-				RenderSystem.depthMask(true);
-				programs.drawFront(stashedAccumulate, frontTexture, stashedDepthBounds, stashedCoefficients,
-						prepass.textureId());
-			}
-		} finally {
-			frontState.restore();
-			GlStateManager._activeTexture(org.lwjgl.opengl.GL13C.GL_TEXTURE0);
-			audit.close();
-		}
+        GlAudit.Scope audit = GlAudit.open("water:composite")
+                .changes(GlAudit.DRAW_FRAMEBUFFER, GlAudit.READ_FRAMEBUFFER);
+        compositeState.save();
+        try {
+            Vanilla.bindWrite(Minecraft.getInstance()
+                    .getMainRenderTarget());
 
-		lateTimer.end();
-	}
+            GlStateManager._depthMask(false);
+            GlState.colorMask(true, true, true, true);
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
+                    GL_ONE_MINUS_SRC_ALPHA);
+            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlStateManager._depthFunc(GL_ALWAYS);
 
-	private void compositeAbsorbance(Absorbance absorbance) {
-		GlAudit.Scope audit = GlAudit.open("absorbance:composite");
-		compositeState.save();
-		try {
-			Minecraft.getInstance()
-					.getMainRenderTarget()
-					.bindWrite(false);
+            if (absorbanceFrame) {
+                programs.drawAbsorbanceBehind(absorbance.accumulateTexture(), absorbance.frontTexture());
+            }
+            if (waveletFrame) {
+                programs.drawBehind(oit.accumulate, frontTexture, oit.depthBounds, oit.coefficients,
+                        prepass.textureId(), prepass.cloudTextureId());
+            }
+        } finally {
+            compositeState.restore();
+            Vanilla.bindWrite(Minecraft.getInstance()
+                    .getMainRenderTarget());
+            audit.close();
+        }
+        midTimer.end();
 
-			RenderSystem.depthMask(false);
-			RenderSystem.colorMask(true, true, true, true);
-			RenderSystem.enableBlend();
-			RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
-					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE,
-					GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-			RenderSystem.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
-			RenderSystem.depthFunc(GL_ALWAYS);
+        pendingFront = true;
+        framesSplit++;
+        return true;
+    }
 
-			programs.drawAbsorbanceComposite(absorbance.accumulateTexture());
-		} finally {
-			compositeState.restore();
-			Minecraft.getInstance()
-					.getMainRenderTarget()
-					.bindWrite(false);
-			audit.close();
-		}
-	}
+    public void onAfterTranslucent(RenderLevelStageEvent event) {
+        if (prepass.isRendering() || !pendingFront) {
+            return;
+        }
+        pendingFront = false;
 
-	private void ensureFrontTexture(int width, int height) {
-		if (frontWidth == width && frontHeight == height) {
-			return;
-		}
-		frontWidth = width;
-		frontHeight = height;
+        pendingLateFront = waveletFrame && cloudFrame;
 
-		if (frontTexture != 0) {
-			glDeleteTextures(frontTexture);
-		}
-		frontTexture = glGenTextures();
+        lateTimer.begin();
+        drawFrontHalf(frontState, "water:front", absorbanceFrame, waveletFrame,
+                cloudFrame ? CLOUD_PHASE_CLEAR : CLOUD_PHASE_ALL);
+        lateTimer.end();
+    }
 
-		// Put back whatever the active unit had, rather than zeroing it: this runs mid-frame on a window
-		// resize, and unbinding the caller's texture instead of restoring it is a one-frame glitch that
-		// only ever reproduces while dragging a window edge.
-		int previousTexture = org.lwjgl.opengl.GL11C.glGetInteger(
-				org.lwjgl.opengl.GL11C.GL_TEXTURE_BINDING_2D);
-		try {
-			GlStateManager._bindTexture(frontTexture);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0,
-					org.lwjgl.opengl.GL11C.GL_RGBA, org.lwjgl.opengl.GL11C.GL_FLOAT,
-					(java.nio.ByteBuffer) null);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		} finally {
-			GlStateManager._bindTexture(previousTexture);
-		}
-	}
+    public void onAfterWeather(RenderLevelStageEvent event) {
+        if (prepass.isRendering() || !pendingLateFront) {
+            return;
+        }
+        pendingLateFront = false;
 
-	public void resetRun() {
-		prepassTimer.reset();
-		midTimer.reset();
-		lateTimer.reset();
-		framesSplit = 0;
-	}
+        cloudTimer.begin();
+        drawFrontHalf(cloudFrontState, "water:front-clouds", false, true, CLOUD_PHASE_CLOUDED);
+        cloudTimer.end();
+    }
 
-	public String report() {
-		if (!ENABLED) {
-			return "off";
-		}
-		if (framesSplit == 0) {
-			return "idle";
-		}
-		return String.format(java.util.Locale.ROOT,
-				"active(frames=%d,prepassGpu=%dus,extraOitGpu=%dus,frontGpu=%dus,cpu=%dus)",
-				framesSplit,
-				prepassTimer.meanGpuMicros(),
-				midTimer.meanGpuMicros(),
-				lateTimer.meanGpuMicros(),
-				prepassTimer.meanCpuMicros() + midTimer.meanCpuMicros() + lateTimer.meanCpuMicros());
-	}
+    private void drawFrontHalf(PassState passState, String auditName, boolean absorbance, boolean wavelet,
+                               float cloudPhase) {
+        GlAudit.Scope audit = GlAudit.open(auditName);
+        passState.save();
+        try {
+            Vanilla.bindWrite(Minecraft.getInstance()
+                    .getMainRenderTarget());
+
+            GlStateManager._depthMask(true);
+            GlState.colorMask(true, true, true, true);
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
+                    GL_ONE_MINUS_SRC_ALPHA);
+            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlStateManager._enableDepthTest();
+            GlStateManager._depthFunc(GL_LEQUAL);
+
+            if (absorbance) {
+                GlStateManager._depthMask(false);
+                programs.drawAbsorbanceFront(Absorbance.getInstance()
+                        .frontTexture());
+            }
+            if (wavelet) {
+                GlStateManager._depthMask(true);
+                programs.drawFront(stashedAccumulate, frontTexture, stashedDepthBounds, stashedCoefficients,
+                        prepass.textureId(), prepass.cloudTextureId(), cloudPhase);
+            }
+        } finally {
+            passState.restore();
+            GlStateManager._activeTexture(org.lwjgl.opengl.GL13C.GL_TEXTURE0);
+            audit.close();
+        }
+    }
+
+    private void compositeAbsorbance(Absorbance absorbance) {
+
+        GlAudit.Scope audit = GlAudit.open("absorbance:composite")
+                .changes(GlAudit.DRAW_FRAMEBUFFER, GlAudit.READ_FRAMEBUFFER);
+        compositeState.save();
+        try {
+            Vanilla.bindWrite(Minecraft.getInstance()
+                    .getMainRenderTarget());
+
+            GlStateManager._depthMask(false);
+            GlState.colorMask(true, true, true, true);
+            GlStateManager._enableBlend();
+            GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
+                    GL_ONE_MINUS_SRC_ALPHA);
+            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlStateManager._depthFunc(GL_ALWAYS);
+
+            programs.drawAbsorbanceComposite(absorbance.accumulateTexture());
+        } finally {
+            compositeState.restore();
+            Vanilla.bindWrite(Minecraft.getInstance()
+                    .getMainRenderTarget());
+            audit.close();
+        }
+    }
+
+    private void ensureFrontTexture(int width, int height) {
+        if (frontWidth == width && frontHeight == height) {
+            return;
+        }
+        frontWidth = width;
+        frontHeight = height;
+
+        if (frontTexture != 0) {
+            glDeleteTextures(frontTexture);
+        }
+        frontTexture = glGenTextures();
+
+        int previousTexture = org.lwjgl.opengl.GL11C.glGetInteger(
+                org.lwjgl.opengl.GL11C.GL_TEXTURE_BINDING_2D);
+        try {
+            GlStateManager._bindTexture(frontTexture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0,
+                    org.lwjgl.opengl.GL11C.GL_RGBA, org.lwjgl.opengl.GL11C.GL_FLOAT,
+                    (java.nio.ByteBuffer) null);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        } finally {
+            GlStateManager._bindTexture(previousTexture);
+        }
+    }
+
+    public void resetRun() {
+        prepassTimer.reset();
+        midTimer.reset();
+        lateTimer.reset();
+        cloudTimer.reset();
+        framesSplit = 0;
+    }
+
+    public String report() {
+        if (!ENABLED) {
+            return "off";
+        }
+        if (!supported()) {
+            return "unsupported";
+        }
+        if (framesSplit == 0) {
+            return "idle";
+        }
+        return String.format(java.util.Locale.ROOT,
+                "active(frames=%d,prepassGpu=%dus,extraOitGpu=%dus,frontGpu=%dus,clouds=%s,cpu=%dus)",
+                framesSplit,
+                prepassTimer.meanGpuMicros(),
+                midTimer.meanGpuMicros(),
+                lateTimer.meanGpuMicros(),
+                cloudsFolded() ? cloudTimer.meanGpuMicros() + "us" : CLOUDS ? "unsupported" : "off",
+                prepassTimer.meanCpuMicros() + midTimer.meanCpuMicros() + lateTimer.meanCpuMicros()
+                        + cloudTimer.meanCpuMicros());
+    }
 }

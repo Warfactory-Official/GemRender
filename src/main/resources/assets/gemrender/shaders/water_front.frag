@@ -1,23 +1,10 @@
-// The in-front-of-water half of the split composite, drawn at AFTER_TRANSLUCENT_BLOCKS so it blends
-// over the water instead of being depth-rejected against it. Compiled with flywheel's wavelet.glsl
-// and depth.glsl prepended.
-//
-// When nothing at this pixel is behind the water the two accumulates are identical draws of identical
-// fragments, the difference is exactly zero, and this reduces to the stock composite bit for bit:
-// stock average, stock alpha, stock depth. That is the invariant that keeps a scene with no water in
-// it rendering as it always did.
-//
-// Depth is written like stock (the stack's nearest fragment) but tested LEQUAL rather than ALWAYS:
-// anything that wrote depth between Flywheel's stage and this one, a solid particle, a banner, the
-// water itself where it stands in front, legitimately occludes. Fragments behind the nearest
-// translucent terrain surface are never in this texture, so the terrain depth cannot reject anything
-// that belongs here.
-
 uniform sampler2D _gr_accumulate;
 uniform sampler2D _gr_frontAccumulate;
 uniform sampler2D _gr_depthRange;
 uniform sampler2DArray _gr_coefficients;
 uniform sampler2D _gr_waterDepth;
+uniform sampler2D _gr_cloudDepth;
+uniform float _gr_cloudPhase;
 uniform float _gr_znear;
 uniform float _gr_zfar;
 
@@ -25,6 +12,15 @@ out vec4 frag;
 
 void main() {
     ivec2 px = ivec2(gl_FragCoord.xy);
+
+    if (_gr_cloudPhase >= 0.) {
+
+        float here = texelFetch(_gr_cloudDepth, px, 0).r < 1. ? 1. : 0.;
+        if (here != _gr_cloudPhase) {
+            discard;
+        }
+    }
+
     vec4 whole = texelFetch(_gr_accumulate, px, 0);
     vec4 front = texelFetch(_gr_frontAccumulate, px, 0);
 
@@ -34,7 +30,7 @@ void main() {
 
     float alpha;
     if (max(whole.a - front.a, 0.) < 1e-5) {
-        // Nothing behind the water here: the stock path, exactly.
+
         alpha = 1. - total_transmittance(_gr_coefficients);
     } else {
         vec2 range = texelFetch(_gr_depthRange, px, 0).rg;

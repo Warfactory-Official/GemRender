@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
+import com.wf.gemrender.gltf.morph.MorphTargets;
 
 class GltfMorphLayoutTest {
 
@@ -99,6 +100,57 @@ class GltfMorphLayoutTest {
 					.as("weight float %d after a rest-pose evaluation", i)
 					.isEqualTo(0.0f);
 		}
+	}
+
+	@Test
+	@DisplayName("a merged part's header points where the MERGED vertex ids will look")
+	void rebaseCancelsTheMergedVertexBase() {
+		MorphTargets piston = MorphFixture.targets(MorphFixture.NODE_PISTON);
+		int bellowsFloats = MorphFixture.targets(MorphFixture.NODE_PUMP)
+				.floatCount();
+		int vertexBase = MorphFixture.vertexCount(MorphFixture.NODE_PUMP);
+
+		float[] deltas = new float[bellowsFloats + piston.floatCount()];
+		System.arraycopy(MorphFixture.targets(MorphFixture.NODE_PUMP)
+				.deltas(), 0, deltas, 0, bellowsFloats);
+		System.arraycopy(piston.deltas(), 0, deltas, bellowsFloats, piston.floatCount());
+
+		float[] block = block(MorphFixture.mergedMorphLayout(), MorphFixture.MID_CLIP);
+		int header = GltfMorphLayout.HEADER_FLOATS;
+
+		int dataBase = (int) block[header];
+		int targetCount = (int) block[header + 1];
+		int floatsPerDelta = (int) block[header + 3];
+
+		for (int v = 0; v < piston.vertexCount(); v++) {
+
+			int offset = dataBase + (vertexBase + v) * targetCount * floatsPerDelta;
+
+			for (int t = 0; t < targetCount; t++) {
+				for (int c = 0; c < 3; c++) {
+					assertThat(deltas[offset + t * floatsPerDelta + c])
+							.as("piston vertex %d, target %d, component %d", v, t, c)
+							.isEqualTo(piston.delta(v, t, c));
+				}
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("without the rebase the same arithmetic reads off the end of the buffer")
+	void theUnrebasedAddressIsOutOfRange() {
+		MorphTargets piston = MorphFixture.targets(MorphFixture.NODE_PISTON);
+		int bellowsFloats = MorphFixture.targets(MorphFixture.NODE_PUMP)
+				.floatCount();
+		int vertexBase = MorphFixture.vertexCount(MorphFixture.NODE_PUMP);
+		int stride = piston.targetCount() * piston.floatsPerDelta();
+
+		float[] block = block(MorphFixture.morphLayout(), MorphFixture.MID_CLIP);
+		int dataBase = (int) block[GltfMorphLayout.HEADER_FLOATS];
+
+		assertThat(dataBase + vertexBase * stride)
+				.as("the first merged piston vertex, addressed without a rebase")
+				.isGreaterThan(bellowsFloats + piston.floatCount());
 	}
 
 	private static float[] block(GltfMorphLayout layout, float time) {

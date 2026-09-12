@@ -131,6 +131,59 @@ class MorphGlTest {
 	}
 
 	@Test
+	@DisplayName("a merged part's deltas are still its own, addressed by the merged vertex id")
+	void mergedSetReadsItsOwnDeltas() {
+		GltfMorphLayout layout = MorphFixture.mergedMorphLayout();
+		MorphTargets bellows = MorphFixture.targets(MorphFixture.NODE_PUMP);
+		MorphTargets piston = MorphFixture.targets(MorphFixture.NODE_PISTON);
+
+		float[] deltas = new float[bellows.floatCount() + piston.floatCount()];
+		System.arraycopy(bellows.deltas(), 0, deltas, 0, bellows.floatCount());
+		System.arraycopy(piston.deltas(), 0, deltas, bellows.floatCount(), piston.floatCount());
+
+		int morphBase = 32;
+		float[] bones = new float[morphBase + layout.blockFloats()];
+		float[] block = new float[layout.blockFloats()];
+		samplePump(layout, block);
+		System.arraycopy(block, 0, bones, morphBase, block.length);
+
+		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
+			int program = gl.computeProgram(compute());
+
+			int morphBuffer = glGenBuffers();
+			int morphTexture = glGenTextures();
+			int boneBuffer = glGenBuffers();
+			int boneTexture = glGenTextures();
+			int outBuffer = glGenBuffers();
+			try {
+				bindTextureBuffer(morphBuffer, morphTexture, MorphBuffer.TEXTURE_UNIT, deltas);
+				bindTextureBuffer(boneBuffer, boneTexture, BoneBuffer.TEXTURE_UNIT, bones);
+
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, outBuffer);
+				glBufferData(GL_SHADER_STORAGE_BUFFER, new float[6], GL_STATIC_DRAW);
+				glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, outBuffer);
+
+				glUseProgram(program);
+				HeadlessGl.samplerUnit(program, "_gemrender_morphs", MorphBuffer.TEXTURE_UNIT);
+
+				assertSet(outBuffer, morphBase, 1, bellows, MorphFixture.BELLOWS_WEIGHTS_AT_MID,
+						MorphFixture.positions(MorphFixture.NODE_PUMP), "bellows", 0);
+
+				assertSet(outBuffer, morphBase, 2, piston, MorphFixture.PISTON_WEIGHTS_AT_MID,
+						MorphFixture.positions(MorphFixture.NODE_PISTON), "merged piston",
+						MorphFixture.vertexCount(MorphFixture.NODE_PUMP));
+			} finally {
+				glDeleteBuffers(morphBuffer);
+				glDeleteTextures(morphTexture);
+				glDeleteBuffers(boneBuffer);
+				glDeleteTextures(boneTexture);
+				glDeleteBuffers(outBuffer);
+				glDeleteProgram(program);
+			}
+		}
+	}
+
+	@Test
 	@DisplayName("a morph set of zero leaves the vertex exactly alone")
 	void setZeroIsTheEarlyOut() {
 		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
@@ -198,11 +251,16 @@ class MorphGlTest {
 
 	private static void assertSet(int outBuffer, int morphBase, int morphSet, MorphTargets targets,
 			float[] weights, float[] base, String name) {
+		assertSet(outBuffer, morphBase, morphSet, targets, weights, base, name, 0);
+	}
+
+	private static void assertSet(int outBuffer, int morphBase, int morphSet, MorphTargets targets,
+			float[] weights, float[] base, String name, int vertexBase) {
 		for (int v = 0; v < targets.vertexCount(); v++) {
 			float[] expected = { base[v * 3], base[v * 3 + 1], base[v * 3 + 2] };
 			targets.applyPosition(weights, v, expected);
 
-			float[] actual = dispatch(outBuffer, morphBase, morphSet, v,
+			float[] actual = dispatch(outBuffer, morphBase, morphSet, vertexBase + v,
 					new float[] { base[v * 3], base[v * 3 + 1], base[v * 3 + 2] },
 					new float[] { 0.0f, 1.0f, 0.0f });
 

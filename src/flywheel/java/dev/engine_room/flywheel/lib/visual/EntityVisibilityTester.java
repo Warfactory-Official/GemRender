@@ -1,0 +1,94 @@
+package dev.engine_room.flywheel.lib.visual;
+
+import org.jetbrains.annotations.Nullable;
+import org.joml.FrustumIntersection;
+
+import dev.engine_room.flywheel.lib.math.MoreMath;
+import net.minecraft.core.Vec3i;
+import net.minecraft.util.Mth;
+import dev.engine_room.flywheel.impl.mixin.EntityRendererAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+
+/**
+ * A helper class for testing whether an Entity is visible.
+ * <p>
+ * The last visible AABB is also checked to prevent the Entity from freezing when it goes offscreen.
+ */
+public class EntityVisibilityTester {
+	private final Entity entity;
+	private final Vec3i renderOrigin;
+	private final float scale;
+	@Nullable
+	private AABB lastVisibleAABB;
+
+	/**
+	 * Create a new EntityVisibilityTester.
+	 *
+	 * @param entity       The Entity to test.
+	 * @param renderOrigin The render origin according to the VisualizationContext.
+	 * @param scale        Multiplier for the Entity's size, can be used to adjust for when
+	 *                     an entity's model is larger than its hitbox.
+	 */
+	@SuppressWarnings("unchecked")
+	private static <T extends Entity> EntityRendererAccessor<T> rendererOf(T entity) {
+		return (EntityRendererAccessor<T>) Minecraft.getInstance()
+				.getEntityRenderDispatcher()
+				.getRenderer(entity);
+	}
+
+	static <T extends Entity> AABB boundingBoxForCulling(T entity) {
+		return rendererOf(entity).flywheel$getBoundingBoxForCulling(entity);
+	}
+
+	static <T extends Entity> boolean affectedByCulling(T entity) {
+		return rendererOf(entity).flywheel$affectedByCulling(entity);
+	}
+
+	public EntityVisibilityTester(Entity entity, Vec3i renderOrigin, float scale) {
+		this.entity = entity;
+		this.renderOrigin = renderOrigin;
+		this.scale = scale;
+	}
+
+	/**
+	 * Check whether the Entity is visible.
+	 *
+	 * @param frustum The frustum to test against.
+	 * @return {@code true} if the Entity is visible, {@code false} otherwise.
+	 */
+	public boolean check(FrustumIntersection frustum) {
+		// 26.1 moved the culling box off Entity and onto its EntityRenderer, which is where a renderer
+		// can widen it for a model bigger than the hitbox.
+		AABB aabb = boundingBoxForCulling(entity);
+
+		// If we've never seen the entity before assume its visible.
+		// Fixes entities freezing when they first spawn.
+		// There might be a more sound solution to that, but this works.
+		boolean visible = lastVisibleAABB == null;
+
+		if (!visible) {
+			visible = adjustAndTestAABB(frustum, aabb);
+		}
+
+		if (!visible && lastVisibleAABB != aabb) {
+			// If the entity isn't visible, check the last visible AABB as well.
+			// This is to avoid Entities freezing when the go offscreen.
+			visible = adjustAndTestAABB(frustum, lastVisibleAABB);
+		}
+
+		if (visible) {
+			lastVisibleAABB = aabb;
+		}
+		return visible;
+	}
+
+	private boolean adjustAndTestAABB(FrustumIntersection frustum, AABB aabb) {
+		float x = (float) Mth.lerp(0.5D, aabb.minX, aabb.maxX) - renderOrigin.getX();
+		float y = (float) Mth.lerp(0.5D, aabb.minY, aabb.maxY) - renderOrigin.getY();
+		float z = (float) Mth.lerp(0.5D, aabb.minZ, aabb.maxZ) - renderOrigin.getZ();
+		float maxSize = (float) Math.max(aabb.getXsize(), Math.max(aabb.getYsize(), aabb.getZsize()));
+		return frustum.testSphere(x, y, z, maxSize * MoreMath.SQRT_3_OVER_2 * scale);
+	}
+}

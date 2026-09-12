@@ -3,9 +3,9 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
-    // ModDevGradle 2: NeoForge's own single-version build plugin. NeoForge bundles Mixin/MixinExtras
-    // and uses MojMap at runtime, so there is no reobf/refmap step.
-    id 'net.neoforged.moddev' version '2.0.143'
+
+    id 'net.neoforged.moddev' version '2.0.146' apply false
+    id 'net.neoforged.moddev.legacyforge' version '2.0.146' apply false
 }
 
 version = mod_version
@@ -15,8 +15,47 @@ base {
     archivesName = mod_id
 }
 
-// Mojang ships Java 21 to end users in 1.21.1.
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+def mcVersion = stonecutter.current.version
+def isLegacy = loader == 'forge'
+if (loader != 'forge' && loader != 'neoforge') {
+    throw new GradleException("versions/${mcVersion}/gradle.properties: loader='${loader}', expected 'forge' or 'neoforge'")
+}
+apply plugin: isLegacy ? 'net.neoforged.moddev.legacyforge' : 'net.neoforged.moddev'
+
+def modding = isLegacy ? legacyForge : neoForge
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(java_version as int)
+
+def repoRoot = rootProject.projectDir
+def runDir = rootProject.file(
+        project.hasProperty('runDir') ? project.property('runDir').toString() : run_dir)
+
+def ktxSupported = ktx_supported.toBoolean()
+def irisSupported = iris_supported.toBoolean()
+def harnessSupported = harness_supported.toBoolean()
+def benchSupported = bench_supported.toBoolean()
+
+def flywheelVendored = flywheel_vendored.toBoolean()
+
+def directSupported = direct_supported.toBoolean()
+def directMixinSet = stonecutter.eval(mcVersion, '>=26.1') ? 'direct26' : 'direct'
+def directMixinConfig = "gemrender.${directMixinSet}.mixins.json"
+
+stonecutter.constants.match(loader, 'forge', 'neoforge')
+
+stonecutter.constants.put('ktx', ktxSupported)
+stonecutter.constants.put('iris', irisSupported)
+
+stonecutter.replacements.string(stonecutter.eval(mcVersion, '>=26.1')) {
+    replace('ResourceLocation', 'Identifier')
+    replace('com.mojang.blaze3d.platform.GlStateManager', 'com.mojang.blaze3d.opengl.GlStateManager')
+    replace('net.minecraft.client.renderer.RenderType', 'net.minecraft.client.renderer.rendertype.RenderType')
+
+    replace('net.minecraft.client.renderer.LightTexture', 'net.minecraft.util.LightCoordsUtil')
+    replace('LightTexture.FULL_BRIGHT', 'LightCoordsUtil.FULL_BRIGHT')
+    replace('net.minecraft.client.GraphicsStatus', 'net.minecraft.client.GraphicsPreset')
+    replace('options.graphicsMode()', 'options.graphicsPreset()')
+}
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
 
@@ -26,7 +65,7 @@ repositories {
         url = 'https://maven.neoforged.net/releases'
     }
     maven {
-        name = 'createmod maven' // Engine-Room Flywheel
+        name = 'createmod maven'
         url = 'https://maven.createmod.net'
         content { includeGroupAndSubgroups 'dev.engine-room' }
     }
@@ -34,8 +73,7 @@ repositories {
         name = 'ParchmentMC'
         url = 'https://maven.parchmentmc.org'
     }
-    // Modrinth's maven, for the shader stack (see the `shaderMod` configuration). Scoped to the one
-    // group it serves so a typo elsewhere fails against Central rather than silently reaching here.
+
     exclusiveContent {
         forRepository {
             maven {
@@ -48,143 +86,183 @@ repositories {
     mavenCentral()
 }
 
-// The cross-framework benchmark. Its own source set because it compiles against GeckoLib, MCglTF and
-// Simple Bedrock Models, none of which the shipped mod may depend on, and because it must be possible
-// to leave it out of a normal run entirely. Declared here rather than beside the other source sets
-// below: the `mods` block inside `neoForge` references it, and that block is evaluated first.
-//
-// -Pbench builds it and adds it to the mod; -Prival=<name> additionally puts that framework's jar in
-// run/mods. See gemrender-internal/docs/TESTING.md.
 def benchEnabled = project.hasProperty('bench') || project.hasProperty('rival')
+if (benchEnabled && !bench_supported.toBoolean()) {
+    throw new GradleException("-Pbench/-Prival: the cross-framework benchmark is not ported to "
+            + "Minecraft ${stonecutter.current.version}. Run it on a version whose "
+            + "bench_supported is true, or see gemrender-internal/docs/MULTIVERSION.md.")
+}
 def rivalName = project.hasProperty('rival') ? project.property('rival').toString() : null
 
-// Everything the development harness needs but the repository must not carry: rival framework jars,
-// shader packs, the GLSL validator, third-party vehicle assets, and the design notes. It lives in a
-// sibling checkout; -PinternalDir=<path> points elsewhere. Every task that reads from it degrades to
-// a skip when it is absent, so a clone without it still builds, tests and ships.
-def internalDir = file(project.findProperty('internalDir') ?: '../gemrender-internal')
+def internalDir = rootProject.file(project.findProperty('internalDir') ?: '../gemrender-internal')
 def internalRivals = new File(internalDir, 'libs-rivals')
 
-// The spike harness: scene building, camera framing, verdict lines, the debug visuals every row in
-// gemrender-internal/docs/TESTING.md draws. Its own source set so the shipped jar carries none of it,
-// and unconditional in the dev run so no documented command needs an extra flag.
 sourceSets {
     bench {}
     harness {}
+
+    flywheel {}
 }
 
-// NOTE: this block must precede `dependencies`. ModDevGradle registers the `localRuntime`
-// configuration while the neoForge extension is being configured, so a dependencies block above this
-// one fails with "Could not find method localRuntime()".
-neoForge {
-    version = project.neo_version
+if (!harness_supported.toBoolean()) {
+    sourceSets.harness.java.setSrcDirs([])
+    sourceSets.harness.resources.setSrcDirs([])
+}
+if (!bench_supported.toBoolean()) {
+    sourceSets.bench.java.setSrcDirs([])
+    sourceSets.bench.resources.setSrcDirs([])
+}
+if (!flywheel_vendored.toBoolean()) {
+    sourceSets.flywheel.java.setSrcDirs([])
+    sourceSets.flywheel.resources.setSrcDirs([])
+}
 
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
+if (isLegacy) {
+    legacyForge.version = forge_version
+} else {
+    neoForge.version = project.neo_version
+}
+
+modding.with {
+
+    if (parchment_minecraft_version) {
+        parchment {
+            mappingsVersion = project.parchment_mappings_version
+            minecraftVersion = project.parchment_minecraft_version
+        }
     }
 
-    // Access Transformers are auto-detected at src/main/resources/META-INF/accesstransformer.cfg.
-
-    // Declared before `unitTest` below, which references it: the mods container is populated as this
-    // block is evaluated, so a forward reference fails with "unknown property 'gemrender'".
     mods {
         "${mod_id}" {
             sourceSet sourceSets.main
-            sourceSet sourceSets.harness
-            // Under -Pbench the comparison drivers load as part of GemRender rather than as a second
-            // mod, so they get the mod's classloader and its access to Flywheel.
-            if (benchEnabled) {
+
+            if (flywheelVendored) {
+                sourceSet sourceSets.flywheel
+            }
+            if (harnessSupported) {
+                sourceSet sourceSets.harness
+            }
+
+            if (benchEnabled && benchSupported) {
                 sourceSet sourceSets.bench
             }
         }
     }
 
-    // The bench source set talks to Minecraft, Flywheel and three rival mods, so it needs the modding
-    // classpath the main source set gets. Unconditional: it costs nothing when bench is not built, and
-    // making it conditional means `-Pbench` changes how the main source set resolves.
     addModdingDependenciesTo(sourceSets.bench)
     addModdingDependenciesTo(sourceSets.harness)
 
-    // Puts Minecraft + NeoForge on the test classpath and boots FML for the `test` task, so unit tests
-    // can touch MC types (ResourceLocation, the resource manager) without a running game.
-    unitTest {
-        enable()
-        testedMod = mods."${mod_id}"
+    if (flywheelVendored) {
+        addModdingDependenciesTo(sourceSets.flywheel)
+    }
+
+    if (!isLegacy) {
+        unitTest {
+            enable()
+            testedMod = mods."${mod_id}"
+        }
+    } else {
+        addModdingDependenciesTo(sourceSets.test)
     }
 
     runs {
         client {
             client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty gametest_namespaces_property, project.mod_id
 
-            // -PquickPlay=<world> boots straight into a save instead of the main menu, so an
-            // automated check has no menu clicks to get right blind.
             if (project.hasProperty('quickPlay')) {
                 programArguments.addAll '--quickPlaySingleplayer', project.property('quickPlay').toString()
             }
 
-            // The cross-framework benchmark. -PbenchCount=<n> sets the copy count for every row and
-            // -PbenchExit=<ticks> ends the run; -Prival=<name> selects the framework that draws, and
-            // leaving it off means GemRender draws through its own spike. The measurement is whole-frame
-            // wall time, which is the only figure all four frameworks can be held to.
             if (project.hasProperty('benchCount')) {
                 systemProperty 'gemrender.bench.count', project.property('benchCount').toString()
             }
             if (project.hasProperty('benchExit')) {
                 systemProperty 'gemrender.bench.exit', project.property('benchExit').toString()
             }
-            // -PbenchFrame=<n> frames the camera and the render distance for a count other than the one
-            // being drawn. Only the baseline needs it: -PbenchCount=0 -PbenchFrame=512 is the same
-            // picture as the 512 row with the models taken out, which is the only thing worth
-            // subtracting from it.
+
             if (project.hasProperty('benchFrame')) {
                 systemProperty 'gemrender.bench.frame', project.property('benchFrame').toString()
             }
             if (rivalName != null) {
                 systemProperty 'gemrender.bench.rival', rivalName
             }
-            // -PbenchAsset=radar|pylon picks the model. radar is glTF and only GemRender and MCglTF read
-            // it; pylon is Bedrock geometry and only the other three do. A row must not mix them, and
-            // BenchClient refuses the pairing rather than reporting a renderer that drew nothing.
+
             if (project.hasProperty('benchAsset')) {
                 systemProperty 'gemrender.bench.asset', project.property('benchAsset').toString()
             }
-            // -Pspacing=<blocks> overrides the model-derived grid spacing, for both the copies and the
-            // camera that frames them. Needed at high counts, where a grid spaced off a large model's
-            // bounds runs off the far plane before the last row is placed.
+
             if (project.hasProperty('spacing')) {
                 systemProperty 'gemrender.spacing', project.property('spacing').toString()
             }
 
-            // -Pspike=<count> auto-spawns the phase-1 skinned-cube grid on world load. Flywheel
-            // compiles instance GLSL lazily and the bone buffer is bound by a mixin, so neither is
-            // exercised until something is drawn.
+            if (project.hasProperty('direct')) {
+                systemProperty 'gemrender.autodirect', project.property('direct').toString()
+            }
+            if (project.hasProperty('directasset')) {
+                systemProperty 'gemrender.directasset', project.property('directasset').toString()
+            }
+
+            if (project.hasProperty('directstats')) {
+                systemProperty 'gemrender.directstats', 'true'
+            }
+            if (project.hasProperty('directspread')) {
+                systemProperty 'gemrender.directspread', 'true'
+            }
+
+            if (project.hasProperty('directitem')) {
+                systemProperty 'gemrender.directitem', 'true'
+            }
+
+            if (project.hasProperty('directflushper')) {
+                systemProperty 'gemrender.directflushper', 'true'
+            }
+
+            if (project.hasProperty('directdecorate')) {
+                systemProperty 'gemrender.directdecorate', 'true'
+            }
+
+            if (project.hasProperty('directarmor')) {
+                systemProperty 'gemrender.directarmor', 'true'
+            }
+
+            if (project.hasProperty('directhand')) {
+                systemProperty 'gemrender.directhand', 'true'
+            }
+
+            if (project.hasProperty('directtotem')) {
+                systemProperty 'gemrender.directtotem', 'true'
+            }
+
+            if (project.hasProperty('skipVanillaRender')) {
+                systemProperty 'gemrender.skipvanillarender',
+                        project.property('skipVanillaRender').toString()
+            }
+
+            if (project.hasProperty('standVisible')) {
+                systemProperty 'gemrender.standvisible', 'true'
+            }
+
+            if (project.hasProperty('directinterleave')) {
+                systemProperty 'gemrender.directinterleave', 'true'
+            }
+
             if (project.hasProperty('spike')) {
                 systemProperty 'gemrender.autospike', project.property('spike').toString()
             }
-            // -Pparticles=<count> auto-spawns a particle fountain sized to keep that many alive at
-            // once. Nothing about a particle is written per frame, so this is the row that shows
-            // whether the closed form in particle.glsl agrees with ParticleMotion on a real GPU.
+
             if (project.hasProperty('particles')) {
                 systemProperty 'gemrender.autoparticles', project.property('particles').toString()
             }
-            // -PparticleEmitters=<n> splits that count across n separate emitters on a grid, which is
-            // the axis that decides how many glBufferSubData calls the upload costs per frame.
+
             if (project.hasProperty('particleEmitters')) {
                 systemProperty 'gemrender.particleemitters', project.property('particleEmitters').toString()
             }
-            // -PparticleSpacing=<blocks> between those emitters. Zero stacks them all on one spot, so a
-            // row against -PparticleSpacing=4 isolates upload cost from screen coverage.
+
             if (project.hasProperty('particleSpacing')) {
                 systemProperty 'gemrender.particlespacing', project.property('particleSpacing').toString()
             }
-            // -PparticlePlacement=front|behind|between puts the water column behind the fountain, in front
-            // of it, or one of each. "front" - particles nearer the camera than the water - is the case
-            // where order-independent geometry stamps depth over water drawn after it.
-            // Generic appearance knobs for the particle row: a tint, an explicit block/sky light pair,
-            // and whether the style cools at all. They exist to reproduce a consumer's style shape
-            // without that consumer's art direction living in this repository.
+
             if (project.hasProperty('particleTint')) {
                 systemProperty 'gemrender.particletint', project.property('particleTint').toString()
             }
@@ -197,34 +275,23 @@ neoForge {
             if (project.hasProperty('particlePlacement')) {
                 systemProperty 'gemrender.particleplacement', project.property('particlePlacement').toString()
             }
-            // -PparticleBlend=additive|translucent|cutout|absorbance. Translucent goes through
-            // Flywheel's wavelet OIT, which rasterises the same geometry three times and blends 16
-            // coefficients per fragment; absorbance discards in those two passes and accumulates a
-            // single scalar in the third; additive is one pass and cannot darken.
+
             if (project.hasProperty('particleBlend')) {
                 systemProperty 'gemrender.particleblend', project.property('particleBlend').toString()
             }
-            // -PparticleSize=<scale> multiplies every particle's size, so a row at 0.1 versus 1.0
-            // separates fill rate from everything else.
+
             if (project.hasProperty('particleSize')) {
                 systemProperty 'gemrender.particlesize', project.property('particleSize').toString()
             }
-            // -Pvolume=<count> draws that many raymarched gas volumes instead of a billboard fountain.
-            // One draw per cloud: cost is the box's screen area times the step count and is completely
-            // independent of how dense the gas looks, which is the whole point of the comparison against
-            // -Pparticles. Pair the two to prove both reach the absorbance accumulator in one frame.
+
             if (project.hasProperty('volume')) {
                 systemProperty 'gemrender.autovolumes', project.property('volume').toString()
             }
-            // -PvolumeQuality=low|medium|high sets the primary step count and whether the secondary
-            // march toward the key light runs at all: 24/0, 48/4, 96/6. Low is flat fog, medium is the
-            // first setting that reads as lit smoke.
+
             if (project.hasProperty('volumeQuality')) {
                 systemProperty 'gemrender.volumequality', project.property('volumeQuality').toString()
             }
-            // -PvolumeSize=<blocks> is the half-extent of each box, -PvolumeDensity=<extinction> the
-            // extinction per block at full density. Together they separate fill rate from optical depth:
-            // a bigger box costs more pixels, a denser one costs nothing extra but exits the march sooner.
+
             if (project.hasProperty('volumeSize')) {
                 systemProperty 'gemrender.volumesize', project.property('volumeSize').toString()
             }
@@ -234,19 +301,14 @@ neoForge {
             if (project.hasProperty('volumeTint')) {
                 systemProperty 'gemrender.volumetint', project.property('volumeTint').toString()
             }
-            // -PvolumeCells=1 feeds each volume a cached voxel field built from box cells instead of the
-            // default ellipsoid -- the same path WF-Ballistics' gas takes once its 220 cells are recombined.
+
             if (project.hasProperty('volumeCells')) {
                 systemProperty 'gemrender.volumecells', project.property('volumeCells').toString()
             }
             if (project.hasProperty('volumeSpacing')) {
                 systemProperty 'gemrender.volumespacing', project.property('volumeSpacing').toString()
             }
-            // The lighting knobs, separated so a row can isolate one at a time. -PvolumePhase is the
-            // Henyey-Greenstein asymmetry (0 isotropic, positive forward-scattering), -PvolumeSun scales
-            // what the secondary march contributes, and -PvolumeAmbient is the floor under it. Phase peaks
-            // above 3 at g=0.35, so sun and ambient together decide whether a cloud facing the light reads
-            // as a silver lining or as a white blob.
+
             ['volumePhase' : 'gemrender.volumephase',
              'volumeAmbient': 'gemrender.volumeambient',
              'volumeSun'   : 'gemrender.volumesun',
@@ -256,33 +318,35 @@ neoForge {
                     systemProperty systemName, project.property(gradleName).toString()
                 }
             }
-            // -Pvolumetrics=false disables raymarched volumes wholesale, so a row can measure what they
-            // cost without rebuilding.
+
             if (project.hasProperty('volumetrics')) {
                 systemProperty 'gemrender.volumetrics', project.property('volumetrics').toString()
             }
-            // -PspikeExit=<ticks> renders for that many ticks, logs a one-line verdict, then quits.
-            // -Pradar=<count> runs the node-animated asset instead of the cubes.
+
             if (project.hasProperty('radar')) {
                 systemProperty 'gemrender.autoradar', project.property('radar').toString()
             }
-            // -Ppylon=<count> runs the Bedrock asset through the .geo.json front end, which is the only
-            // way to exercise that importer against a GPU rather than against JUnit, and is the
-            // GemRender half of the four-way comparison.
+
+            if (project.hasProperty('entity')) {
+                systemProperty 'gemrender.autoentity', 'true'
+            }
+
+            if (project.hasProperty('variants')) {
+                systemProperty 'gemrender.autovariants', 'true'
+            }
+
+            if (project.hasProperty('variantIndex')) {
+                systemProperty 'gemrender.autovariantindex', project.property('variantIndex').toString()
+            }
+
             if (project.hasProperty('pylon')) {
                 systemProperty 'gemrender.autopylon', project.property('pylon').toString()
             }
-            // -PpylonGltf=<count> runs the same model through the glTF front end instead, which is what
-            // lets MCglTF onto the same curve as the other three and is the Bedrock importer's oracle.
+
             if (project.hasProperty('pylonGltf')) {
                 systemProperty 'gemrender.autopylongltf', project.property('pylonGltf').toString()
             }
-            // -Pveh=<count> and -PvehParts=<count> run the same vehicle down the two paths: the bone
-            // palette, and one instance per rigid part. A vehicle is the case pose sharing cannot help
-            // with, because a turret aimed by its driver puts every copy on its own instant, so it is
-            // the only pair that tells the two apart. -Pvehicle=<name> picks which, by directory name
-            // under models/vehicles/. The assets are third-party and not in the tree;
-            // gemrender-internal/docs/TESTING.md says where to drop them.
+
             if (project.hasProperty('veh')) {
                 systemProperty 'gemrender.autovehicle', project.property('veh').toString()
             }
@@ -292,21 +356,15 @@ neoForge {
             if (project.hasProperty('vehicle')) {
                 systemProperty 'gemrender.autovehiclename', project.property('vehicle').toString()
             }
-            // -PspinBone=<name> aims -Pspin at a named bone rather than a node index, which is the only
-            // handle a Bedrock asset gives you. -PgameplayBones=<a,b,c> adds bones no clip animates to
-            // the set the partition cuts above, for an asset whose file does not declare them.
+
             if (project.hasProperty('spinBone')) {
                 systemProperty 'gemrender.autospinbone', project.property('spinBone').toString()
             }
-            // -PspinDuty=<0..1> makes the spin layer move for that fraction of its cycle and hold still
-            // for the rest, which is what a turret aimed by a driver actually does. Both paths draw the
-            // same picture; only the parts path can skip the frames it is holding, because only it keeps
-            // the layers apart.
+
             if (project.hasProperty('spinDuty')) {
                 systemProperty 'gemrender.autospinduty', project.property('spinDuty').toString()
             }
-            // -Plabel=<text> and -Prow=<n/total> are drawn along the bottom of the window with what the
-            // scene should look like, so a matrix of rows going past can be watched rather than trusted.
+
             if (project.hasProperty('label')) {
                 systemProperty 'gemrender.autolabel', project.property('label').toString()
             }
@@ -316,172 +374,130 @@ neoForge {
             if (project.hasProperty('gameplayBones')) {
                 systemProperty 'gemrender.gameplaybones', project.property('gameplayBones').toString()
             }
-            // -Pwater=<blocks> builds a still sheet of water that many blocks under the scene. Water is
-            // the translucent surface players actually put machines over, and it is drawn in a separate
-            // sorted pass after entities, so it is the only backdrop that tests depth and blend state.
-            // Pair it with -Pglass, the one asset with BLEND and MASK materials.
+
             if (project.hasProperty('water')) {
                 systemProperty 'gemrender.autowater', project.property('water').toString()
             }
-            // -PwaterColumn=<blocks> stands a wall of water that thick across the middle of the grid, so
-            // half the copies are drawn in front of water and half are seen through it in one frame. The
-            // backdrop above only ever tests the second; a translucent model in front of water is the
-            // direction that goes wrong, because blended geometry does not write depth and the water
-            // pass runs later. Made of waterlogged barriers, which are invisible and cannot drain.
+
             if (project.hasProperty('waterColumn')) {
                 systemProperty 'gemrender.autowatercolumn', project.property('waterColumn').toString()
             }
-            // -PwaterBlock swaps what the column is made of. Filling it with an opaque block is the
-            // positive control for "is the wall in frame at all", which has to pass before any claim
-            // about water and particle ordering means anything.
+
             if (project.hasProperty('waterBlock')) {
                 systemProperty 'gemrender.waterblock', project.property('waterBlock').toString()
             }
-            // -Pcontrols=true stands vanilla's own two translucent surfaces in the scene: a box of
-            // stained glass, which is translucent terrain and sorted with the water, and a slime, which
-            // is a translucent entity and so is drawn from the same point in the frame Flywheel draws
-            // from. Run it with -PwaterColumn and again without; a control whose two frames are identical
-            // where it covers the screen is one that deleted the water behind it.
+
             if (project.hasProperty('controls')) {
                 systemProperty 'gemrender.autocontrols', project.property('controls').toString()
             }
-            // -Pgraphics=fast|fancy|fabulous forces the graphics setting and rebuilds the level
-            // renderer. Fancy sorts translucency on the CPU into one framebuffer; Fabulous draws it into
-            // separate render targets and composites them in a post chain. They are different code
-            // paths, and a renderer can pass one and vanish under the other, so both need running.
+
             if (project.hasProperty('graphics')) {
                 systemProperty 'gemrender.autographics', project.property('graphics').toString()
             }
-            // -Prig=<count> runs the rigged asset: a real skin, inverse bind matrices, and vertices
-            // pulled by up to four bones, none of which the radar exercises.
+
             if (project.hasProperty('rig')) {
                 systemProperty 'gemrender.autorig', project.property('rig').toString()
             }
-            // -Pmorph=<count> runs the bellows pump: glTF's third animation mechanism, which shares
-            // no path with the other two and fails by simply not moving.
+
             if (project.hasProperty('morph')) {
                 systemProperty 'gemrender.automorph', project.property('morph').toString()
             }
-            // -Pglass=<count> runs the glass case, the only asset with an alpha channel. It answers
-            // what no count can: that BLEND is see-through, and that two transparent surfaces of one
-            // mesh composite correctly without anything being sorted.
+
             if (project.hasProperty('glass')) {
                 systemProperty 'gemrender.autoglass', project.property('glass').toString()
             }
-            // -Ppbr=<count> runs the PBR board: four slabs sharing one base colour texture, differing
-            // only in their maps, so the comparison is inside the frame.
+
             if (project.hasProperty('pbr')) {
                 systemProperty 'gemrender.autopbr', project.property('pbr').toString()
             }
-            // -Poit=false uses ordinary back-to-front blending instead of Flywheel's OIT path. Both
-            // settings render see-through glass; only two transparent surfaces at different depths
-            // tell them apart.
+
             if (project.hasProperty('oit')) {
                 systemProperty 'gemrender.oit', project.property('oit').toString()
             }
-            // -PwaterSplit=false turns off the Fancy-mode split composite that interleaves OIT
-            // geometry with translucent terrain per pixel. On by default; false is the A/B for the
-            // water-column screenshots and for the split's overhead numbers.
+
             if (project.hasProperty('waterSplit')) {
                 systemProperty 'gemrender.watersplit', project.property('waterSplit').toString()
             }
-            // -Pabsorbance=false forces even absorbance-shaded materials back through the full
-            // wavelet chain, which is the A/B for what the single-scalar path actually saves.
+
+            if (project.hasProperty('cloudSplit')) {
+                systemProperty 'gemrender.cloudsplit', project.property('cloudSplit').toString()
+            }
+
+            if (project.hasProperty('clouds')) {
+                systemProperty 'gemrender.clouds', project.property('clouds').toString()
+            }
+
             if (project.hasProperty('absorbance')) {
                 systemProperty 'gemrender.absorbance', project.property('absorbance').toString()
             }
-            // -Patlas=false leaves textures unstitched and -Pmerge=false leaves primitives that share
-            // a material as separate meshes. The A/B for the draw-count claim, and the only way to
-            // exercise the unatlased path a .ktx2 texture takes.
+
             if (project.hasProperty('atlas')) {
                 systemProperty 'gemrender.atlas', project.property('atlas').toString()
             }
             if (project.hasProperty('merge')) {
                 systemProperty 'gemrender.merge', project.property('merge').toString()
             }
-            // -PglAudit=true snapshots GL state around every scope GemRender changes it in and logs
-            // whatever it did not put back, plus any GL error, naming the scope. Off by default: each
-            // field is a glGet, and a glGet is a pipeline stall. See
-            // gemrender-internal/docs/TESTING.md tier 6.
+
             if (project.hasProperty('glAudit')) {
                 systemProperty 'gemrender.glaudit', project.property('glAudit').toString()
             }
-            // -Panim=<clip> picks the animation clip, for whichever asset is running.
+
             if (project.hasProperty('anim')) {
                 systemProperty 'gemrender.autoanimation', project.property('anim').toString()
             }
-            // -Psync=true runs every copy at the same instant of the clip. The verdict's
-            // poseEvaluations is the difference; comparing the screenshots is the other half, since
-            // sharing that forced everything into step would improve the number and ruin the result.
+
             if (project.hasProperty('sync')) {
                 systemProperty 'gemrender.autosync', project.property('sync').toString()
             }
-            // -PposeQuantum=<seconds> is the pose cache's sharing granularity; 0 shares only
-            // bit-identical times, which is the baseline to measure the default against.
+
             if (project.hasProperty('poseQuantum')) {
                 systemProperty 'gemrender.posequantum', project.property('poseQuantum').toString()
             }
-            // -PphaseSteps=<count> draws each copy's scatter offset from that many fixed phases instead
-            // of a continuous hash. Sharing stops being a birthday problem and becomes a cap: the count
-            // is the most distinct poses the scene can ask for, whatever the crowd size.
+
             if (project.hasProperty('phaseSteps')) {
                 systemProperty 'gemrender.phasesteps', project.property('phaseSteps').toString()
             }
-            // -PposeLod=<blocks> is the distance out to which animation is evaluated at full
-            // precision; past it the quantum doubles as the distance doubles, holding screen-space
-            // error constant. Both poseEvaluations and lodMax are needed to read the result: a scene
-            // with fewer distinct phases lowers the first on its own.
+
             if (project.hasProperty('poseLod')) {
                 systemProperty 'gemrender.poselod', project.property('poseLod').toString()
             }
-            // -PposeFreeze=<blocks> makes copies past that distance hold their rest pose, so the far
-            // field costs one evaluation. Off by default, because distant machines stop moving.
+
             if (project.hasProperty('poseFreeze')) {
                 systemProperty 'gemrender.posefreeze', project.property('poseFreeze').toString()
             }
-            // -Pyaw=<degrees> swings the camera so the scene sits at the edge of the frame, which is
-            // where a too-small cull sphere shows and a dead-on screenshot never can.
+
             if (project.hasProperty('yaw')) {
                 systemProperty 'gemrender.autoyaw', project.property('yaw').toString()
             }
-            // -Ppitch=<degrees>, positive down, default 20. For a tall model this is the axis that
-            // separates a correct cull sphere from one centred on the bind pose.
+
             if (project.hasProperty('pitch')) {
                 systemProperty 'gemrender.autopitch', project.property('pitch').toString()
             }
-            // -PdumpShaders writes every shader Flywheel assembles to run/flywheel/. Under a pack the
-            // program that runs is neither GemRender' file nor the pack's, and this is the only way to
-            // read what iris-flw-compat merged.
+
             if (project.hasProperty('dumpShaders')) {
                 systemProperty 'flw.dumpShaderSource', 'true'
             }
-            // -PdumpAtlas writes every stitched sheet to run/gemrender_atlases/. Two of a PBR sheet's
-            // three bands are never drawn directly, so no screenshot of the model contains them. It
-            // also writes the two LabPBR maps the shaderpack bridge hands Iris, for the same reason.
+
             if (project.hasProperty('dumpAtlas')) {
                 systemProperty 'gemrender.dumpatlas', 'true'
             }
-            // -PirisPbr=false stops GemRender handing a shaderpack its material data, so the pack
-            // falls back to Iris's flat normal and zero specular. The A/B for the whole bridge, and
-            // the control a "does the pack look worse with it" question needs. See IrisPbrBridge.
+
             if (project.hasProperty('irisPbr')) {
                 systemProperty 'gemrender.irispbr', project.property('irisPbr').toString()
             }
-            // -Pcompress=false keeps stitched colour sheets as RGBA8 instead of encoding them to BC7.
-            // The A/B for the atlas's video memory: the log line's KB is the number that moves.
+
+            if (project.hasProperty('blockCache')) {
+                systemProperty 'gemrender.blockcache', project.property('blockCache').toString()
+            }
+
             if (project.hasProperty('compress')) {
                 systemProperty 'gemrender.compress', project.property('compress').toString()
             }
-            // -PprobeUnits=true reports what was bound to the bone and morph units at the start of the
-            // last frame. Off by default: two pipeline stalls a frame. It is read with
-            // Boolean.getBoolean, so bare -PprobeUnits is false and does nothing. See SamplerProbe.
+
             if (project.hasProperty('probeUnits')) {
                 systemProperty 'gemrender.probeunits', project.property('probeUnits').toString()
             }
-            // -PboneUnit / -PmorphUnit move the palette and the morph deltas off their default units.
-            // Under a shaderpack the pack's own samplers are allocated upward from 7, and a program
-            // cannot point two sampler types at one unit; the symptom is a mesh drawn with every bone
-            // matrix zero, which has no area and looks exactly like nothing rendering. See TextureUnits.
+
             if (project.hasProperty('boneUnit')) {
                 systemProperty 'gemrender.boneunit', project.property('boneUnit').toString()
             }
@@ -491,120 +507,91 @@ neoForge {
             if (project.hasProperty('spikeExit')) {
                 systemProperty 'gemrender.autoexit', project.property('spikeExit').toString()
             }
-            // -Pfreeze=<seconds> pins the animation clock, so two runs of one scene render the same
-            // frame. Everything else is already fixed; a phase is a function of the world clock, so
-            // without this every comparison has real motion mixed into it.
+
             if (project.hasProperty('freeze')) {
                 systemProperty 'gemrender.freeze', project.property('freeze').toString()
             }
-            // -PspikeCapture=<ticks> captures a known scene at a known tick rather than whichever
-            // frame a human pressed F12 on. Needs -PwithRenderDoc; pair with -Pfreeze.
+
             if (project.hasProperty('spikeCapture')) {
                 systemProperty 'gemrender.autocapture', project.property('spikeCapture').toString()
             }
-            // -Pring=false makes the bone buffer use one region instead of three. The A/B for the
-            // largest per-frame cost GemRender has; only uploadUs should move.
+
             if (project.hasProperty('ring')) {
                 systemProperty 'gemrender.ring', project.property('ring').toString()
             }
-            // -Porphan=false stops the bone buffer discarding the previous frame's contents before it
-            // writes. The cost it removes is a driver stall, which is invisible except as time.
+
             if (project.hasProperty('orphan')) {
                 systemProperty 'gemrender.orphan', project.property('orphan').toString()
             }
-            // -Pspin=<turnsPerSecond> adds a procedural rotation on top of the asset's clip, and
-            // -PspinNode=<slot> picks which node turns. The default is the model's first root, not
-            // slot 0: slots follow file order and the radar's node 0 is its dish. The one scene whose
-            // animation does not come from the file, and on an asset with a clip it also checks the
-            // two compose rather than one replacing the other.
+
             if (project.hasProperty('spin')) {
                 systemProperty 'gemrender.autospin', project.property('spin').toString()
             }
             if (project.hasProperty('spinNode')) {
                 systemProperty 'gemrender.autospinnode', project.property('spinNode').toString()
             }
-            // -PspikeReload=<ticks> reloads resource packs mid-run and rebuilds the scene, which is
-            // the only way to check the asset registry. The verdict's morphFloats must come back equal
-            // to morphFloatsBefore; unequal is a leak that renders perfectly.
+
             if (project.hasProperty('spikeReload')) {
                 systemProperty 'gemrender.autoreload', project.property('spikeReload').toString()
             }
-            // No -Pwidth/-Pheight, deliberately: both of vanilla's mechanisms only set the size the
-            // window is *created* at, and a tiling WM resizes it immediately. Four identical runs here
-            // screenshotted at 3440x1440, 1530x683, 1920x1080 and 953x332. What pins it is
-            // `fullscreen:true` in run/options.txt; the verdict reports the size either way.
 
-            // -PwithRenderDoc makes librenderdoc resident before GL initialises. LD_PRELOAD rather
-            // than `renderdoccmd capture`, because ModDevGradle builds the java command line itself.
-            // Captures land in run/renderdoc/; see GemRenderRenderDoc.
             if (project.hasProperty('withRenderDoc')) {
                 def rdLib = file(project.renderdoc_lib)
                 if (!rdLib.exists()) {
                     throw new GradleException("-PwithRenderDoc: ${rdLib} not found. Install renderdoc, or pass -Prenderdoc_lib=<path to librenderdoc.so>.")
                 }
                 environment 'LD_PRELOAD', rdLib.absolutePath
-                // Read by GemRenderRenderDoc for the capture path template. RenderDoc appends the frame
-                // number and the .rdc extension.
-                environment 'GEMRENDER_RENDERDOC_CAPTURE_PATH', file('run/renderdoc/gemrender').absolutePath
-                // Capturing at vsync-limited framerates makes frame timing meaningless.
+
+                environment 'GEMRENDER_RENDERDOC_CAPTURE_PATH', new File(runDir, 'renderdoc/gemrender').absolutePath
+
                 environment 'RENDERDOC_HOOK_EGL', '0'
-                logger.lifecycle "RenderDoc: preloading ${rdLib}, captures -> ${file('run/renderdoc')}"
+                logger.lifecycle "RenderDoc: preloading ${rdLib}, captures -> ${new File(runDir, 'renderdoc')}"
             }
         }
 
         server {
             server()
             programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty gametest_namespaces_property, project.mod_id
         }
 
         gameTestServer {
             type = 'gameTestServer'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty gametest_namespaces_property, project.mod_id
         }
 
         data {
             data()
-            gameDirectory = project.file('run-data')
+            gameDirectory = rootProject.file(run_data_dir)
             programArguments.addAll '--mod', project.mod_id, '--all',
-                    '--output', file('src/generated/resources/').absolutePath,
-                    '--existing', file('src/main/resources/').absolutePath
+                    '--output', new File(repoRoot, 'src/generated/resources').absolutePath,
+                    '--existing', new File(repoRoot, 'src/main/resources').absolutePath
         }
 
         configureEach {
-            // -PrunDir=<name> gives the run its own game directory. Saves, options.txt and the
-            // screenshot the verdict reads back all live there, so runs in different directories do
-            // not fight and can go at the same time.
-            gameDirectory = project.file(
-                    project.hasProperty('runDir') ? project.property('runDir').toString() : 'run')
 
-            // -PmakeWorld=<name> builds a void superflat world of that name and stages the scene into
-            // it, then flushes it to disk. -PstageWorld=false reuses what is already there, so a test
-            // boots a prebuilt world and renders without replaying a few hundred fill commands.
+            gameDirectory = runDir
+
             if (project.hasProperty('makeWorld')) {
                 systemProperty 'gemrender.makeworld', project.property('makeWorld').toString()
             }
             if (project.hasProperty('stageWorld')) {
                 systemProperty 'gemrender.stageworld', project.property('stageWorld').toString()
             }
-            // -PcameraBack=<blocks> overrides how far the camera sits from the scene on both axes.
-            // The derived default frames the subject alone, which is too close once a water wall the
-            // width of the staging area has to fit in the same shot.
+
+            if (project.hasProperty('cameraUp')) {
+                systemProperty 'gemrender.cameraup', project.property('cameraUp').toString()
+            }
             if (project.hasProperty('cameraBack')) {
                 systemProperty 'gemrender.cameraback', project.property('cameraBack').toString()
             }
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.DEBUG
 
-            // -Pbackend=<instancing|indirect|off> pins Flywheel's backend. `indirect` puts instance
-            // data in an SSBO and culls on the GPU; `instancing` uses a buffer texture and no compute.
-            // A bug that reproduces on only one of them is the normal case.
             if (project.hasProperty('backend')) {
                 systemProperty 'flw.backend', project.property('backend').toString()
             }
 
-            // -Pjfr makes the run profilable without starting a recording; attach one with
-            // `jcmd <pid> JFR.start`. DebugNonSafepoints is what keeps samples off safepoints.
             if (project.hasProperty('jfr')) {
                 jvmArguments.addAll '-XX:+UnlockDiagnosticVMOptions', '-XX:+DebugNonSafepoints',
                         '-XX:FlightRecorderOptions=stackdepth=192',
@@ -615,9 +602,6 @@ neoForge {
 
 }
 
-// Its own source set because it must NOT have Minecraft on it: under FML's transforming classloader
-// org.lwjgl.util.ktx and LWJGL's core land in different loaders, and initialising any KTX struct then
-// loads liblwjgl.so twice and throws. A property of the test harness, not of the game.
 sourceSets {
     ktxTest {
         compileClasspath += sourceSets.main.output
@@ -625,10 +609,11 @@ sourceSets {
     }
 }
 
-// The vehicle rows are Limitless Vehicle content, present only in a local checkout and never ours to
-// redistribute. A second resource root keeps them off this tree entirely, so they cannot be committed
-// by accident; the dev run still finds them because processResources merges the two. The jar excludes
-// them anyway, because a published artifact must not carry them however they arrived.
+if (!ktxSupported) {
+    sourceSets.ktxTest.java.setSrcDirs([])
+    sourceSets.ktxTest.resources.setSrcDirs([])
+}
+
 sourceSets {
     main {
         resources {
@@ -638,99 +623,157 @@ sourceSets {
 }
 tasks.named('jar') {
     exclude 'assets/gemrender/models/vehicles/**'
+
+    if (flywheelVendored) {
+        from sourceSets.flywheel.output
+    }
 }
 
-// 'localRuntime' is not a ModDevGradle built-in (that is 'additionalRuntimeClasspath'). Dependencies
-// in it are on the dev run classpath but are NOT published, which is what Flywheel needs to be.
+if (!irisSupported) {
+    sourceSets.main.java.exclude 'com/wf/gemrender/iris/**'
+    sourceSets.main.java.exclude 'com/wf/gemrender/mixin/irisflw/**'
+    sourceSets.main.resources.exclude 'gemrender.irisflw.mixins.json'
+}
+
+['direct', 'direct26'].each { set ->
+    if (!directSupported || set != directMixinSet) {
+        sourceSets.main.java.exclude "com/wf/gemrender/mixin/${set}/**"
+        sourceSets.main.resources.exclude "gemrender.${set}.mixins.json"
+    }
+}
+
+if (!directSupported) {
+    sourceSets.main.java.exclude 'com/wf/gemrender/direct/**'
+}
+
+if (harnessSupported) {
+    if (stonecutter.eval(mcVersion, '>=26.1')) {
+        sourceSets.harness.resources.exclude 'assets/gemrender/models/item/spike.json'
+    } else {
+        sourceSets.harness.resources.exclude 'assets/gemrender/items/**'
+        sourceSets.harness.resources.exclude 'assets/gemrender/models/item/spike_base.json'
+    }
+}
+
+tasks.named('processResources', ProcessResources) {
+    filesMatching('*.mixins.json') {
+        filter { String line -> line.replace('"JAVA_21"', "\"JAVA_${java_version}\"") }
+    }
+}
+
+if (flywheelVendored) {
+    tasks.named('processFlywheelResources', ProcessResources) {
+        filesMatching('*.mixins.json') {
+            filter { String line ->
+                line.contains('"refmap"') ? null
+                        : line.replace('"JAVA_21"', "\"JAVA_${java_version}\"")
+                              .replace('"JAVA_17"', "\"JAVA_${java_version}\"")
+            }
+        }
+    }
+}
+
+if (isLegacy) {
+
+    def mixinConfigs = ['gemrender.mixins.json']
+    if (directSupported) {
+        mixinConfigs += directMixinConfig
+    }
+    if (irisSupported) {
+        mixinConfigs += 'gemrender.irisflw.mixins.json'
+    }
+
+    dependencies {
+        annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    }
+
+    mixin {
+
+        add sourceSets.main, 'gemrender.refmap.json'
+
+        mixinConfigs.each { config it }
+    }
+
+    tasks.named('jar', Jar) {
+        manifest.attributes(['MixinConfigs': mixinConfigs.join(',')])
+    }
+}
+
 configurations {
     localRuntime
     runtimeClasspath.extendsFrom localRuntime
 
-    // The shader stack, deliberately NOT on any classpath: dropped into run/mods by `prepareRunMods`
-    // and loaded the way a player would. GemRender compiles against none of them and must not.
     shaderMod
 }
 
+def flywheelDep = flywheelVendored ? null : "dev.engine-room.flywheel:${flywheel_artifact}:${flywheel_version}"
+def modConf = { String name -> isLegacy ? "mod${name.capitalize()}" : name }
+
+if (isLegacy) {
+
+    ['localRuntime', 'benchCompileOnly', 'harnessCompileOnly', 'testImplementation'].each {
+        obfuscation.createRemappingConfiguration(configurations.getByName(it))
+    }
+}
+
 dependencies {
-    // The FULL jar, not flywheel-neoforge-api-1.21.1: the bone-buffer mixin targets
-    // backend.engine internals, which the api jar does not carry. See gemrender-internal/docs/ARCHITECTURE.md
-    // "Blocker 2".
-    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+    if (flywheelVendored) {
 
-    // The real mod in the dev run, and jar-in-jar'd for production just below. Dev needs its own
-    // declaration because nothing extracts a nested jar for a run configuration.
-    localRuntime "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+        compileOnly sourceSets.flywheel.output
 
-    // Shipped inside the jar, under the same group:artifact Create nests Flywheel under. That
-    // identifier is what FML's JarSelector keys on, so Create's copy and this one are a single entry
-    // to resolve: the ranges intersect and exactly one Flywheel loads. A flywheel jar installed in
-    // mods/ displaces every nested copy outright. The range has to overlap Create's [1.0.6,2.0) or
-    // resolution fails for both mods, so it is the range neoforge.mods.toml declares, not a pin.
-    jarJar("dev.engine-room.flywheel:flywheel-neoforge-1.21.1") {
-        version {
-            strictly flywheel_version_range
-            prefer flywheel_version
+        runtimeOnly sourceSets.flywheel.output
+    } else {
+
+        add(modConf('compileOnly'), flywheelDep)
+
+        add(modConf('localRuntime'), flywheelDep)
+
+        jarJar("dev.engine-room.flywheel:${flywheel_artifact}") {
+            version {
+                strictly flywheel_version_range
+                prefer flywheel_version
+            }
+            transitive = false
         }
-        transitive = false
     }
 
-    // lwjgl-ktx binds Khronos' libktx at the exact LWJGL version Minecraft 1.21.1 ships, so it links
-    // against the core the game already loaded. Apache-2.0; see docs/VENDORED.md.
-    //
-    // transitive = false throughout is load-bearing: lwjgl-ktx's POM depends on lwjgl core, and
-    // resolving that puts a second copy of org.lwjgl.system on the classpath, which dies with
-    // "already loaded in another classloader" the first time a struct class initialises.
-    compileOnly("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
+    if (ktxSupported) {
+        compileOnly("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
 
-    // additionalRuntimeClasspath, not runtimeOnly: a runtimeOnly dependency lands on the JVM's -cp
-    // but not on the classpath FML hands its transforming loader, so the game throws
-    // ClassNotFoundException for a jar that is demonstrably present. Dev is the odd case here, since
-    // jar-in-jar puts the module inside the mod's own jar in production.
-    additionalRuntimeClasspath("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
-    jarJar("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
-    // 'native' is a Groovy keyword, hence the name.
-    for (platform in ['natives-linux', 'natives-windows', 'natives-macos', 'natives-macos-arm64']) {
-        additionalRuntimeClasspath("org.lwjgl:lwjgl-ktx:${lwjgl_version}:${platform}") { transitive = false }
-        jarJar("org.lwjgl:lwjgl-ktx:${lwjgl_version}:${platform}") { transitive = false }
+        def ktxRuntime = stonecutter.eval(mcVersion, '>=26.1') ? 'runtimeOnly' : 'additionalRuntimeClasspath'
+        add(ktxRuntime, "org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
+        jarJar("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
+
+        for (platform in ['natives-linux', 'natives-windows', 'natives-macos', 'natives-macos-arm64']) {
+            add(ktxRuntime, "org.lwjgl:lwjgl-ktx:${lwjgl_version}:${platform}") { transitive = false }
+            jarJar("org.lwjgl:lwjgl-ktx:${lwjgl_version}:${platform}") { transitive = false }
+        }
     }
 
-    // Sodium because Iris needs it; iris-flw-compat because Iris disables Flywheel's instancing when
-    // a pack is on, and that mod puts it back as a THIRD backend with its own vertex format, which is
-    // the thing GemRender has to survive. See gemrender-internal/docs/RESEARCH.md 7.
-    shaderMod("maven.modrinth:sodium:${sodium_version}") { transitive = false }
-    shaderMod("maven.modrinth:iris:${iris_version}") { transitive = false }
-    shaderMod("maven.modrinth:iris-flw-compat:${irisflw_version}") { transitive = false }
+    if (irisSupported) {
+        shaderMod("maven.modrinth:sodium:${sodium_version}") { transitive = false }
+        shaderMod("maven.modrinth:iris:${iris_version}") { transitive = false }
+        shaderMod("maven.modrinth:iris-flw-compat:${irisflw_version}") { transitive = false }
 
-    // Iris at compile time and nowhere else, for one public hook: PBRTextureLoaderRegistry, which is
-    // how a mod gives a shaderpack its own normal and specular maps. This is the one place GemRender
-    // names an Iris type, so it is also the one place that could turn Iris into a hard dependency by
-    // accident. Everything that touches it lives in com.wf.gemrender.iris and is entered only after
-    // IrisPbrBridge has checked the mod list; keep it that way.
-    compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
+        compileOnly("maven.modrinth:iris:${iris_version}") { transitive = false }
+    }
 
-    // The benchmark's own classpath. The three rival jars are built from source trees rather than
-    // fetched, because two of them are not published for 1.21.1 NeoForge at all: Simple Bedrock
-    // Models' 1.21.1 branch is source-only, and Modrinth has since pulled versions this build used to
-    // pin. Both the trees and the built jars are in the internal checkout.
     benchCompileOnly sourceSets.main.output
     benchCompileOnly sourceSets.harness.output
-    benchCompileOnly "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+    if (flywheelVendored) {
+        benchCompileOnly sourceSets.flywheel.output
+    } else {
+        add(modConf('benchCompileOnly'), flywheelDep)
+    }
     benchCompileOnly fileTree(dir: internalRivals, include: '*.jar')
 
-    // The harness draws through GemRender and through Flywheel directly, so it needs both. Kept off
-    // every published classpath the same way bench is: compileOnly here, and a source set the `jar`
-    // task never sees.
     harnessCompileOnly sourceSets.main.output
-    harnessCompileOnly "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+    if (flywheelVendored) {
+        harnessCompileOnly sourceSets.flywheel.output
+    } else {
+        add(modConf('harnessCompileOnly'), flywheelDep)
+    }
 
-    // Only the selected framework is put on the run classpath, so a comparison run contains exactly one
-    // rival. The bench source set compiles against all three; the drivers are referenced through a
-    // switch, so the JVM only ever loads the one class whose mod is actually present.
-    //
-    // Spelled out rather than matched against the -Prival name: the driver names are the ones that go in
-    // the results table, and none of the three happens to be the jar's own artifact id. Simple Bedrock
-    // Models also needs mae, its animation engine, listed here because it ships jar-in-jar and nothing
-    // extracts that for a jar handed to the run classpath rather than dropped in a mods directory.
     def rivalJars = [
             mcgltf  : ['mcgltf'],
             geckolib: ['geckolib'],
@@ -753,39 +796,40 @@ dependencies {
         }
     }
 
-    // No jgltf dependency on purpose: de.javagl:jgltf-model pulls jackson, and Minecraft ships GSON.
-    // GemRender vendors the GSON port under com.wf.gemrender.vendor.jgltf; see docs/VENDORED.md.
+    if (flywheelVendored) {
+        testImplementation sourceSets.flywheel.output
+    } else {
+        add(modConf('testImplementation'), flywheelDep)
+    }
 
-    // Minecraft's own LWJGL is already on the test classpath via ModDevGradle, so the @Tag("gl") tests
-    // run against exactly the LWJGL version the game does. Flywheel is here for the handful of tests
-    // that assert on a Flywheel value; nothing here starts the engine.
-    testImplementation "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
-
-    // The KTX source set's own classpath: JUnit, LWJGL, and nothing else. LWJGL core is named
-    // explicitly because there is no Minecraft to supply it and exactly one copy must be present.
-    ktxTestImplementation platform('org.junit:junit-bom:5.11.3')
-    ktxTestImplementation 'org.junit.jupiter:junit-jupiter'
-    ktxTestImplementation 'org.assertj:assertj-core:3.26.3'
-    ktxTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    ktxTestImplementation "org.lwjgl:lwjgl:${lwjgl_version}"
-    ktxTestImplementation("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
-    for (platform in ['natives-linux', 'natives-windows', 'natives-macos', 'natives-macos-arm64']) {
-        ktxTestRuntimeOnly "org.lwjgl:lwjgl:${lwjgl_version}:${platform}"
-        ktxTestRuntimeOnly("org.lwjgl:lwjgl-ktx:${lwjgl_version}:${platform}") { transitive = false }
+    if (ktxSupported) {
+        ktxTestImplementation platform('org.junit:junit-bom:5.11.3')
+        ktxTestImplementation 'org.junit.jupiter:junit-jupiter'
+        ktxTestImplementation 'org.assertj:assertj-core:3.26.3'
+        ktxTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        ktxTestImplementation "org.lwjgl:lwjgl:${lwjgl_version}"
+        ktxTestImplementation("org.lwjgl:lwjgl-ktx:${lwjgl_version}") { transitive = false }
+        for (platform in ['natives-linux', 'natives-windows', 'natives-macos', 'natives-macos-arm64']) {
+            ktxTestRuntimeOnly "org.lwjgl:lwjgl:${lwjgl_version}:${platform}"
+            ktxTestRuntimeOnly("org.lwjgl:lwjgl-ktx:${lwjgl_version}:${platform}") { transitive = false }
+        }
     }
 
     testImplementation platform('org.junit:junit-bom:5.11.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    testCompileOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.assertj:assertj-core:3.26.3'
 }
 
-// Two tiers, split by JUnit tag. `test` is pure JVM logic, deterministic and safe in CI; `glTest`
-// stands up a real headless GL 4.6 context and talks to the driver, so it is NOT part of `check`.
-// Anything touching the driver must be tagged "gl" or CI will run it and fail.
 tasks.named('test', Test) {
     useJUnitPlatform {
         excludeTags 'gl'
+
+        if (isLegacy) {
+            excludeTags 'bootstrap'
+        }
     }
     testLogging {
         events 'passed', 'skipped', 'failed'
@@ -793,8 +837,6 @@ tasks.named('test', Test) {
         showStandardStreams = project.hasProperty('analysisModel')
     }
 
-    // Ad hoc measurement against third-party assets that are not in the repository. Absent these,
-    // BedrockPartsAnalysisTest skips.
     ['analysisModel'      : 'gemrender.analysis.model',
      'analysisAnimation'  : 'gemrender.analysis.animation',
      'analysisGameplay'   : 'gemrender.analysis.gameplayBones',
@@ -805,10 +847,16 @@ tasks.named('test', Test) {
     }
 }
 
-// Plain JUnit in a plain JVM: no FML argfile, no GPU. Part of `check`, unlike glTest.
 tasks.register('ktxTest', Test) {
     group = 'verification'
     description = 'KTX2 decoding, against files encoded by the same library in the same process.'
+    onlyIf {
+        if (!ktxSupported) {
+            logger.lifecycle "ktxTest: KTX2 is unsupported on ${stonecutter.current.version}, skipping."
+            return false
+        }
+        return true
+    }
     testClassesDirs = sourceSets.ktxTest.output.classesDirs
     classpath = sourceSets.ktxTest.runtimeClasspath
     useJUnitPlatform()
@@ -817,16 +865,17 @@ tasks.register('ktxTest', Test) {
         exceptionFormat = 'full'
     }
 }
-tasks.named('check') { dependsOn tasks.named('ktxTest') }
+if (ktxSupported) {
+    tasks.named('check') { dependsOn tasks.named('ktxTest') }
+}
 
-// Driver portability without the drivers. Most of the risk is not driver disagreement, it is a
-// shader that is not valid GLSL and one vendor being lenient; the reference compiler is stricter than
-// all of them. Part of `check`, and skips cleanly when glslang or the internal checkout is absent.
 def glslValidator = new File(internalDir, 'scripts/validate-glsl.sh')
 tasks.register('validateGlsl', Exec) {
     group = 'verification'
     description = 'Compiles every shipped shader with the Khronos reference compiler.'
-    commandLine glslValidator.path, projectDir.path
+
+    commandLine glslValidator.path, repoRoot.path
+    workingDir repoRoot
     onlyIf {
         if (!glslValidator.isFile()) {
             logger.lifecycle "validateGlsl: no ${glslValidator}, skipping."
@@ -850,30 +899,22 @@ tasks.register('glTest', Test) {
         exceptionFormat = 'full'
         showStandardStreams = true
     }
-    // GL tests create a hidden GLFW window; they cannot share a JVM with a second GL context.
+
     maxParallelForks = 1
-    // Mesa on some setups needs this to hand out a 4.6 core context to an offscreen window.
+
     environment 'MESA_GL_VERSION_OVERRIDE', '4.6'
 
-    // -Psoftware runs the same tier on Mesa's llvmpipe: a SECOND OpenGL implementation with
-    // different limits and no vendor extensions, and the only way this tier runs with no GPU. Slow.
     if (project.hasProperty('software')) {
         environment 'LIBGL_ALWAYS_SOFTWARE', '1'
         environment 'GALLIUM_DRIVER', 'llvmpipe'
     }
 }
 
-// ModDevGradle configures the `test` task with everything needed to boot FML. A second Test task
-// inherits none of it and dies with "Failed to start Minecraft: mainargs.txt", because the FML JUnit
-// extension runs regardless of which task launched it. afterEvaluate because MDG applies that
-// configuration during its own evaluation.
 afterEvaluate {
-    // Every client run syncs run/mods first, `-Piris` or not. See prepareRunMods.
+
     tasks.matching { it.name == 'runClient' }.configureEach {
         dependsOn tasks.named('prepareRunMods')
-        // Nothing else builds either of these: neither is wired into `build` or `check`, so a normal
-        // build never compiles the harness and never compiles code that depends on three rival mods
-        // being present.
+
         dependsOn tasks.named('harnessClasses')
         if (benchEnabled) {
             dependsOn tasks.named('benchClasses')
@@ -888,39 +929,37 @@ afterEvaluate {
         glTest.systemProperties.putAll(unitTest.systemProperties)
         glTest.jvmArgumentProviders.addAll(unitTest.jvmArgumentProviders)
         glTest.doFirst {
-            // Gradle will not create the working directory for us, and MDG's is a build output that
-            // may not exist yet on a clean tree.
+
             glTest.workingDir.mkdirs()
         }
     }
 }
 
-// A plain JavaExec, deliberately not a test: under FML's unit-test harness the KTX binding and
-// LWJGL's core land on different classloaders and liblwjgl.so is loaded twice.
-// See gemrender-internal/docs/TESTING.md.
 tasks.register('makeKtxAssets', JavaExec) {
     group = 'build'
     description = 'Regenerates the .ktx2 test textures from the PNGs beside them.'
+    onlyIf {
+        if (!ktxSupported) {
+            logger.lifecycle "makeKtxAssets: KTX2 is unsupported on ${stonecutter.current.version}, skipping."
+            return false
+        }
+        return true
+    }
     classpath = sourceSets.ktxTest.runtimeClasspath
-    // Gradle itself runs on 17 here; the classes are 21. The toolchain the rest of the build uses.
-    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(java_version as int) }
     mainClass = 'com.wf.gemrender.texture.MakeKtxAssets'
-    args projectDir.absolutePath
+    args repoRoot.absolutePath
     dependsOn tasks.named('ktxTestClasses')
 }
 
-// `-Piris` puts Sodium + Iris + iris-flw-compat in run/mods; without it run/mods is emptied rather
-// than left alone, because a jar surviving from a previous run silently changes every measurement
-// after it. `-Pshaders=<pack>` selects a pack and turns shaders on; omitting it turns them off.
 def irisEnabled = project.hasProperty('iris') && project.property('iris').toString() != 'false'
 def shaderPack = project.hasProperty('shaders') ? project.property('shaders').toString() : null
-// -PshaderOptions=KEY=VALUE,KEY=VALUE turns pack settings on. See prepareRunMods for why it exists.
+
 def shaderOptions = project.hasProperty('shaderOptions')
         ? project.property('shaderOptions').toString()
         : null
 
-// iris-flw-compat jar-in-jars its own copy of Flywheel 1.0.6. In a dev run Flywheel is already a
-// classpath mod, and FML refuses two mods with the same id. The classpath copy is the same version.
 tasks.register('stripIrisFlwJarJar', Jar) {
     group = 'build'
     description = 'Removes iris-flw-compat\'s nested Flywheel, which duplicates the classpath one.'
@@ -943,7 +982,7 @@ tasks.register('prepareRunMods') {
     }
 
     doLast {
-        def modsDir = file('run/mods')
+        def modsDir = new File(runDir, 'mods')
         modsDir.mkdirs()
         modsDir.listFiles({ File f -> f.name.endsWith('.jar') } as FileFilter)
                 ?.each { it.delete() }
@@ -961,24 +1000,18 @@ tasks.register('prepareRunMods') {
             logger.lifecycle 'Shader stack: none (run/mods emptied)'
         }
 
-        // The probe packs live in the internal checkout and are copied every run, so editing one and
-        // re-running is the loop. They are folders rather than zips because Iris reads both and a
-        // folder diffs. The stock packs beside them are third-party and not ours to redistribute,
-        // which is the other reason none of this is in the tree.
         def packSource = new File(internalDir, 'shaderpacks')
         if (packSource.isDirectory()) {
             copy {
                 from packSource
-                into 'run/shaderpacks'
+                into new File(runDir, 'shaderpacks')
             }
         } else if (shaderPack != null) {
             logger.lifecycle "Shader packs: no ${packSource}; '${shaderPack}' must already be in " +
                     "run/shaderpacks."
         }
 
-        // Iris stores the selected pack in its own properties file, which is the only way to pick one
-        // without a human in the shaderpack screen, and an unattended run has no human.
-        def irisConfig = file('run/config/iris.properties')
+        def irisConfig = new File(runDir, 'config/iris.properties')
         irisConfig.parentFile.mkdirs()
         irisConfig.text = """\
                 |# Written by Gradle's prepareRunMods task. Hand edits are overwritten every run.
@@ -992,13 +1025,8 @@ tasks.register('prepareRunMods') {
                 |""".stripMargin()
         logger.lifecycle "Iris: ${shaderPack != null ? "shaders on, pack '${shaderPack}'" : 'shaders off'}"
 
-        // A pack's own settings live in shaderpacks/<pack>.txt beside the pack, and without this
-        // there is no way to reach them from an unattended run. It is not an edge case: all four of
-        // the top packs ship with resource-pack materials switched OFF, so the samplers GemRender
-        // feeds are compiled out of the pack and Iris never even asks for them. Written after the
-        // sync above, which would otherwise not have created the directory yet.
         if (shaderPack != null) {
-            def packOptions = file("run/shaderpacks/${shaderPack}.txt")
+            def packOptions = new File(runDir, "shaderpacks/${shaderPack}.txt")
             packOptions.parentFile.mkdirs()
             if (shaderOptions != null) {
                 packOptions.text = shaderOptions.split(',')
@@ -1007,21 +1035,14 @@ tasks.register('prepareRunMods') {
                         .join('\n') + '\n'
                 logger.lifecycle "Shader options: ${shaderOptions}"
             } else {
-                // Deleted rather than left, for the same reason run/mods is emptied: a setting that
-                // survives from a previous run silently changes every measurement after it.
+
                 packOptions.delete()
             }
         }
     }
 }
 
-// This RenderDoc build (Arch 1.45) has no `renderdoccmd python` subcommand, so captures cannot be
-// scripted through its replay API. `renderdoccmd convert` turns a .rdc into XML, which is an ordinary
-// file an ordinary test can assert on. The loop is:
-//   ./gradlew runClient -PwithRenderDoc -PquickPlay=<world>   # F12 or /gemrender capture in game
-//   ./gradlew renderDocConvert                                # newest .rdc -> build/renderdoc/*.xml
-//   ./gradlew test --tests '*CaptureAnalysisTest'             # assert on it
-def renderDocCaptureDir = file('run/renderdoc')
+def renderDocCaptureDir = new File(runDir, 'renderdoc')
 def renderDocXmlDir = layout.buildDirectory.dir('renderdoc')
 
 tasks.register('renderDocConvert', Exec) {
@@ -1043,17 +1064,21 @@ tasks.register('renderDocConvert', Exec) {
     }
 }
 
-
-// Expand ${...} tokens in src/main/templates (notably META-INF/neoforge.mods.toml) and feed the
-// result into the main source set. Mirrors the official MDK's generateModMetadata task.
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            neo_version_range      : neo_version_range,
             loader_version_range   : loader_version_range,
+            platform_version_range : platform_version_range,
             flywheel_version_range : flywheel_version_range,
+
+            flywheel_dependency    : !flywheelVendored,
+
+            direct_path            : directSupported,
+            direct_config          : directMixinConfig,
+            iris_path              : irisSupported,
+
+            flywheel_vendored_version: flywheel_vendored_version,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,
@@ -1063,14 +1088,21 @@ var generateModMetadata = tasks.register('generateModMetadata', ProcessResources
     ]
     inputs.properties replaceProperties
     expand replaceProperties
-    from 'src/main/templates'
+
+    from new File(repoRoot, "src/main/templates/${loader}")
     into 'build/generated/sources/modMetadata'
 }
 sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
+modding.ideSyncTask generateModMetadata
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+if (flywheelVendored) {
+    tasks.named('compileFlywheelJava', JavaCompile) {
+        options.compilerArgs += ['-Xmaxerrs', '100000']
+    }
 }
 
 publishing {
@@ -1093,22 +1125,13 @@ idea {
     }
 }
 
-// Minecraft shows the accessibility onboarding screen once per fresh game directory, before the
-// title screen, and only writes onboardAccessibility:false after it has been dismissed. Every
-// harness row runs in a directory that did not exist a moment ago, so every row would sit on that
-// screen instead of the title screen the world bootstrap waits for. Seeding the one line ahead of
-// launch is what makes a fresh run directory behave like a returning one; anything already there
-// is left alone so a hand-edited options.txt survives.
 tasks.named('runClient') {
     doFirst {
-        def dir = project.file(project.hasProperty('runDir')
-                ? project.property('runDir').toString() : 'run')
+        def dir = runDir
         dir.mkdirs()
         def options = new File(dir, 'options.txt')
         if (!options.exists()) {
-            // The window size is pinned for the same reason: it is otherwise whatever the window
-            // manager felt like, and two rows measured at 846x328 and 846x503 differ by half again
-            // as many fragments before either one draws anything. -PrunWidth/-PrunHeight override.
+
             def w = project.hasProperty('runWidth') ? project.property('runWidth') : 1280
             def h = project.hasProperty('runHeight') ? project.property('runHeight') : 720
             options.text = "onboardAccessibility:false\noverrideWidth:${w}\noverrideHeight:${h}\n"
