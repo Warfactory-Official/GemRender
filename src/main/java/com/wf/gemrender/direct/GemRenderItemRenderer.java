@@ -1,12 +1,11 @@
 package com.wf.gemrender.direct;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.wf.gemrender.GemRender;
 import com.wf.gemrender.gltf.GemRenderGltfModel;
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.render.Vanilla;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -16,6 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 //? if <26.1 {
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
 //?}
 //? if >=26.1 {
 /*import java.util.function.Consumer;
@@ -179,7 +180,6 @@ public class GemRenderItemRenderer extends BlockEntityWithoutLevelRenderer {
             default -> DirectPass.LEVEL;
         };
     }
-    //?}
 
     //? if >=26.1 {
 	/*// The id the item model JSON names this renderer's TYPE by. One per mod, not one per model: the
@@ -263,6 +263,7 @@ public class GemRenderItemRenderer extends BlockEntityWithoutLevelRenderer {
                              MultiBufferSource buffers, int light, int overlay) {
         draw(stack, context, pose, light, overlay);
     }
+    //?}
 
     /**
      * Whether this stack's appearance moves, and so whether a cached picture of it goes stale.

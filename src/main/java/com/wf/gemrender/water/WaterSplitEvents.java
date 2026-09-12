@@ -1,12 +1,13 @@
 package com.wf.gemrender.water;
 
 import com.wf.gemrender.GemRender;
+
+//? if neoforge {
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-
-//? if neoforge {
 //?} else {
 /*import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;

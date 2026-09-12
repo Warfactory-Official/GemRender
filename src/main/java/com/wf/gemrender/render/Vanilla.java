@@ -1,8 +1,11 @@
 package com.wf.gemrender.render;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+
+import static org.lwjgl.opengl.GL30C.GL_FRAMEBUFFER;
 
 public final class Vanilla {
     private Vanilla() {

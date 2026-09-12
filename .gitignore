@@ -27,8 +27,12 @@ src/main/resources/assets/gemrender/models/vehicles/
 *.rdc
 *.cap
 
-# IDE
-.idea/
+# IDE. The whole of .idea/ is generated and machine-specific EXCEPT codeStyles/, which is shared:
+# it is what stops "Reformat Code" from rearranging members past a Stonecutter directive or
+# collapsing a guarded import block into a wildcard. See also .editorconfig, which carries the same
+# import rules for anyone whose IDE reimports .idea/ from scratch.
+.idea/*
+!.idea/codeStyles/
 *.iml
 *.ipr
 *.iws

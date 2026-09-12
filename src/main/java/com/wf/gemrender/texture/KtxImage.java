@@ -1,17 +1,16 @@
 package com.wf.gemrender.texture;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+
+//? if ktx {
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.util.ktx.KTX;
 import org.lwjgl.util.ktx.ktxTexture;
 import org.lwjgl.util.ktx.ktxTexture2;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-
-//? if ktx {
 //?}
 
 public record KtxImage(int width, int height, byte[] rgba) {

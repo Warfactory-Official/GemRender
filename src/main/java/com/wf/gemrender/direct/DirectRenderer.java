@@ -454,10 +454,8 @@ public final class DirectRenderer {
     private record PaletteKey(GemRenderGltfModel model, @Nullable GltfAnimation clip, int instant) {
         @Override
         public boolean equals(Object other) {
-            return other instanceof PaletteKey(
-                    GemRenderGltfModel model1, GltfAnimation clip1, int instant1
-            ) && model1 == model && instant1 == instant
-                    && Objects.equals(clip1, clip);
+            return other instanceof PaletteKey key && key.model == model && key.instant == instant
+                    && Objects.equals(key.clip, clip);
         }
 
         @Override

@@ -7,7 +7,6 @@ import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.backend.engine.indirect.OitFramebuffer;
 import net.minecraft.client.Minecraft;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
@@ -17,6 +16,7 @@ import static org.lwjgl.opengl.GL33C.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL33C.glTexImage2D;
 
 //? if neoforge {
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 //?} else {
 /*import net.minecraftforge.client.event.RenderLevelStageEvent;
  *///?}

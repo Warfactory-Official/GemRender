@@ -2,26 +2,44 @@ package com.wf.gemrender.water;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.wf.gemrender.mixin.LevelRendererAccessor;
 import com.wf.gemrender.render.GlAudit;
-import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.Vanilla;
-import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.lwjgl.opengl.GL11C;
 
-import static org.lwjgl.opengl.GL11C.*;
+import static org.lwjgl.opengl.GL11C.GL_NEAREST;
+import static org.lwjgl.opengl.GL11C.GL_TEXTURE_MAG_FILTER;
+import static org.lwjgl.opengl.GL11C.GL_TEXTURE_MIN_FILTER;
+import static org.lwjgl.opengl.GL11C.GL_TEXTURE_WRAP_S;
+import static org.lwjgl.opengl.GL11C.GL_TEXTURE_WRAP_T;
+import static org.lwjgl.opengl.GL11C.glTexParameteri;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
-import static org.lwjgl.opengl.GL30C.*;
-import static org.lwjgl.opengl.GL32C.glFramebufferTexture;
 import static org.lwjgl.opengl.GL33C.GL_TEXTURE_2D;
 
 //? if <26.1 {
+import static org.lwjgl.opengl.GL11C.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11C.GL_DEPTH_COMPONENT;
+import static org.lwjgl.opengl.GL11C.GL_FLOAT;
+import static org.lwjgl.opengl.GL11C.GL_LEQUAL;
+import static org.lwjgl.opengl.GL11C.GL_NONE;
+import static org.lwjgl.opengl.GL11C.glDeleteTextures;
+import static org.lwjgl.opengl.GL11C.glDrawBuffer;
+import static org.lwjgl.opengl.GL11C.glGenTextures;
+import static org.lwjgl.opengl.GL11C.glReadBuffer;
+import static org.lwjgl.opengl.GL11C.glTexImage2D;
+import static org.lwjgl.opengl.GL30C.GL_DEPTH_ATTACHMENT;
+import static org.lwjgl.opengl.GL30C.GL_DEPTH_COMPONENT32F;
+import static org.lwjgl.opengl.GL30C.GL_FRAMEBUFFER;
+import static org.lwjgl.opengl.GL30C.glDeleteFramebuffers;
+import static org.lwjgl.opengl.GL30C.glGenFramebuffers;
+import static org.lwjgl.opengl.GL32C.glFramebufferTexture;
 //?}
 //? if <26.1 {
+import com.wf.gemrender.mixin.LevelRendererAccessor;
+import com.wf.gemrender.render.GlState;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.phys.AABB;
 //?}
 //? if >=26.1 {
 /*import java.util.List;
@@ -40,6 +58,7 @@ import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 */
 //?}
 //? if neoforge {
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 //?} else {
 /*import net.minecraftforge.client.event.RenderLevelStageEvent;
  *///?}
@@ -57,24 +76,29 @@ final class WaterDepthPrepass {
      *///?} else {
     static final boolean CLOUDS_SUPPORTED = true;
     //?}
-    private static final double CLOUD_SLAB_REACH = 1.0e6;
-    private static final double CLOUD_SLAB_MARGIN = 16.0;
-    private final PassState state = new PassState();
     private int width = -1;
+    private int height = -1;
+
+    private boolean rendering;
+
+    private final PassState state = new PassState();
 
     //? if >=26.1 {
-    private int height = -1;
-    private boolean rendering;
     /*private TextureTarget target;
      *///?} else {
     private int fbo;
     private int depthTexture;
-    //?}
+
     private int cloudFbo;
+    private int cloudDepthTexture;
+    //?}
+
+    private boolean foldedClouds;
 
     //? if <26.1 {
-    private int cloudDepthTexture;
-    private boolean foldedClouds;
+    private static final double CLOUD_SLAB_REACH = 1.0e6;
+
+    private static final double CLOUD_SLAB_MARGIN = 16.0;
     //?}
 
     private static void setSamplingParameters() {
@@ -152,8 +176,6 @@ final class WaterDepthPrepass {
 	}
 *///?}
 
-    //? if <26.1 {
-
     void run(RenderLevelStageEvent event, WaterSplitPrograms programs, boolean foldClouds) {
         Minecraft mc = Minecraft.getInstance();
         RenderTarget main = mc.getMainRenderTarget();
@@ -181,6 +203,7 @@ final class WaterDepthPrepass {
         }
     }
 
+    //? if <26.1 {
     private void redraw(RenderLevelStageEvent event, WaterSplitPrograms programs, RenderTarget main,
                         int cloudDepth) {
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -242,7 +265,6 @@ final class WaterDepthPrepass {
 *///?}
         return true;
     }
-    //?}
 
     private void ensureCloudTarget() {
         if (cloudDepthTexture != 0) {
@@ -267,6 +289,7 @@ final class WaterDepthPrepass {
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
     }
+    //?}
 
     private void ensureSize(int newWidth, int newHeight) {
         if (width == newWidth && height == newHeight) {

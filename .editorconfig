@@ -1,0 +1,17 @@
+# Tracked backstop for the IDE settings in .idea/codeStyles. Both exist because .idea/ is mostly
+# gitignored and is wiped whenever the project is reimported; EditorConfig survives that and is what
+# a fresh clone picks up. Keep the two in step.
+root = true
+
+[*.java]
+indent_style = space
+indent_size = 4
+tab_width = 4
+ij_continuation_indent_size = 8
+
+# No wildcard imports -- see the comment in .idea/codeStyles/Project.xml. A `//? if ktx {` guard full
+# of org.lwjgl.util.ktx imports collapses to `org.lwjgl.util.ktx.*` at the default threshold of 5,
+# and the guard stops meaning anything.
+ij_java_use_single_class_imports = true
+ij_java_class_count_to_use_import_on_demand = 999
+ij_java_names_count_to_use_import_on_demand = 999

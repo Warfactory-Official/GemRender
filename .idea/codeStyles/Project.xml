@@ -1,0 +1,29 @@
+<component name="ProjectCodeStyleConfiguration">
+  <code_scheme name="Project" version="173">
+    <JavaCodeStyleSettings>
+      <!-- Never collapse imports to a wildcard. A wildcard silently covers the imports that belong
+           inside a `//? if <version> {` guard, so the guard looks satisfied on the active version and
+           the other versions get symbols they must not see. -->
+      <option name="CLASS_COUNT_TO_USE_IMPORT_ON_DEMAND" value="999" />
+      <option name="NAMES_COUNT_TO_USE_IMPORT_ON_DEMAND" value="999" />
+      <option name="USE_SINGLE_CLASS_IMPORTS" value="true" />
+      <option name="PACKAGES_TO_USE_IMPORT_ON_DEMAND">
+        <value />
+      </option>
+    </JavaCodeStyleSettings>
+    <codeStyleSettings language="JAVA">
+      <indentOptions>
+        <option name="INDENT_SIZE" value="4" />
+        <option name="CONTINUATION_INDENT_SIZE" value="8" />
+        <option name="TAB_SIZE" value="4" />
+        <option name="USE_TAB_CHARACTER" value="false" />
+      </indentOptions>
+      <!-- Empty on purpose: with no arrangement rules, "Rearrange entries" is a no-op. Moving a
+           member past a Stonecutter directive silently changes which version compiles it, and the
+           directives are comments that the rearranger does not carry with the member. -->
+      <arrangement>
+        <rules />
+      </arrangement>
+    </codeStyleSettings>
+  </code_scheme>
+</component>

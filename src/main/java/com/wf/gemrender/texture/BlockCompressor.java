@@ -1,14 +1,17 @@
 package com.wf.gemrender.texture;
 
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
-import org.lwjgl.util.ktx.*;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 //? if ktx {
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
+import org.lwjgl.util.ktx.KTX;
+import org.lwjgl.util.ktx.ktxBasisParams;
+import org.lwjgl.util.ktx.ktxTexture;
+import org.lwjgl.util.ktx.ktxTexture2;
+import org.lwjgl.util.ktx.ktxTextureCreateInfo;
 //?}
 
 public final class BlockCompressor {
@@ -121,6 +124,7 @@ public final class BlockCompressor {
         return new Blocks(width, height, GL_COMPRESSED_RGBA_BPTC_UNORM, blocks);
     }
 
+    //?} else {
     /*public static Blocks toBc7(int width, int height, byte[] rgba) throws IOException {
         throw new UnsupportedOperationException("BC7 compression needs org.lwjgl:lwjgl-ktx, which has no build for the LWJGL version this Minecraft version ships (see versions/<version>/gradle.properties, ktx_supported)");
     }
@@ -128,8 +132,6 @@ public final class BlockCompressor {
     private static int ceilBlocks(int pixels) {
         return (pixels + BLOCK - 1) / BLOCK;
     }
-
-    //?} else {
 
     public record Blocks(int width, int height, int glFormat, byte[] data) {
         public int uncompressedBytes() {

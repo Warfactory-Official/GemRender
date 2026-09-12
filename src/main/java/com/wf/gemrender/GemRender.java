@@ -1,10 +1,10 @@
 package com.wf.gemrender;
 
-import net.neoforged.fml.common.Mod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 //? if neoforge {
+import net.neoforged.fml.common.Mod;
 //?} else {
 /*import net.minecraftforge.fml.common.Mod;
  *///?}

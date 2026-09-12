@@ -2,9 +2,7 @@ package com.wf.gemrender.direct;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.wf.gemrender.mixin.direct.RenderSystemAccessor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -13,6 +11,8 @@ import org.joml.Vector3f;
 import static org.lwjgl.opengl.GL33C.GL_TEXTURE0;
 
 //? if <26.1 {
+import com.wf.gemrender.mixin.direct.RenderSystemAccessor;
+import net.minecraft.client.renderer.GameRenderer;
 //?}
 //? if >=26.1 {
 /*import java.util.Map;

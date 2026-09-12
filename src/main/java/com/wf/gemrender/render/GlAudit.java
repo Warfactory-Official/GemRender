@@ -1,5 +1,6 @@
 package com.wf.gemrender.render;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.wf.gemrender.GemRender;
 import org.lwjgl.system.MemoryUtil;

@@ -1,6 +1,9 @@
 package com.wf.gemrender.render;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import org.lwjgl.opengl.GL11C;
+import org.lwjgl.opengl.GL13C;
+import org.lwjgl.opengl.GL14C;
 
 public final class GlState {
     private GlState() {
