@@ -287,6 +287,17 @@ public class GemRenderItemRenderer extends BlockEntityWithoutLevelRenderer {
                 || appearance.blend(stack, context, Vanilla.partialTick(), blend.clear()) && blend.moves();
     }
 
+    private static final Object NOT_LOADED = new Object();
+
+    /**
+     * 26.1 GUI item atlas key element: the model instance drawn. A slot drawn before the import finished
+     * (empty) or before a reload (old model) is then never reused for the loaded one.
+     */
+    public Object identity(ItemStack stack, ItemDisplayContext context) {
+        GemRenderGltfModel model = appearance.model(stack, context);
+        return model == null ? NOT_LOADED : model;
+    }
+
     private void draw(ItemStack stack, ItemDisplayContext context, PoseStack pose, int light,
                       int overlay) {
         GemRenderGltfModel model = appearance.model(stack, context);
@@ -316,13 +327,13 @@ public class GemRenderItemRenderer extends BlockEntityWithoutLevelRenderer {
             if (appearance.blend(stack, context, partialTick, blend.clear())) {
                 DirectRenderer.submit(model, blend, pose.last()
                                 .pose(), light, overlay, appearance.tint(stack, context), passFor(context),
-                        appearance.variant(stack, context));
+                        appearance.variant(stack, context), appearance.slots(stack, context));
             } else {
                 DirectRenderer.submit(model, appearance.clip(stack, context),
                         appearance.seconds(stack, context, partialTick), pose.last()
                                 .pose(),
                         light, overlay, appearance.tint(stack, context), passFor(context),
-                        appearance.variant(stack, context));
+                        appearance.variant(stack, context), appearance.slots(stack, context));
             }
         } finally {
             pose.popPose();

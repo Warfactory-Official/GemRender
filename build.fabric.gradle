@@ -137,6 +137,8 @@ dependencies {
         // PBRTextureLoader. Remapped, unlike the staged copies above, because it has to read in the
         // same names as the rest of this source set.
         modCompileCfg("maven.modrinth:iris:${iris_version}")
+        // Iris jar-in-jars it; the guest transform parses Iris's patched output with it.
+        compileOnly("io.github.douira:glsl-transformer:${glsl_transformer_version}") { transitive = false }
     }
 
     // The KTX2/BC7 reader. Not a mod, so it needs no remapping on either side of the obfuscation
@@ -326,6 +328,8 @@ if (harness_supported.toBoolean()) {
 // this node's classpath, and a `//? if` guard cannot remove a whole package.
 if (!irisSupported) {
     sourceSets.main.java.exclude 'com/wf/gemrender/iris/**'
+    sourceSets.main.java.exclude 'com/wf/gemrender/mixin/iris/**'
+    sourceSets.main.resources.exclude 'gemrender.iris.mixins.json'
 }
 
 // Each bridge's mixins go in only when that bridge is resolvable here. A mixin named in a `required`
@@ -460,6 +464,9 @@ loom {
 def mixinConfigs = ['gemrender.mixins.json']
 if (direct_supported.toBoolean()) {
     mixinConfigs += "gemrender.${directMixinSet}.mixins.json"
+}
+if (irisSupported) {
+    mixinConfigs += 'gemrender.iris.mixins.json'
 }
 if (irisSupported && irisflw_version) {
     mixinConfigs += 'gemrender.irisflw.mixins.json'

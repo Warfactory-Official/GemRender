@@ -544,9 +544,14 @@ public final class GemRenderClient {
 
 		if (!autoSpikeDone) {
 			Level level = mc.level;
-			if (level == null || mc.player == null || !VisualizationManager.supportsVisualization(level)) {
+			// No Flywheel gate: a pack without Colorwheel turns visualization off; direct rows still stage.
+			if (level == null || mc.player == null) {
 				return;
 			}
+			//? if direct {
+			// First tick in the world: GUI items draw while their models still import.
+			com.wf.gemrender.spike.DirectSpike.holdScreen(mc);
+			//?}
 
 			ResourceLocation pending = autoAsset();
 			if (pending != null && autoSphere() == null) {
@@ -611,6 +616,10 @@ public final class GemRenderClient {
 							: Math.max(1, Math.round(extent * CAMERA_UP_FACTOR));
 
 			clearStagingArea(connection, origin, extent);
+			//? if direct {
+			com.wf.gemrender.spike.DirectSpike.stagingCommands(origin)
+					.forEach(connection::sendCommand);
+			//?}
 
 			if (AUTO_WATER > 0) {
 				buildWaterBasin(connection, origin, extent);
@@ -683,9 +692,17 @@ public final class GemRenderClient {
 			mc.player.xRotO = AUTO_PITCH;
 		}
 
-		if (mc.screen != null) {
+		//? if direct {
+		if (com.wf.gemrender.spike.DirectSpike.wantsScreen()) {
+			com.wf.gemrender.spike.DirectSpike.holdScreen(mc);
+		} else if (mc.screen != null) {
 			mc.setScreen(null);
 		}
+		//?} else {
+		/*if (mc.screen != null) {
+			mc.setScreen(null);
+		}
+		*///?}
 		if (mc.gui != null) {
 			mc.gui.getChat()
 					.clearMessages(true);

@@ -33,6 +33,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code RenderSystem.recordRenderCall}, and the vertex upload is separate and happens on the first
  * draw. See {@code ResidentModels}.
  *
+ * <p>{@link Handle#get()} answers only once the import's queued render calls have run: a fence queued
+ * on {@link #rendered}'s queue behind them. Without it a model is drawn before its atlas is registered
+ * (missing texture), and 26.1's GUI item atlas keeps that picture until the slot is redrawn.
+ *
  * <h2>Reloading</h2>
  *
  * <p>A reload is a generation bump: every handle is disposed, the counter moves, and everything that
@@ -50,6 +54,7 @@ public final class ModelCache<T> {
     private final Loader<T> loader;
     private final Disposer<T> disposer;
     private final Executor executor;
+    private final Executor fence;
     private final Map<ResourceLocation, Handle<T>> handles = new ConcurrentHashMap<>();
     /**
      * Guards {@link #inFlight} and {@link #quiesced} together, and is what {@link #awaitIdle} waits on.
@@ -70,10 +75,21 @@ public final class ModelCache<T> {
      * which is what a test wants and what production must not have.
      */
     public ModelCache(String name, Loader<T> loader, Disposer<T> disposer, Executor executor) {
+        this(name, loader, disposer, executor, Runnable::run);
+    }
+
+    private ModelCache(String name, Loader<T> loader, Disposer<T> disposer, Executor executor,
+                       Executor fence) {
         this.name = name;
         this.loader = loader;
         this.disposer = disposer;
         this.executor = executor;
+        this.fence = fence;
+    }
+
+    /** Production form: loads on the pool, visible behind the import's render-thread calls. */
+    public static <T> ModelCache<T> rendered(String name, Loader<T> loader, Disposer<T> disposer) {
+        return new ModelCache<>(name, loader, disposer, Pool.LOADERS, com.wf.gemrender.render.RenderThread::later);
     }
 
     public Handle<T> handle(ResourceLocation id) {
@@ -290,6 +306,7 @@ public final class ModelCache<T> {
         private final ResourceLocation id;
 
         private volatile int loadedGeneration = -1;
+        private volatile int visibleGeneration = -1;
         @Nullable
         private volatile T value;
         private volatile boolean failed;
@@ -316,7 +333,7 @@ public final class ModelCache<T> {
          */
         @Nullable
         public T get() {
-            if (loadedGeneration == cache.generation) {
+            if (visibleGeneration == cache.generation) {
                 return value;
             }
 
@@ -324,7 +341,10 @@ public final class ModelCache<T> {
 
             // Re-read rather than returning null outright: on a synchronous executor the import has
             // already finished by now, and a caller that could have had the asset should have it.
-            return loadedGeneration == cache.generation ? value : null;
+            // Under the monitor: publish writes loadedGeneration before the fence writes visibleGeneration.
+            synchronized (this) {
+                return visibleGeneration == cache.generation ? value : null;
+            }
         }
 
         /**
@@ -401,6 +421,13 @@ public final class ModelCache<T> {
             value = loaded;
             failed = broke;
             loadedGeneration = generation;
+            cache.fence.execute(() -> reveal(generation));
+        }
+
+        private synchronized void reveal(int generation) {
+            if (loadedGeneration == generation) {
+                visibleGeneration = generation;
+            }
         }
 
         public boolean isLoaded() {
@@ -423,6 +450,7 @@ public final class ModelCache<T> {
             value = null;
             failed = false;
             loadedGeneration = -1;
+            visibleGeneration = -1;
             pendingGeneration = -1;
             pending = null;
 

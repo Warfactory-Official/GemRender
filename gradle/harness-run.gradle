@@ -106,6 +106,16 @@ if (project.hasProperty('directarmor')) {
     props.put 'gemrender.directarmor', 'true'
 }
 
+if (project.hasProperty('directstatic')) {
+    props.put 'gemrender.directstatic', 'true'
+}
+if (project.hasProperty('directscreen')) {
+    props.put 'gemrender.directscreen', 'true'
+}
+if (project.hasProperty('directentity')) {
+    props.put 'gemrender.directentity', 'true'
+}
+
 if (project.hasProperty('directhand')) {
     props.put 'gemrender.directhand', 'true'
 }
@@ -391,6 +401,10 @@ if (project.hasProperty('dumpAtlas')) {
 
 if (project.hasProperty('irisPbr')) {
     props.put 'gemrender.irispbr', project.property('irisPbr').toString()
+}
+
+if (project.hasProperty('irisGuest')) {
+    props.put 'gemrender.irisguest', project.property('irisGuest').toString()
 }
 
 if (project.hasProperty('blockCache')) {

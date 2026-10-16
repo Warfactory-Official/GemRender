@@ -11,6 +11,7 @@ import org.lwjgl.system.libffi.FFIType;
 import org.lwjgl.util.ktx.ktxBasisParams;
 import org.lwjgl.util.ktx.ktxTexture2;
 import org.lwjgl.util.ktx.ktxTextureCreateInfo;
+import org.lwjgl.util.ktx.ktxTexture_vtbl;
 
 import java.nio.ByteBuffer;
 
@@ -43,20 +44,21 @@ final class Libktx {
     private static final Function CREATE_FROM_MEMORY = new Function("ktxTexture2_CreateFromMemory", ffi_type_sint32,
             ffi_type_pointer, ffi_type_pointer, ffi_type_uint32, ffi_type_pointer);
     private static final Function ERROR_STRING = new Function("ktxErrorString", ffi_type_pointer, ffi_type_sint32);
-    private static final Function DESTROY = new Function("ktxTexture2_Destroy", ffi_type_void, ffi_type_pointer);
-    private static final Function NEEDS_TRANSCODING = new Function("ktxTexture2_NeedsTranscoding", ffi_type_uint8,
-            ffi_type_pointer);
     private static final Function TRANSCODE_BASIS = new Function("ktxTexture2_TranscodeBasis", ffi_type_sint32,
             ffi_type_pointer, ffi_type_sint32, ffi_type_uint32);
-    private static final Function GET_IMAGE_OFFSET = new Function("ktxTexture2_GetImageOffset", ffi_type_sint32,
-            ffi_type_pointer, ffi_type_uint32, ffi_type_uint32, ffi_type_uint32, ffi_type_pointer);
     private static final Function CREATE = new Function("ktxTexture2_Create", ffi_type_sint32,
             ffi_type_pointer, ffi_type_sint32, ffi_type_pointer);
-    private static final Function SET_IMAGE_FROM_MEMORY = new Function("ktxTexture2_SetImageFromMemory",
-            ffi_type_sint32, ffi_type_pointer, ffi_type_uint32, ffi_type_uint32, ffi_type_uint32, ffi_type_pointer,
-            ffi_type_pointer);
     private static final Function COMPRESS_BASIS_EX = new Function("ktxTexture2_CompressBasisEx", ffi_type_sint32,
             ffi_type_pointer, ffi_type_pointer);
+
+    // Virtuals: through ktxTexture.vtbl. Windows ktx.dll exports no ktxTexture2_SetImageFromMemory (3.3.3, 3.4.1),
+    // no ktxTexture2_Destroy / ktxTexture2_WriteToMemory (3.3.3).
+    private static final Signature DESTROY = new Signature(ffi_type_void, ffi_type_pointer);
+    private static final Signature NEEDS_TRANSCODING = new Signature(ffi_type_uint8, ffi_type_pointer);
+    private static final Signature GET_IMAGE_OFFSET = new Signature(ffi_type_sint32,
+            ffi_type_pointer, ffi_type_uint32, ffi_type_uint32, ffi_type_uint32, ffi_type_pointer);
+    private static final Signature SET_IMAGE_FROM_MEMORY = new Signature(ffi_type_sint32,
+            ffi_type_pointer, ffi_type_uint32, ffi_type_uint32, ffi_type_uint32, ffi_type_pointer, ffi_type_pointer);
 
     private Libktx() {
     }
@@ -76,11 +78,12 @@ final class Libktx {
     }
 
     static void destroy(long texture) {
-        DESTROY.call(texture);
+        DESTROY.call(ktxTexture_vtbl.nDestroy(vtbl(texture)), texture);
     }
 
     static boolean needsTranscoding(ktxTexture2 texture) {
-        return (NEEDS_TRANSCODING.call(texture.address()) & 0xFF) != 0;
+        long address = texture.address();
+        return (NEEDS_TRANSCODING.call(ktxTexture_vtbl.nNeedsTranscoding(vtbl(address)), address) & 0xFF) != 0;
     }
 
     static int transcodeBasis(ktxTexture2 texture, int format, int flags) {
@@ -88,11 +91,13 @@ final class Libktx {
     }
 
     static int imageOffset(long texture, PointerBuffer offset) {
-        return (int) GET_IMAGE_OFFSET.call(texture, 0, 0, 0, offset.address());
+        return (int) GET_IMAGE_OFFSET.call(ktxTexture_vtbl.nGetImageOffset(vtbl(texture)), texture, 0, 0, 0,
+                offset.address());
     }
 
     static int setImageFromMemory(long texture, ByteBuffer pixels) {
-        return (int) SET_IMAGE_FROM_MEMORY.call(texture, 0, 0, 0, MemoryUtil.memAddress(pixels), pixels.remaining());
+        return (int) SET_IMAGE_FROM_MEMORY.call(ktxTexture_vtbl.nSetImageFromMemory(vtbl(texture)), texture, 0, 0, 0,
+                MemoryUtil.memAddress(pixels), pixels.remaining());
     }
 
     static int compressBasisEx(ktxTexture2 texture, ktxBasisParams params) {
@@ -109,16 +114,33 @@ final class Libktx {
         return LIBRARY.getFunctionAddress(name);
     }
 
+    /** {@code ktxTexture_vtbl*} of a {@code ktxTexture*}. */
+    static long vtbl(long texture) {
+        return MemoryUtil.memGetAddress(texture + ktxTexture2.VTBL);
+    }
+
     static final class Function {
         private final long address;
-        private final FFICIF cif = FFICIF.malloc();
-        private final int arity;
+        private final Signature signature;
 
         Function(String name, FFIType result, FFIType... arguments) {
             address = LIBRARY.getFunctionAddress(name);
             if (address == MemoryUtil.NULL) {
                 throw new UnsatisfiedLinkError("libktx has no " + name);
             }
+            signature = new Signature(result, arguments);
+        }
+
+        long call(long... arguments) {
+            return signature.call(address, arguments);
+        }
+    }
+
+    static final class Signature {
+        private final FFICIF cif = FFICIF.malloc();
+        private final int arity;
+
+        Signature(FFIType result, FFIType... arguments) {
             arity = arguments.length;
             PointerBuffer types = MemoryUtil.memAllocPointer(arity);
             for (FFIType type : arguments) {
@@ -126,12 +148,12 @@ final class Libktx {
             }
             types.flip();
             if (ffi_prep_cif(cif, FFI_DEFAULT_ABI, result, types) != FFI_OK) {
-                throw new UnsatisfiedLinkError("libffi rejected " + name);
+                throw new UnsatisfiedLinkError("libffi rejected a " + arity + "-argument signature");
             }
         }
 
         /** Each argument in an 8-byte slot (narrower types read its low bytes: little-endian only). */
-        long call(long... arguments) {
+        long call(long function, long... arguments) {
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 ByteBuffer slots = stack.malloc(8, 8 * Math.max(1, arity));
                 PointerBuffer values = stack.mallocPointer(arity);
@@ -141,7 +163,7 @@ final class Libktx {
                 }
                 ByteBuffer result = stack.malloc(8, 8);
                 result.putLong(0, 0);
-                ffi_call(cif, address, result, values);
+                ffi_call(cif, function, result, values);
                 return result.getLong(0);
             }
         }

@@ -39,14 +39,14 @@ import java.util.concurrent.ConcurrentHashMap;
 //?}
 public final class GemRenderModels {
     private static final ModelCache<GemRenderGltfModel> MODELS =
-            new ModelCache<>("GemRender models", GemRenderModels::load, GemRenderModels::dispose);
+            ModelCache.rendered("GemRender models", GemRenderModels::load, GemRenderModels::dispose);
 
     /**
      * The same assets on the rigid-part path. A separate cache rather than a flag on the first: the
      * two produce different objects and an asset may reasonably be wanted both ways in one level.
      */
     private static final ModelCache<GemRenderPartsModel> PARTS =
-            new ModelCache<>("GemRender parts models", GemRenderModels::loadParts,
+            ModelCache.rendered("GemRender parts models", GemRenderModels::loadParts,
                     GemRenderModels::disposeParts);
 
     /**
@@ -55,7 +55,7 @@ public final class GemRenderModels {
      * from.
      */
     private static final ModelCache<GemRenderGltfModel> BUILT =
-            new ModelCache<>("GemRender built models", GemRenderModels::runBuilder,
+            ModelCache.rendered("GemRender built models", GemRenderModels::runBuilder,
                     GemRenderModels::dispose);
 
     private static final Map<ResourceLocation, Builder> BUILDERS = new ConcurrentHashMap<>();

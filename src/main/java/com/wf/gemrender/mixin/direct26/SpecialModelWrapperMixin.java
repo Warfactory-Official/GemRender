@@ -26,11 +26,14 @@ public class SpecialModelWrapperMixin {
             + "Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/client/renderer/item/ItemModelResolver;"
             + "Lnet/minecraft/world/item/ItemDisplayContext;Lnet/minecraft/client/multiplayer/ClientLevel;"
             + "Lnet/minecraft/world/entity/ItemOwner;I)V", at = @At("RETURN"))
-    private void gemrender$markAnimated(ItemStackRenderState output, ItemStack item,
-                                        ItemModelResolver resolver, ItemDisplayContext displayContext, ClientLevel level,
-                                        ItemOwner owner, int seed, CallbackInfo ci) {
-        if (specialRenderer instanceof GemRenderItemRenderer renderer
-                && renderer.animates(item, displayContext)) {
+    private void gemrender$atlasSlot(ItemStackRenderState output, ItemStack item,
+                                     ItemModelResolver resolver, ItemDisplayContext displayContext, ClientLevel level,
+                                     ItemOwner owner, int seed, CallbackInfo ci) {
+        if (!(specialRenderer instanceof GemRenderItemRenderer renderer)) {
+            return;
+        }
+        output.appendModelIdentityElement(renderer.identity(item, displayContext));
+        if (renderer.animates(item, displayContext)) {
             output.setAnimated();
         }
     }

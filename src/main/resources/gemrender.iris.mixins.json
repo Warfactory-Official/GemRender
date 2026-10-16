@@ -1,0 +1,17 @@
+{
+  "required": false,
+  "minVersion": "0.8.5",
+  "package": "com.wf.gemrender.mixin.iris",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "BlendModeOverrideAccessor",
+    "ExtendedShaderMixin",
+    "IrisRenderingPipelineAccessor",
+    "IrisRenderingPipelineMixin",
+    "ShadowRendererMixin",
+    "TransformPatcherMixin"
+  ]
+}

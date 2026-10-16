@@ -285,6 +285,8 @@ sourceSets.bench.java.exclude 'com/wf/gemrender/fabric/**'
 
 if (!irisSupported) {
     sourceSets.main.java.exclude 'com/wf/gemrender/iris/**'
+    sourceSets.main.java.exclude 'com/wf/gemrender/mixin/iris/**'
+    sourceSets.main.resources.exclude 'gemrender.iris.mixins.json'
 }
 
 // Each bridge goes in only where it is resolvable. build.fabric.gradle splits these the same way and
@@ -369,6 +371,9 @@ if (isLegacy) {
     def mixinConfigs = ['gemrender.mixins.json']
     if (directSupported) {
         mixinConfigs += directMixinConfig
+    }
+    if (irisSupported) {
+        mixinConfigs += 'gemrender.iris.mixins.json'
     }
     if (irisSupported && irisflw_version) {
         mixinConfigs += 'gemrender.irisflw.mixins.json'
@@ -511,6 +516,8 @@ dependencies {
         }
 
         compileOnly("maven.modrinth:${irisProject}:${iris_version}") { transitive = false }
+        // Iris jar-in-jars it; the guest transform parses Iris's patched output with it.
+        compileOnly("io.github.douira:glsl-transformer:${glsl_transformer_version}") { transitive = false }
 
         // The bridges are compiled against, not only staged: on the legacy node Mixin's annotation
         // processor resolves `targets = "..."` at compile time and fails the build when the named

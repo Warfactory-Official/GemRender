@@ -95,4 +95,9 @@ public interface ItemAppearance {
     default int tint(ItemStack stack, ItemDisplayContext context) {
         return 0xFFFFFFFF;
     }
+
+    /** Textures for the model's {@code extras.textureSlot} meshes; {@link TextureSlots#NONE} => none drawn. */
+    default TextureSlots slots(ItemStack stack, ItemDisplayContext context) {
+        return TextureSlots.NONE;
+    }
 }

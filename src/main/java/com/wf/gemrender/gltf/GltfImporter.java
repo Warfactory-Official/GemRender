@@ -416,7 +416,7 @@ public final class GltfImporter {
         Map<MaterialMaps, Boolean> eligible = new LinkedHashMap<>();
         for (Primitive primitive : primitives) {
             if (primitive.slot() == null && (primitive.texture() != null || primitive.maps()
-                    .pbr())) {
+                    .pbr() || !primitive.maps().baseColorUnmodified())) {
                 eligible.merge(primitive.maps(), primitive.uvInUnitSquare(), Boolean::logicalAnd);
             }
         }

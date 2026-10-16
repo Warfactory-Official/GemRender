@@ -3,7 +3,6 @@ package com.wf.gemrender.texture;
 import com.wf.gemrender.Ids;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.wf.gemrender.GemRender;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -119,15 +118,6 @@ public final class ModelTextures {
                     .getTextureManager()
                     .register(id, texture);
         };
-        if (RenderSystem.isOnRenderThread()) {
-            work.run();
-            return;
-        }
-
-        //? if >=26.1 {
-        /*Minecraft.getInstance().execute(work);
-         *///?} else {
-        RenderSystem.recordRenderCall(work::run);
-        //?}
+        com.wf.gemrender.render.RenderThread.later(work);
     }
 }

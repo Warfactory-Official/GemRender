@@ -10,6 +10,7 @@ import org.lwjgl.system.libc.LibCStdlib;
 import org.lwjgl.util.ktx.ktxBasisParams;
 import org.lwjgl.util.ktx.ktxTexture2;
 import org.lwjgl.util.ktx.ktxTextureCreateInfo;
+import org.lwjgl.util.ktx.ktxTexture_vtbl;
 
 import static org.lwjgl.system.libffi.LibFFI.ffi_type_pointer;
 import static org.lwjgl.system.libffi.LibFFI.ffi_type_sint32;
@@ -17,8 +18,8 @@ import static org.lwjgl.system.libffi.LibFFI.ffi_type_sint32;
 public final class KtxEncoder {
 	private static final int VK_FORMAT_R8G8B8A8_UNORM = 37;
 	private static final int PACK_UASTC_LEVEL_VERYSLOW = 4;
-	private static final Libktx.Function WRITE_TO_MEMORY = new Libktx.Function("ktxTexture2_WriteToMemory",
-			ffi_type_sint32, ffi_type_pointer, ffi_type_pointer, ffi_type_pointer);
+	private static final Libktx.Signature WRITE_TO_MEMORY = new Libktx.Signature(ffi_type_sint32,
+			ffi_type_pointer, ffi_type_pointer, ffi_type_pointer);
 
 	private KtxEncoder() {
 	}
@@ -68,7 +69,8 @@ public final class KtxEncoder {
 
 				PointerBuffer out = stack.mallocPointer(1);
 				PointerBuffer size = stack.mallocPointer(1);
-				check((int) WRITE_TO_MEMORY.call(address, out.address(), size.address()), "write");
+				check((int) WRITE_TO_MEMORY.call(ktxTexture_vtbl.nWriteToMemory(Libktx.vtbl(address)), address,
+						out.address(), size.address()), "write");
 
 				int length = (int) size.get(0);
 				byte[] bytes = new byte[length];

@@ -1253,6 +1253,8 @@ DirectRenderer.submit(model, palette, morphs, pose, light, overlay, argb, Direct
 - `TextureSlots.emissive(slot)` => slot unlit (displays): no diffuse, lightmap, dynamic lights; overlay still applies.
 - Slot primitives: never atlased, UVs as authored, merged per (slot, material); batched per (mesh, texture).
 - Direct path only: outside the Flywheel `Model` => world visuals draw none. `GemRenderGltfModel.slots()` lists them.
+- Items: `ItemAppearance.slots(stack, context)`.
+- Untextured material, `baseColorFactor != 1` => atlased (1x1 bake), even alone; off the sheet = white.
 
 ### What this path does not do
 
@@ -2076,7 +2078,7 @@ The types a consumer actually touches.
 | `RopeModels` | `solid`, `cutout` and `absorbance` tubes, each taking an optional `rings, sides` |
 | `RopeCurve` | the curve in Java: `point`, `tangent`, `frame`, `length`, `sagForLength`, `sagForSlack`, `sphere` |
 | `GemRenderItemRenderer` | items, in every context (section 6). `of(model, clip)`, `register(id, renderer)`, `get(id)`, `animates(stack, context)` |
-| `ItemAppearance` | what a stack looks like per context: `model`, `clip`, `seconds`, `blend`, `transform`, `variant`, `tint` |
+| `ItemAppearance` | what a stack looks like per context: `model`, `clip`, `seconds`, `blend`, `transform`, `variant`, `tint`, `slots` |
 | `GemRenderArmorModel` | worn armour. `prepare(entity, stack, slot)`, `DEFAULT_BONES` |
 | `ArmorAppearance` | which model a piece draws per slot: `model`, `variant`, `tint` |
 | `VariantUv` | one model's variant skins. `NONE`, and `GemRenderGltfModel.variant(i)` |

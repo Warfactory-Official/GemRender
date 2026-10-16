@@ -6,5 +6,8 @@ public enum DirectPass {
 
     LEVEL,
 
-    HAND
+    HAND,
+
+    /** LEVEL copies queued inside a shaderpack's shadow pass; {@link DirectGuest} only. */
+    SHADOW
 }

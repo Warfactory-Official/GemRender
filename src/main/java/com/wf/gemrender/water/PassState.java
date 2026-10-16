@@ -22,6 +22,7 @@ public final class PassState {
     private boolean depthTest;
     private boolean depthMask;
     private int depthFunc;
+    private final int[] colorMask = new int[4];
     private boolean deep;
     private int vertexArray;
     private int activeTexture;
@@ -64,6 +65,7 @@ public final class PassState {
         depthTest = glGetInteger(GL_DEPTH_TEST) != 0;
         depthMask = glGetInteger(GL_DEPTH_WRITEMASK) != 0;
         depthFunc = glGetInteger(GL_DEPTH_FUNC);
+        glGetIntegerv(GL_COLOR_WRITEMASK, colorMask);
     }
 
     public void restore() {
@@ -82,6 +84,7 @@ public final class PassState {
 
         GlStateManager._depthFunc(depthFunc);
         GlStateManager._depthMask(depthMask);
+        GlState.colorMask(colorMask[0] != 0, colorMask[1] != 0, colorMask[2] != 0, colorMask[3] != 0);
         if (depthTest) {
             GlStateManager._enableDepthTest();
         } else {

@@ -7,6 +7,7 @@ public final class DirectReload {
     public static void run() {
         ResidentModels.freeAll();
         DirectRenderer.freeAll();
+        DirectRenderer.releaseGuest();
         DirectProgram.getInstance()
                 .delete();
     }

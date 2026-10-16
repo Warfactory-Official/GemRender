@@ -57,6 +57,10 @@ config = "gemrender.ui.mixins.json"
 # Declared only where the shader stack exists. `required = false` covers a missing MOD, not a missing
 # CONFIG: naming a config the jar does not carry is a hard load failure, and build.gradle drops the
 # file from resources wherever iris_supported is false.
+# The direct path's shaderpack route: hooks into Iris itself, inert without it.
+[[mixins]]
+config = "gemrender.iris.mixins.json"
+
 [[mixins]]
 config = "gemrender.irisflw.mixins.json"
 

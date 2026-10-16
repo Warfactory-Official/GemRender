@@ -1,7 +1,6 @@
 package com.wf.gemrender.texture;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.mixin.texture.NativeImageAccessor;
 import net.minecraft.client.Minecraft;
@@ -69,7 +68,9 @@ public final class ModelAtlas {
             }
         }
 
-        if (materials.size() < 2 && bands == 1 && wanted < 2) {
+        // Lone material off the sheet keeps its texture only: baseColorFactor needs the bake.
+        if (materials.size() < 2 && bands == 1 && wanted < 2
+                && (materials.isEmpty() || materials.getFirst().baseColorUnmodified())) {
             return null;
         }
 
@@ -232,7 +233,7 @@ public final class ModelAtlas {
             long millis = (System.nanoTime() - start) / 1_000_000L;
 
             CompressedTexture texture = new CompressedTexture(blocks);
-            onRenderThread(() -> {
+            com.wf.gemrender.render.RenderThread.later(() -> {
                 texture.upload();
                 Minecraft.getInstance()
                         .getTextureManager()
@@ -298,21 +299,9 @@ public final class ModelAtlas {
     }
 
     private static void register(ResourceLocation atlasId, NativeImage sheet, int bands) {
-        onRenderThread(() -> Minecraft.getInstance()
+        com.wf.gemrender.render.RenderThread.later(() -> Minecraft.getInstance()
                 .getTextureManager()
                 .register(atlasId, new AtlasTexture(sheet, bands)));
-    }
-
-    private static void onRenderThread(Runnable work) {
-        if (RenderSystem.isOnRenderThread()) {
-            work.run();
-            return;
-        }
-        //? if >=26.1 {
-        /*Minecraft.getInstance().execute(work);
-         *///?} else {
-        RenderSystem.recordRenderCall(work::run);
-        //?}
     }
 
     private static void blit(NativeImage from, NativeImage sheet, AtlasLayout.Sprite sprite,

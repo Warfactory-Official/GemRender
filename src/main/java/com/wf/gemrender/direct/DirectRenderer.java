@@ -62,6 +62,9 @@ public final class DirectRenderer {
 			net.minecraft.world.item.ItemDisplayContext.NONE;
 *///?}
 
+    @Nullable
+    private static DirectGuest guest;
+
     private static int drawsLastFlush;
     private static int instancesLastFlush;
     private static int palettesLastFlush;
@@ -346,8 +349,24 @@ public final class DirectRenderer {
 
         /*return sink;
          *///?} else {
-        return pass == DirectPass.LEVEL && !inLevel ? DirectPass.GUI : pass;
+        if (pass != DirectPass.LEVEL) {
+            return pass;
+        }
+        if (!inLevel) {
+            return DirectPass.GUI;
+        }
+        return guest != null && guest.active() && guest.shadowPass() ? DirectPass.SHADOW : pass;
         //?}
+    }
+
+    public static void installGuest(DirectGuest installed) {
+        guest = installed;
+    }
+
+    static void releaseGuest() {
+        if (guest != null) {
+            guest.release();
+        }
     }
 
     public static void beginLevel() {
@@ -412,6 +431,11 @@ public final class DirectRenderer {
             return;
         }
 
+        if (pass != DirectPass.GUI && guest != null && guest.active()) {
+            flushGuest(pass, queue);
+            return;
+        }
+
         DirectProgram program = DirectProgram.getInstance();
         if (!program.ensureCreated()) {
             queue.reset();
@@ -441,6 +465,8 @@ public final class DirectRenderer {
 
             GlStateManager._enableDepthTest();
             GlStateManager._depthFunc(GL_LEQUAL);
+            // Inherited mask may drop alpha (26.1 GUI pipelines): an atlas slot cleared to alpha 0 stays invisible.
+            com.wf.gemrender.render.GlState.colorMask(true, true, true, true);
 
             DirectVanilla.bindLightAndOverlay(UNIT_OVERLAY, UNIT_LIGHTMAP);
 
@@ -464,6 +490,31 @@ public final class DirectRenderer {
 
             DirectStats.flushEnd(pass, drawsLastFlush, instancesLastFlush);
 
+            queue.reset();
+        }
+    }
+
+    private static void flushGuest(DirectPass pass, PassQueue queue) {
+        DirectStats.flushBegin(pass);
+        List<Batch> batches = new ArrayList<>(queue.order.size());
+        int instances = 0;
+        for (Batch batch : queue.order) {
+            if (batch.count > 0) {
+                batches.add(batch);
+                instances += batch.count;
+            }
+        }
+        try {
+            BoneBuffer.direct()
+                    .uploadAndBind();
+            MorphBuffer.getInstance()
+                    .bind();
+            guest.flush(pass, batches);
+        } finally {
+            drawsLastFlush = batches.size();
+            instancesLastFlush = instances;
+            palettesLastFlush = queue.palettes.size() + queue.blendPalettes.size();
+            DirectStats.flushEnd(pass, batches.size(), instances);
             queue.reset();
         }
     }
@@ -534,7 +585,7 @@ public final class DirectRenderer {
         return instancesLastFlush;
     }
 
-    private static final class Batch {
+    private static final class Batch implements DirectGuest.Batch {
         private final ResidentModel.Part part;
         @Nullable
         private final ResourceLocation texture;
@@ -562,6 +613,31 @@ public final class DirectRenderer {
 
         void reset() {
             count = 0;
+        }
+
+        @Override
+        public DirectMaterial material() {
+            return part.material();
+        }
+
+        @Override
+        public ResourceLocation texture() {
+            return texture != null ? texture : part.material()
+                    .texture();
+        }
+
+        @Override
+        public int instances() {
+            return count;
+        }
+
+        @Override
+        public void draw() {
+            instances.position(0)
+                    .limit(count * ResidentMesh.INSTANCE_STRIDE);
+            part.mesh()
+                    .drawGuest(instances, count);
+            instances.clear();
         }
 
         void free() {

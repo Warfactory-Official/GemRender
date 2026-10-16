@@ -78,6 +78,9 @@ public final class DirectSpike {
 
 	private static final boolean TOTEM = Boolean.getBoolean("gemrender.directtotem");
 
+	/** Copies as scaled item_display entities over a platform: drawn by entity rendering, shadow pass included. */
+	private static final boolean ENTITY = Boolean.getBoolean("gemrender.directentity");
+
 	private static long totemArmedAt = -40L;
 
 	private static final boolean INTERLEAVE = Boolean.getBoolean("gemrender.directinterleave");
@@ -89,7 +92,56 @@ public final class DirectSpike {
 	//?}
 
 	public static boolean needsHand() {
-		return HAND && COUNT > 0;
+		return (HAND || SCREEN) && COUNT > 0;
+	}
+
+	/** No clip: on 26.1 the GUI item atlas keeps the slot instead of redrawing it each frame. */
+	private static final boolean STATIC = Boolean.getBoolean("gemrender.directstatic");
+
+	/** Spike stacks in the hotbar, creative inventory held open: the creative-UI row. */
+	private static final boolean SCREEN = Boolean.getBoolean("gemrender.directscreen");
+
+	public static boolean wantsScreen() {
+		return SCREEN && COUNT > 0;
+	}
+
+	private static java.util.List<String> hotbarCommands() {
+		java.util.List<String> commands = new java.util.ArrayList<>();
+		if (wantsScreen()) {
+			for (int i = 0; i < Math.min(COUNT, 9); i++) {
+				commands.add("item replace entity @s hotbar." + i + " with gemrender:spike");
+			}
+		}
+		return commands;
+	}
+
+	public static void holdScreen(Minecraft mc) {
+		if (!wantsScreen() || mc.player == null || !mc.player.getAbilities().instabuild
+				|| mc.screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) {
+			return;
+		}
+		mc.setScreen(new net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen(mc.player,
+				mc.player.connection.enabledFeatures(), mc.options.operatorItemsTab().get()));
+	}
+
+	public static java.util.List<String> stagingCommands(net.minecraft.core.BlockPos origin) {
+		java.util.List<String> commands = new java.util.ArrayList<>(hotbarCommands());
+		if (!ENTITY || COUNT <= 0) {
+			return commands;
+		}
+		int x = origin.getX();
+		int y = origin.getY();
+		int z = origin.getZ();
+		commands.add("kill @e[type=minecraft:item_display]");
+		commands.add("fill " + (x - 24) + " " + (y - 1) + " " + (z - 24) + " " + (x + 24) + " " + (y - 1) + " "
+				+ (z + 24) + " minecraft:smooth_stone");
+		for (int i = 0; i < COUNT; i++) {
+			commands.add("summon minecraft:item_display " + (x - 12 + i * 6) + " " + (y + 4) + " " + (z + 12)
+					+ " {item:{id:\"gemrender:spike\",count:1},item_display:\"fixed\",transformation:"
+					+ "{left_rotation:[0f,0f,0f,1f],right_rotation:[0f,0f,0f,1f],translation:[0f,0f,0f],"
+					+ "scale:[6f,6f,6f]}}");
+		}
+		return commands;
 	}
 
 	private static int copy;
@@ -178,7 +230,7 @@ public final class DirectSpike {
 				@Override
 				public GltfAnimation clip(ItemStack stack, ItemDisplayContext context) {
 					GemRenderGltfModel model = DirectSpike.model();
-					return model == null ? null : model.animationOrAny("");
+					return model == null || STATIC ? null : model.animationOrAny("");
 				}
 
 				@Override
@@ -483,7 +535,7 @@ public final class DirectSpike {
 	private static void levelCopies(PoseStack pose) {
 		totemPop();
 
-		if (COUNT <= 0) {
+		if (COUNT <= 0 || ENTITY) {
 			return;
 		}
 		GemRenderGltfModel model = model();

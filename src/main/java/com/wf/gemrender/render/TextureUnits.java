@@ -29,6 +29,13 @@ public final class TextureUnits {
 
     public static final int LIGHT_SHADOWS = Integer.getInteger("gemrender.lightshadowunit", 23);
 
+    /** Iris guest OIT producers; reserved from the pack's sampler allocator. Coefficient sets 26.. */
+    public static final int GUEST_OIT_DEPTH_RANGE = 24;
+
+    public static final int GUEST_OIT_BLUE_NOISE = 25;
+
+    public static final int GUEST_OIT_COEFFICIENTS = 26;
+
     private TextureUnits() {
     }
 
