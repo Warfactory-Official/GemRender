@@ -35,6 +35,7 @@ jobs:
 
       - name: Upload nightly artifacts
         uses: actions/upload-artifact@v4
+        continue-on-error: true  # org artifact quota full => still publish
         with:
           name: gemrender-nightly-${{ github.sha }}
           path: versions/*/build/libs/*.jar
