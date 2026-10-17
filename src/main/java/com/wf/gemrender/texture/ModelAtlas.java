@@ -70,7 +70,7 @@ public final class ModelAtlas {
 
         // Lone material off the sheet keeps its texture only: baseColorFactor needs the bake.
         if (materials.size() < 2 && bands == 1 && wanted < 2
-                && (materials.isEmpty() || materials.getFirst().baseColorUnmodified())) {
+                && (materials.isEmpty() || materials.get(0).baseColorUnmodified())) {
             return null;
         }
 
