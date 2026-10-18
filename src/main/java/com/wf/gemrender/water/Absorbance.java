@@ -1,6 +1,7 @@
 package com.wf.gemrender.water;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.material.MaterialShaders;
 import net.minecraft.client.Minecraft;
@@ -29,8 +30,13 @@ public final class Absorbance {
 
     private static final float[] ZERO = {0f, 0f, 0f, 0f};
 
+    /** Set => wins over {@link #resolutionFactor(int)}. */
+    private static final Integer FORCED_FACTOR = Integer.getInteger("gemrender.absorbanceFactor");
     private static final Absorbance INSTANCE = new Absorbance();
     private final GpuStampTimer chainTimer = new GpuStampTimer();
+    private final ReducedAbsorbance reduced = new ReducedAbsorbance();
+    private final ReducedAbsorbance reducedFront = new ReducedAbsorbance();
+    private ReducedAbsorbance active = reduced;
     private volatile MaterialShaders[] shaders = new MaterialShaders[0];
     private volatile MaterialShaders[] glowShaders = new MaterialShaders[0];
     private boolean sawAbsorbance;
@@ -38,6 +44,10 @@ public final class Absorbance {
     private boolean present;
     private boolean exclusive;
     private boolean inEvaluate;
+    private boolean reducedFrame;
+    private volatile int factor = FORCED_FACTOR != null ? FORCED_FACTOR : 4;
+    /** {@link #factor} latched at evaluate: draws and upsample agree. */
+    private int frameFactor;
     private int route;
     private int accumulate;
     private int front;
@@ -123,6 +133,13 @@ public final class Absorbance {
         }
 
         if (mine != route) {
+            if (reducedFrame && (route == WAVELET) != (mine == WAVELET)) {
+                if (mine == WAVELET) {
+                    active.leave();
+                } else {
+                    active.enter();
+                }
+            }
             route = mine;
             glDrawBuffers(mine == GLOW ? DRAW_ABSORBANCE : mine == SMOKE ? DRAW_SMOKE : DRAW_WAVELET);
         }
@@ -135,6 +152,7 @@ public final class Absorbance {
         sawAbsorbance = false;
         sawOther = false;
         inEvaluate = false;
+        reducedFrame = false;
 
         if (present) {
             framesPresent++;
@@ -155,7 +173,15 @@ public final class Absorbance {
         inEvaluate = true;
         route = WAVELET;
 
-        clearAbsorbance();
+        frameFactor = factor;
+        reducedFrame = exclusive && frameFactor > 1 && reduced.enabled() && reducedFront.enabled();
+        active = reduced;
+        if (reducedFrame) {
+            reduced.prepare(Vanilla.depthTextureId(Minecraft.getInstance()
+                    .getMainRenderTarget()), frameFactor);
+        } else {
+            clearAbsorbance();
+        }
     }
 
     public void endEvaluate() {
@@ -163,8 +189,15 @@ public final class Absorbance {
             return;
         }
         inEvaluate = false;
+        suspendRoute();
+    }
 
+    /** Back on the OIT framebuffer's wavelet buffer; the next absorbance material re-enters its route. */
+    public void suspendRoute() {
         if (route != WAVELET) {
+            if (reducedFrame) {
+                active.leave();
+            }
             route = WAVELET;
             glDrawBuffers(DRAW_WAVELET);
         }
@@ -175,14 +208,20 @@ public final class Absorbance {
         chainTimer.end();
     }
 
-    public void beginFrontResubmit() {
+    /** @param depthTexture what the resubmit tests against (scene + water / cloud surfaces) */
+    public void beginFrontResubmit(int depthTexture) {
         if (!present) {
             return;
         }
 
-        attach(front, frontEmission);
-        clearAbsorbance();
-        route = WAVELET;
+        suspendRoute();
+        if (reducedFrame) {
+            reducedFront.prepare(depthTexture, frameFactor);
+            active = reducedFront;
+        } else {
+            attach(front, frontEmission);
+            clearAbsorbance();
+        }
     }
 
     public void endFrontResubmit() {
@@ -190,11 +229,8 @@ public final class Absorbance {
             return;
         }
 
-        if (route != WAVELET) {
-            route = WAVELET;
-            glDrawBuffers(DRAW_WAVELET);
-        }
-
+        suspendRoute();
+        active = reduced;
         attach(accumulate, emission);
     }
 
@@ -216,6 +252,36 @@ public final class Absorbance {
 
     public boolean exclusive() {
         return exclusive;
+    }
+
+    /**
+     * Smoke / gas draw at 1/{@code factor} of the screen per axis (1 = full).
+     * Ignored under {@code -Dgemrender.absorbanceFactor}.
+     */
+    public void resolutionFactor(int factor) {
+        if (factor < 1) {
+            throw new IllegalArgumentException("absorbance resolution factor " + factor + " < 1");
+        }
+        if (FORCED_FACTOR == null) {
+            this.factor = factor;
+        }
+    }
+
+    int frameFactor() {
+        return frameFactor;
+    }
+
+    /** This frame's absorbance drew into {@link #reduced()}; composite upsamples. */
+    public boolean reducedFrame() {
+        return reducedFrame;
+    }
+
+    ReducedAbsorbance reduced() {
+        return reduced;
+    }
+
+    ReducedAbsorbance reducedFront() {
+        return reducedFront;
     }
 
     public int accumulateTexture() {

@@ -106,6 +106,8 @@ public final class WaterSplit {
     /** Prepass here, not at AFTER_ENTITIES: Flywheel instances draw after that event => scene depth lacked them. */
     public void beforeOitComposite(OitFramebuffer oit, Runnable resubmit) {
         oitDrawsThisFrame = true;
+        Absorbance.getInstance()
+                .suspendRoute();
 
         if (pendingStage != null) {
             prepassTimer.begin();
@@ -132,15 +134,15 @@ public final class WaterSplit {
         GlState.clear(GL_COLOR_BUFFER_BIT);
 
         Absorbance.getInstance()
-                .beginFrontResubmit();
+                .beginFrontResubmit(prepass.textureId());
 
         GlAudit.Scope audit = GlAudit.open("water:oit-front");
         try {
             resubmit.run();
         } finally {
-            audit.close();
             Absorbance.getInstance()
                     .endFrontResubmit();
+            audit.close();
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 5, oit.accumulate, 0);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, Vanilla.depthTextureId(main), 0);
         }
@@ -250,7 +252,8 @@ public final class WaterSplit {
 
             if (absorbance) {
                 GlStateManager._depthMask(false);
-                programs.drawAbsorbanceFront(Absorbance.getInstance(), prepass.cloudTextureId(), cloudPhase);
+                programs.drawAbsorbanceFront(Absorbance.getInstance(), prepass.textureId(),
+                        prepass.cloudTextureId(), cloudPhase);
             }
             if (wavelet) {
                 GlStateManager._depthMask(true);

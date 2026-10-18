@@ -1547,6 +1547,10 @@ Only frame-rate decision on this page.
   a mixed frame runs all three OIT passes for everything.
 - Fabulous: depth-range pass kept; composite into the item-entity target at the nearest absorbance
   depth, sorted against water / clouds per pixel as one layer.
+- Exclusive frames: `absorbance` / `glowing` (+ volumes) draw at 1/`Absorbance.resolutionFactor` per axis
+  (default 4; `-Dgemrender.absorbanceFactor` overrides). Depth = farthest per block; upsample = bilinear x
+  depth match. Mixed frames: full res (gap).
+- wflib smoke grenade, 6 m through the cloud, chain GPU us: factor 1 2506, 2 756, 4 329.
 
 In game, wflib blast scenes, 1920x1080, RX 7900 XTX, Fancy:
 

@@ -36,14 +36,25 @@ final class WaterSplitPrograms {
     private static final int UNIT_EMISSION = 2;
     private static final int UNIT_FRONT_EMISSION = 3;
     private static final int UNIT_DEPTH_RANGE_ABSORBANCE = 4;
-    private final int[] borrowed = new int[UNIT_CLOUD_DEPTH + 1];
-    private final int[] borrowedSampler = new int[UNIT_CLOUD_DEPTH + 1];
+    private static final int UNIT_LOW_DEPTH = 6;
+    private static final int UNIT_FULL_DEPTH = 7;
+    private static final int MODE_COMPOSITE = 0;
+    private static final int MODE_BEHIND = 1;
+    private static final int MODE_FRONT = 2;
+    private final int[] borrowed = new int[UNIT_FULL_DEPTH + 1];
+    private final int[] borrowedSampler = new int[UNIT_FULL_DEPTH + 1];
     private int depthCopyProgram;
     private int behindProgram;
     private int frontProgram;
     private int absorbanceCompositeProgram;
     private int absorbanceBehindProgram;
     private int absorbanceFrontProgram;
+    private int upsampleProgram;
+    private int upsampleFactorLoc;
+    private int upsampleModeLoc;
+    private int upsampleCloudPhaseLoc;
+    private int upsampleZNearLoc;
+    private int upsampleZFarLoc;
     private int vao;
     private int depthCopyDepthLoc;
     private int depthCopySecondLoc;
@@ -149,6 +160,18 @@ final class WaterSplitPrograms {
             glUniform1i(glGetUniformLocation(absorbanceFrontProgram, "_gr_cloudDepth"), UNIT_CLOUD_DEPTH);
             absorbanceCloudPhaseLoc = glGetUniformLocation(absorbanceFrontProgram, "_gr_cloudPhase");
 
+            upsampleProgram = GlPrograms.link("absorbance_upsample",
+                    vert, absorbance + depth + GlPrograms.resource(MOD, "shaders/absorbance_upsample.frag"));
+            bindAbsorbanceSamplers(upsampleProgram);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_cloudDepth"), UNIT_CLOUD_DEPTH);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_lowDepth"), UNIT_LOW_DEPTH);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_depth"), UNIT_FULL_DEPTH);
+            upsampleFactorLoc = glGetUniformLocation(upsampleProgram, "_gr_factor");
+            upsampleModeLoc = glGetUniformLocation(upsampleProgram, "_gr_mode");
+            upsampleCloudPhaseLoc = glGetUniformLocation(upsampleProgram, "_gr_cloudPhase");
+            upsampleZNearLoc = glGetUniformLocation(upsampleProgram, "_gr_znear");
+            upsampleZFarLoc = glGetUniformLocation(upsampleProgram, "_gr_zfar");
+
             GlStateManager._glUseProgram(0);
             vao = glGenVertexArrays();
             created = true;
@@ -235,6 +258,10 @@ final class WaterSplitPrograms {
     }
 
     void drawAbsorbanceComposite(Absorbance a, int depthRange) {
+        if (a.reducedFrame()) {
+            drawUpsampled(MODE_COMPOSITE, a, a.reduced(), mainDepth(), depthRange, 0, -1f);
+            return;
+        }
         int previousProgram = glGetInteger(GL_CURRENT_PROGRAM);
         try {
             GlStateManager._glUseProgram(absorbanceCompositeProgram);
@@ -249,11 +276,20 @@ final class WaterSplitPrograms {
     }
 
     void drawAbsorbanceBehind(Absorbance a) {
+        if (a.reducedFrame()) {
+            drawUpsampled(MODE_BEHIND, a, a.reduced(), mainDepth(), 0, 0, -1f);
+            return;
+        }
         drawAccumulators(absorbanceBehindProgram, a.accumulateTexture(), a.frontTexture(), a.emissionTexture(),
                 a.frontEmissionTexture());
     }
 
-    void drawAbsorbanceFront(Absorbance a, int cloudDepth, float cloudPhase) {
+    /** @param testedDepth the depth the front resubmit was tested against */
+    void drawAbsorbanceFront(Absorbance a, int testedDepth, int cloudDepth, float cloudPhase) {
+        if (a.reducedFrame()) {
+            drawUpsampled(MODE_FRONT, a, a.reducedFront(), testedDepth, 0, cloudDepth, cloudPhase);
+            return;
+        }
         int previousProgram = glGetInteger(GL_CURRENT_PROGRAM);
         try {
             GlStateManager._glUseProgram(absorbanceFrontProgram);
@@ -261,6 +297,39 @@ final class WaterSplitPrograms {
             bind2d(UNIT_CLOUD_DEPTH, cloudDepth);
             drawAccumulators(absorbanceFrontProgram, 0, a.frontTexture(), 0, a.frontEmissionTexture());
             unbind(UNIT_CLOUD_DEPTH);
+            GlStateManager._activeTexture(GL_TEXTURE0);
+        } finally {
+            GlStateManager._glUseProgram(previousProgram);
+        }
+    }
+
+    private static int mainDepth() {
+        return Vanilla.depthTextureId(Minecraft.getInstance()
+                .getMainRenderTarget());
+    }
+
+    /** {@code layer}: whose depth weights the upsample; behind reads both layers (same grid). */
+    private void drawUpsampled(int mode, Absorbance a, ReducedAbsorbance layer, int fullDepth, int depthRange,
+                               int cloudDepth, float cloudPhase) {
+        ReducedAbsorbance main = a.reduced();
+        ReducedAbsorbance front = a.reducedFront();
+        int previousProgram = glGetInteger(GL_CURRENT_PROGRAM);
+        try {
+            GlStateManager._glUseProgram(upsampleProgram);
+            glUniform1i(upsampleFactorLoc, a.frameFactor());
+            glUniform1i(upsampleModeLoc, mode);
+            glUniform1f(upsampleCloudPhaseLoc, cloudPhase);
+            setZRange(upsampleZNearLoc, upsampleZFarLoc);
+            bind2d(UNIT_DEPTH_RANGE_ABSORBANCE, depthRange);
+            bind2d(UNIT_CLOUD_DEPTH, cloudDepth);
+            bind2d(UNIT_LOW_DEPTH, layer.linearTexture());
+            bind2d(UNIT_FULL_DEPTH, fullDepth);
+            drawAccumulators(upsampleProgram, main.accumulateTexture(), front.accumulateTexture(),
+                    main.emissionTexture(), front.emissionTexture());
+            unbind(UNIT_FULL_DEPTH);
+            unbind(UNIT_LOW_DEPTH);
+            unbind(UNIT_CLOUD_DEPTH);
+            unbind(UNIT_DEPTH_RANGE_ABSORBANCE);
             GlStateManager._activeTexture(GL_TEXTURE0);
         } finally {
             GlStateManager._glUseProgram(previousProgram);
