@@ -1,5 +1,6 @@
 package com.wf.gemrender.light;
 
+import com.wf.gemrender.render.FlashbackState;
 import com.wf.gemrender.render.TextureUnits;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -109,8 +110,10 @@ final class LightOccupancy {
         }
         Arrays.sort(stale, 0, count);
         int filled = 0;
+        // A video export fills the whole window: a budgeted fill leaves its first frames unoccluded (light through walls).
+        long budget = FlashbackState.exporting() ? Long.MAX_VALUE : FILL_BUDGET_NANOS;
         for (int k = 0; k < count; k++) {
-            if (filled > 0 && System.nanoTime() - start > FILL_BUDGET_NANOS) {
+            if (filled > 0 && System.nanoTime() - start > budget) {
                 break;
             }
             fill(level, stale[k] & 0xFFFF);
