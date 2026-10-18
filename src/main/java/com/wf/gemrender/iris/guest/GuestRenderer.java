@@ -8,7 +8,7 @@ import com.wf.gemrender.direct.DirectGuest;
 import com.wf.gemrender.direct.DirectMaterial;
 import com.wf.gemrender.direct.DirectPass;
 import com.wf.gemrender.mixin.iris.IrisRenderingPipelineAccessor;
-import com.wf.gemrender.water.PassState;
+import com.wf.gemrender.render.PassState;
 import net.irisshaders.iris.pipeline.IrisRenderingPipeline;
 import net.irisshaders.iris.pipeline.programs.ExtendedShader;
 import net.irisshaders.iris.targets.RenderTargets;

@@ -15,7 +15,7 @@ import com.wf.gemrender.volume.VolumeField;
 import com.wf.gemrender.volume.VolumeNoise;
 import com.wf.gemrender.volume.VolumeStyle;
 import com.wf.gemrender.water.GpuStampTimer;
-import com.wf.gemrender.water.PassState;
+import com.wf.gemrender.render.PassState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;

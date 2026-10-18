@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.wf.gemrender.render.GlAudit;
 import com.wf.gemrender.render.LevelStage;
+import com.wf.gemrender.render.PassState;
 import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.backend.engine.indirect.OitFramebuffer;

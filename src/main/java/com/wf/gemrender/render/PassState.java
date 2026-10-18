@@ -1,7 +1,6 @@
-package com.wf.gemrender.water;
+package com.wf.gemrender.render;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.wf.gemrender.render.GlState;
 
 import static org.lwjgl.opengl.GL33C.*;
 

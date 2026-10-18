@@ -5,7 +5,7 @@ import com.wf.gemrender.GemRender;
 import com.wf.gemrender.render.GlPrograms;
 import com.wf.gemrender.render.TextureUnits;
 import com.wf.gemrender.water.GpuStampTimer;
-import com.wf.gemrender.water.PassState;
+import com.wf.gemrender.render.PassState;
 
 import java.io.IOException;
 import java.io.InputStream;

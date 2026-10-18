@@ -2049,7 +2049,8 @@ The types a consumer actually touches.
 | `GemRenderGltfModel` | The imported asset: `model()`, `layout()`, `bounds()`, `morphs()`, `animations()`, `jointCount()` |
 | `GemRenderInstanceTypes.SKINNED` | The instance type to pass to `instancer(...)` |
 | `GemRenderInstance` | `pose`, `boneBase`, `morphBase`, `boneSphere`, plus colour and light |
-| `PoseCache` | `pose(layout, bounds, morphs, clip, time)`. The only supported way to get a `boneBase`. The `clips[]`/`times[]` overload layers several clips, each at its own instant; the `AnimationBlend` overload blends them |
+| `PoseCache` | `pose(layout, bounds, morphs, clip, time)`. The only shared way to get a `boneBase`. The `clips[]`/`times[]` overload layers several clips, each at its own instant; the `AnimationBlend` overload blends them |
+| `BoneBuffer` | `getInstance()`: per-frame staging for what `PoseCache` does not produce. `addPalette(palette, count)` -> `boneBase`; `addSharedPalette` once per array per frame (rest palettes); `addMorphBlock`/`addFloatBlock` -> `morphBase`/`jointUvBase`. Upload, bind and `direct()` are GemRender's |
 | `AnimationBlend`, `BlendMask`, `AdditiveReference`, `Crossfade`, `FadeCurve`, `BlendEvaluator` | weighted, masked, additive and crossfaded layers ([blending](#blending-crossfades-masks-additive-layers)) |
 | `AnimationPhase` | `scattered(clip, seed)`, `of(clip)`, `REST`, `timeAt(seconds)` |
 | `AnimationDrive` | The same, for a parameter instead of a clock. `cyclic(clip, unitsPerCycle)`, `ranged(clip, min, max)`, `timeAt(parameter)` |
@@ -2069,6 +2070,8 @@ The types a consumer actually touches.
 | `Canvas` | 2D recorder (section 11): `shared()`, `begin(..)`/`end()`, shapes, sprites, text, `suspend()`/`resume()` |
 | `CanvasTarget` | owned framebuffer a `Canvas` draws into; `texture()` = GL name |
 | `TextBuffer` | fixed-capacity per-frame text with allocation-free number formatting |
+| `GlPrograms` | raw-GL program from resources: `resource(namespace, path)`, `link(name, vert, frag)` (throws with the info log) |
+| `PassState` | GL state around a raw-GL pass: `save()`/`saveDeep()` then `restore()`. Deep adds VAO, array buffer, cull, units 0-2 texture + sampler |
 | `ParticleModels` | `additive`, `cutout` and `translucent` billboards; `cutout` is the cheap one, `additive` the one that cannot be ordered against water. `decal(texture)`, `rigid(gltfModel[, bake])` |
 | `ParticleLook` | per-particle colour + light: `of`, `lit`, `blockColour` |
 | `ParticleMotion` | the closed form in Java, for tests and for CPU-side code that needs a particle's position |

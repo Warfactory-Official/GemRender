@@ -13,7 +13,7 @@ import com.wf.gemrender.render.MorphBuffer;
 import com.wf.gemrender.texture.Paint;
 import com.wf.gemrender.texture.PaintArray;
 import com.wf.gemrender.texture.VariantUv;
-import com.wf.gemrender.water.PassState;
+import com.wf.gemrender.render.PassState;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;

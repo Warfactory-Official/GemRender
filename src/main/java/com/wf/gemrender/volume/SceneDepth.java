@@ -10,7 +10,7 @@ import com.wf.gemrender.render.GlPrograms;
 import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.TextureUnits;
 import com.wf.gemrender.render.Vanilla;
-import com.wf.gemrender.water.PassState;
+import com.wf.gemrender.render.PassState;
 import net.minecraft.client.Minecraft;
 
 import org.lwjgl.opengl.GL11C;
