@@ -201,11 +201,20 @@ class ParticleSweepScaleTest {
 		int clipped = burst(clipping(level), style, 99);
 		assertThat(clipped).isEqualTo(landed);
 
-		double walking = best(() -> LevelContactProbe.of(level), style);
-		double clippingMs = best(() -> clipping(level), style);
+		// Wall-clock on a shared runner: a noisy neighbour can push one measurement past the factor, so the
+		// pathological case has to show on every attempt.
+		double walking = 0;
+		double clippingMs = 0;
+		for (int attempt = 0; attempt < 3; attempt++) {
+			walking = best(() -> LevelContactProbe.of(level), style);
+			clippingMs = best(() -> clipping(level), style);
 
-		System.out.printf("[gemrender] %d colliding spawns: walking probe %.2f ms, clipping probe %.2f ms "
-				+ "(%.1fx)%n", PARTICLES, walking, clippingMs, clippingMs / walking);
+			System.out.printf("[gemrender] %d colliding spawns: walking probe %.2f ms, clipping probe %.2f ms "
+					+ "(%.1fx)%n", PARTICLES, walking, clippingMs, clippingMs / walking);
+			if (walking < clippingMs * 2.0) {
+				break;
+			}
+		}
 
 		// The flat array level makes a lookup nearly free, so clipping is at its cheapest here and a shared
 		// runner can put the walk either side of it. The factor catches a pathological walk; the lookup
