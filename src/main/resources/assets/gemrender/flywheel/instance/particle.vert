@@ -24,7 +24,9 @@ void flw_instanceVertex(in FlwInstance i) {
     vec3 spunUp = up * cosine - right * sine;
 
     flw_vertexPos = vec4(center + (corner.x * spunRight + corner.y * spunUp) * size, 1.0);
-    flw_vertexNormal = -vec3(flw_viewInverse[2]);
+    // Zero = unfaced lighting: a billboard is a puff of volume, so every light reaches it from any side. A facing
+    // term made a lamp light smoke only while it sat on one side of the view direction.
+    flw_vertexNormal = vec3(0.0);
     vec4 color = gemrender_particleColor(p, s, unitAge);
     flw_vertexColor = vec4(color.rgb, color.a * near);
     flw_vertexOverlay = gemrender_particleOverlay(gemrender_particleHeat(s, unitAge));
