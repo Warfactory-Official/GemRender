@@ -62,6 +62,18 @@ float _grl_shadow(float _grl_tile, vec2 _grl_uv, float _grl_dq) {
     return mix(mix(_grl_lit.x, _grl_lit.y, _grl_f.x), mix(_grl_lit.z, _grl_lit.w, _grl_f.x), _grl_f.y);
 }
 
+// Wide cones spread the same RES^2 tile over a large area: the texels get coarse, the lit/shadow edge steps and swims
+// with the beam. Five taps around the centre (1.3 texel out) turn that into a soft penumbra instead.
+float _grl_shadowWide(float _grl_tile, vec2 _grl_uv, float _grl_dq) {
+    const float _grl_r = 1.3 / float(GEMRENDER_LIGHT_SHADOW_RES);
+    float _grl_s = _grl_shadow(_grl_tile, _grl_uv, _grl_dq) * 2.0;
+    _grl_s += _grl_shadow(_grl_tile, _grl_uv + vec2(_grl_r, _grl_r), _grl_dq);
+    _grl_s += _grl_shadow(_grl_tile, _grl_uv + vec2(-_grl_r, _grl_r), _grl_dq);
+    _grl_s += _grl_shadow(_grl_tile, _grl_uv + vec2(_grl_r, -_grl_r), _grl_dq);
+    _grl_s += _grl_shadow(_grl_tile, _grl_uv + vec2(-_grl_r, -_grl_r), _grl_dq);
+    return _grl_s * (1.0 / 6.0);
+}
+
 vec3 _grl_one(int _grl_i, vec3 _grl_p, vec3 _grl_n, float _grl_footprint) {
     vec4 _grl_a = _grl_lights[_grl_i * 5];
     vec3 _grl_l = _grl_a.xyz - _grl_p;
@@ -114,7 +126,16 @@ vec3 _grl_one(int _grl_i, vec3 _grl_p, vec3 _grl_n, float _grl_footprint) {
 
         if (_grl_tile >= 0.0) {
             float _grl_axialQ = dot(_grl_wq, _grl_c.xyz);
-            _grl_e *= _grl_axialQ > 0.0 ? _grl_shadow(_grl_tile, gemrender_spotUv(_grl_wq, _grl_axialQ, _grl_c.xyz, _grl_d.xyz, _grl_tanOuter), _grl_dq) : 0.0;
+            vec2 _grl_suv = gemrender_spotUv(_grl_wq, _grl_axialQ, _grl_c.xyz, _grl_d.xyz, _grl_tanOuter);
+            float _grl_lit = 0.0;
+            if (_grl_axialQ > 0.0) {
+                if (_grl_tanOuter > 1.2) {
+                    _grl_lit = _grl_shadowWide(_grl_tile, _grl_suv, _grl_dq);
+                } else {
+                    _grl_lit = _grl_shadow(_grl_tile, _grl_suv, _grl_dq);
+                }
+            }
+            _grl_e *= _grl_lit;
         }
         if (_grl_b.w >= 0.0) {
             vec2 _grl_uv = gemrender_spotUv(-_grl_l, _grl_axial, _grl_c.xyz, _grl_d.xyz, _grl_tanOuter);
