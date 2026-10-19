@@ -245,6 +245,13 @@ public final class LightFrame {
         public void spot(double x, double y, double z, Vector3fc direction, Vector3fc up, float range,
                          float innerDegrees, float outerDegrees, int rgb, float intensity,
                          @Nullable LightCookie cookie, boolean shadow, boolean ir) {
+            spot(x, y, z, direction, up, range, innerDegrees, outerDegrees, rgb, intensity, cookie, shadow, ir, 0.0f);
+        }
+
+        @Override
+        public void spot(double x, double y, double z, Vector3fc direction, Vector3fc up, float range,
+                         float innerDegrees, float outerDegrees, int rgb, float intensity,
+                         @Nullable LightCookie cookie, boolean shadow, boolean ir, float softness) {
             if (ir && irView == Lights.IrView.OFF) {
                 return;
             }
@@ -260,6 +267,7 @@ public final class LightFrame {
                     ux / length, uy / length, uz / length, cosOuter, 1.0f / Math.max(cosInner - cosOuter, 1.0e-4f),
                     cookie == null ? -1 : cookie.layer(), shadow);
             pool.get(collected - 1).ir = ir;
+            pool.get(collected - 1).softness = softness;
         }
     }
 
@@ -271,6 +279,8 @@ public final class LightFrame {
         int cookie;
         boolean shadow;
         boolean ir;
+        /** Falloff softening radius, m (0 => the 1 m floor). */
+        float softness;
         int tile = -1;
 
         float rx, ry, rz;
@@ -299,6 +309,7 @@ public final class LightFrame {
             this.cookie = cookie;
             this.shadow = shadow;
             this.ir = false;
+            this.softness = 0.0f;
         }
 
         /** Camera-relative position; bound sphere = range sphere (point) or cone hull (spot). */
@@ -332,7 +343,7 @@ public final class LightFrame {
             out.putFloat(r).putFloat(g).putFloat(b).putFloat(cookie);
             out.putFloat(dx).putFloat(dy).putFloat(dz).putFloat(spot ? cosOuter : -2.0f);
             out.putFloat(ux).putFloat(uy).putFloat(uz).putFloat(spotScale);
-            out.putFloat(tile).putFloat(ir ? 1.0f : 0.0f).putFloat(0.0f).putFloat(0.0f);
+            out.putFloat(tile).putFloat(ir ? 1.0f : 0.0f).putFloat(softness).putFloat(0.0f);
         }
     }
 }

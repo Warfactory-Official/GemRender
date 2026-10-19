@@ -2,7 +2,7 @@
 
 #define GEMRENDER_LIGHTS
 
-// _grl_cameraFrac.w = Lights.IrView ordinal; _grl_lights[i*5+4].y = 1 => IR light.
+// _grl_cameraFrac.w = Lights.IrView ordinal; _grl_lights[i*5+4].y = 1 => IR light, .z = falloff softening radius m (floor 1).
 // _grl_night.x = night-sky irradiance on fully sky-lit surfaces, IR/NV channel only (Lights.nightSky).
 layout(std140) uniform GemRenderLights {
     vec4 _grl_cameraFrac;
@@ -79,7 +79,8 @@ vec3 _grl_one(int _grl_i, vec3 _grl_p, vec3 _grl_n, float _grl_footprint) {
 
     float _grl_x = _grl_d2 / _grl_r2;
     float _grl_window = 1.0 - _grl_x * _grl_x;
-    vec3 _grl_e = _grl_b.rgb * (_grl_window * _grl_window / (_grl_d2 + 1.0));
+    float _grl_soft = _grl_lights[_grl_i * 5 + 4].z;
+    vec3 _grl_e = _grl_b.rgb * (_grl_window * _grl_window / (_grl_d2 + max(_grl_soft * _grl_soft, 1.0)));
     bool _grl_faced = dot(_grl_n, _grl_n) > 0.25;
     if (_grl_faced) {
         float _grl_facing = dot(_grl_n, _grl_l);

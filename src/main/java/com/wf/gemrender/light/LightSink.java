@@ -31,6 +31,17 @@ public interface LightSink {
         spot(x, y, z, direction, up, range, innerDegrees, outerDegrees, rgb, intensity, cookie, shadow, false);
     }
 
+    /**
+     * @param softness metres: the falloff is {@code 1 / (d^2 + softness^2)} (floor 1 m), so a larger value flattens the
+     *                 near field: a dim wide skirt around a beam stays visible far off without blowing out up close.
+     *                 Sinks that do not know it ignore it.
+     */
+    default void spot(double x, double y, double z, Vector3fc direction, Vector3fc up, float range,
+                      float innerDegrees, float outerDegrees, int rgb, float intensity, @Nullable LightCookie cookie,
+                      boolean shadow, boolean ir, float softness) {
+        spot(x, y, z, direction, up, range, innerDegrees, outerDegrees, rgb, intensity, cookie, shadow, ir);
+    }
+
     /** @param ir as {@link #point(double, double, double, float, int, float, boolean, boolean)} */
     void spot(double x, double y, double z, Vector3fc direction, Vector3fc up, float range,
               float innerDegrees, float outerDegrees, int rgb, float intensity, @Nullable LightCookie cookie,
