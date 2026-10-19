@@ -213,6 +213,16 @@ public final class ParticleBuffer {
         }
     }
 
+    /** Every particle gone (the clock went backwards: a replay seek, a level swap). */
+    public void clearAll() {
+        synchronized (lock) {
+            int at = STYLE_REGION_FLOATS;
+            int len = allocator.capacity() * PARTICLE_FLOATS;
+            Arrays.fill(data, at, at + len, 0.0f);
+            markDirty(at, len);
+        }
+    }
+
     public int aliveCount(float now) {
         synchronized (lock) {
             int alive = 0;

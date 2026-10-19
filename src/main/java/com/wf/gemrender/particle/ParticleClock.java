@@ -9,6 +9,10 @@ public final class ParticleClock {
     private ParticleClock() {
     }
 
+    /** Tolerates partial-tick jitter; a seek or level swap resets the renderer's tick count by far more. */
+    private static final float REWIND = 0.1f;
+    private static float last;
+
     public static float seconds() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.levelRenderer == null) {
@@ -16,6 +20,13 @@ public final class ParticleClock {
         }
 
         int ticks = ((LevelRendererAccessor) minecraft.levelRenderer).gemrender$getTicks();
-        return (ticks + Vanilla.partialTick()) / 20.0f;
+        float now = (ticks + Vanilla.partialTick()) / 20.0f;
+        // Particles are timed against this clock: after it rewinds, older ones would reappear as it catches up
+        // (a replay's shots drawn twice, once from the first pass and once from the replayed one).
+        if (now < last - REWIND) {
+            ParticleBuffer.getInstance().clearAll();
+        }
+        last = now;
+        return now;
     }
 }
