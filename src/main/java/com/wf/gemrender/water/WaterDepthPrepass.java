@@ -275,7 +275,26 @@ final class WaterDepthPrepass {
         }
     }
 
+    /**
+     * Sodium (Embeddium) replaces the chunk pipeline: vanilla's compiled sections stay empty, so the check below would
+     * say "nothing translucent" and the split (smoke behind / in front of glass, ice, water, ore overlays) never ran.
+     */
+    private static final boolean REPLACED_CHUNKS = classPresent("net.caffeinemc.mods.sodium.client.SodiumClientMod")
+            || classPresent("org.embeddedt.embeddium.impl.Embeddium");
+
+    private static boolean classPresent(String name) {
+        try {
+            Class.forName(name, false, WaterDepthPrepass.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
+        }
+    }
+
     private static boolean translucentVisible(LevelStage stage) {
+        if (REPLACED_CHUNKS) {
+            return true;
+        }
         //? if >=1.21 {
         RenderType translucent = RenderType.translucent();
         for (var section : ((LevelRendererAccessor) stage.levelRenderer()).gemrender$visibleSections()) {
