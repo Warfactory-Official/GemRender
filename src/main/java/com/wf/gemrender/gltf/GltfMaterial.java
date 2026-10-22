@@ -58,6 +58,11 @@ public record GltfMaterial(@Nullable ResourceLocation texture, AlphaMode alphaMo
         return chosen;
     }
 
+    /** {@link #toFlywheel} of a banded material (sheet bands: base, surface, emissive). */
+    public static boolean banded(Material material) {
+        return material.shaders() == PBR_SHADERS;
+    }
+
     public GltfMaterial onTexture(ResourceLocation replacement, boolean banded) {
         return new GltfMaterial(replacement, alphaMode, alphaCutoff, doubleSided, pbr && banded);
     }

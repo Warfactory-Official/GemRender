@@ -546,6 +546,7 @@ public final class DirectRenderer {
             }
 
             program.alphaCutoff(material.alphaCutoff());
+            program.banded(material.banded());
             DirectVanilla.bindTexture(UNIT_ATLAS, batch.texture != null ? batch.texture : material.texture());
 
             batch.instances.position(0)

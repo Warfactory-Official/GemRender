@@ -6,6 +6,8 @@ uniform vec3 _gr_light0;
 uniform vec3 _gr_light1;
 
 uniform float _gr_alphaCutoff;
+// Sheet bands: base, surface, emissive (rgb = emission, a = paint coverage).
+uniform bool _gr_banded;
 
 in vec2 _gr_texCoord;
 in vec2 _gr_lightCoord;
@@ -46,6 +48,7 @@ void main() {
     }
 
     vec3 lit = colour.rgb;
+    vec3 emission = _gr_banded ? texture(_gr_atlas, _gr_texCoord + vec2(0.0, GR_EMISSIVE_BAND)).rgb : vec3(0.0);
     // Emissive: light coord < 0.
     if (_gr_lightCoord.x >= 0.0) {
         float light0 = max(0.0, dot(normalize(_gr_light0), _gr_shadeNormal));
@@ -58,6 +61,7 @@ void main() {
         lit += colour.rgb * (gemrender_lights(_gr_lightPos, _gr_shadeNormal) + gemrender_mergedNight(skyLevel));
         _grl_irOut = vec4(colour.rgb * (_grl_irSum + gemrender_nightSky(skyLevel)), colour.a);
 #endif
+        lit += emission;
     }
 
     vec4 overlay = texture(_gr_overlayTex, _gr_overlayCoord);

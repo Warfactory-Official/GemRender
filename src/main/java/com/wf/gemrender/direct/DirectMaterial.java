@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-public record DirectMaterial(ResourceLocation texture, Mode mode, float alphaCutoff, boolean doubleSided) {
+public record DirectMaterial(ResourceLocation texture, Mode mode, float alphaCutoff, boolean doubleSided, boolean banded) {
     public static final ResourceLocation WHITE = Ids.vanilla("textures/misc/white.png");
 
     @Nullable
@@ -39,7 +39,8 @@ public record DirectMaterial(ResourceLocation texture, Mode mode, float alphaCut
             texture = WHITE;
         }
 
-        return new DirectMaterial(texture, mode, cutoff, !material.backfaceCulling());
+        return new DirectMaterial(texture, mode, cutoff, !material.backfaceCulling(),
+                com.wf.gemrender.gltf.GltfMaterial.banded(material));
     }
 
     /** Texture-slot material: texture bound per batch. */
@@ -50,7 +51,7 @@ public record DirectMaterial(ResourceLocation texture, Mode mode, float alphaCut
             case BLEND -> Mode.BLEND;
         };
         return new DirectMaterial(WHITE, mode, mode == Mode.MASK ? Math.max(material.alphaCutoff(), 0.0001f) : 0.0f,
-                material.doubleSided());
+                material.doubleSided(), false);
     }
 
     private static float cutoffOf(Material material) {
