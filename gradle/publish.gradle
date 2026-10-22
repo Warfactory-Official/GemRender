@@ -1,0 +1,96 @@
+// Uploads this node's release jar to Modrinth and CurseForge (mod-publish-plugin). Applied last by build.gradle and
+// build.fabric.gradle; the root `publishAllMods` runs it on every buildable node. Ported from Golem Core's
+// gradle/mod/publish.gradle.kts, which the Release workflow also follows.
+//
+// Keys in gradle.properties (a node's own gradle.properties may override any):
+//   publish_modrinth_project    Modrinth project ID (8 characters); blank skips Modrinth
+//   publish_curseforge_project  CurseForge numeric project id; blank skips CurseForge
+//   publish_requires            required dependencies, comma separated, both sites (Modrinth: ID or slug,
+//                               CurseForge: slug)
+//   publish_optional            optional dependencies, comma separated, both sites
+//   publish_fabric_requires     extra required dependencies on Fabric nodes
+//   publish_minecraft_versions  game versions the jar is listed for; default minecraft_version
+//   publish_skip                true leaves this node out
+//
+// Per-run switches (-P, or ORG_GRADLE_PROJECT_<name> in CI):
+//   publish.dryRun=true    builds and logs every upload without making it (no tokens needed)
+//   publish.type=beta      alpha | beta | release; default beta
+//   publish.changelog=...  changelog text; else publish.changelogFile (whole file), else the "## <mod_version>"
+//                          section of CHANGELOG.md
+//
+// Tokens: MODRINTH_TOKEN / CURSEFORGE_TOKEN, or modrinth.token / curseforge.token in ~/.gradle/gradle.properties.
+
+apply plugin: 'me.modmuss50.mod-publish-plugin'
+
+def setting = { String name -> (project.findProperty("publish_${name}") ?: '').toString().trim() }
+def list = { String name -> setting(name).split(',').collect { it.trim() }.findAll { it } }
+
+def gameVersions = list('minecraft_versions') ?: [minecraft_version.toString()]
+def skipped = setting('skip').toBoolean() || !version_buildable.toBoolean()
+
+// The jar a player installs: Loom's remapped jar on obfuscated Fabric, ModDevGradle Legacy's reobfuscated jar on
+// Forge, the plain jar elsewhere.
+def releaseJarTask = ['remapJar', 'reobfJar'].find { tasks.names.contains(it) } ?: 'jar'
+
+def required = list('requires') + (loader == 'fabric' ? list('fabric_requires') : [])
+def optionals = list('optional')
+
+// "## 0.1.17", "## v0.1.17" and "## [0.1.17] - 2026-10-23" all match.
+def versionSection = { String text ->
+    def lines = text.readLines()
+    int start = lines.findIndexOf {
+        it.startsWith('## ') && it.substring(3).trim().split(' ')[0].replaceAll(/[\[\]]/, '').replaceFirst(/^v/, '') == mod_version
+    }
+    if (start < 0) return ''
+    int end = (start + 1..<lines.size()).find { lines[it].startsWith('## ') } ?: lines.size()
+    lines.subList(start + 1, end).join('\n').trim()
+}
+
+def changelogText = providers.gradleProperty('publish.changelog').orElse(
+        providers.gradleProperty('publish.changelogFile')
+                .map { def f = rootProject.file(it); f.isFile() ? f.text : '' }
+                .orElse(provider {
+                    def f = rootProject.file('CHANGELOG.md')
+                    f.isFile() ? versionSection(f.text) : ''
+                })
+).map { it.trim() ? it : "${mod_name} ${mod_version}." }
+
+def loaderName = [neoforge: 'NeoForge', forge: 'Forge', fabric: 'Fabric'][loader] ?: loader
+
+publishMods {
+    file = tasks.named(releaseJarTask).flatMap { it.archiveFile }
+    // Unique per node: the Fabric and NeoForge jars of one Minecraft version must not share a version number.
+    version = "${mod_version}+${minecraft_version}-${loader}"
+    displayName = "${mod_name} ${mod_version} (${loaderName} ${minecraft_version})"
+    changelog = changelogText
+    def kind = providers.gradleProperty('publish.type').getOrElse('beta').toLowerCase()
+    type = kind == 'alpha' ? ALPHA : kind in ['release', 'stable'] ? STABLE : BETA
+    modLoaders.add(loader.toString())
+    dryRun = providers.gradleProperty('publish.dryRun').map { it.toBoolean() }.orElse(false)
+
+    if (!skipped && setting('modrinth_project')) {
+        modrinth {
+            projectId = setting('modrinth_project')
+            accessToken = providers.environmentVariable('MODRINTH_TOKEN').orElse(providers.gradleProperty('modrinth.token'))
+            minecraftVersions.addAll(gameVersions)
+            if (required) requires(*required)
+            if (optionals) optional(*optionals)
+        }
+    }
+
+    if (!skipped && setting('curseforge_project')) {
+        curseforge {
+            projectId = setting('curseforge_project')
+            accessToken = providers.environmentVariable('CURSEFORGE_TOKEN').orElse(providers.gradleProperty('curseforge.token'))
+            minecraftVersions.addAll(gameVersions)
+            javaVersions.add(JavaVersion.toVersion(java_version))
+            // Client side only.
+            client = true
+            server = false
+            if (required) requires(*required)
+            if (optionals) optional(*optionals)
+        }
+    }
+}
+
+if (skipped) logger.info("publish: ${path} is left out")

@@ -5,6 +5,8 @@ plugins {
     // one version line; the wrapper picks -remap below 26.1 and plain at and above.
     id "net.fabricmc.fabric-loom-remap" version "1.16.3" apply false
     id "net.fabricmc.fabric-loom" version "1.16.3" apply false
+    // Modrinth + CurseForge upload, applied per node by gradle/publish.gradle.
+    id "me.modmuss50.mod-publish-plugin" version "2.2.1" apply false
 }
 
 // The active version. Stonecutter REWRITES this exact line when you switch versions -- it matches it
@@ -59,6 +61,13 @@ def buildableVersions = stonecutter.versions.findAll { v ->
         description = "Runs ${name} on every buildable Minecraft version"
         dependsOn buildableVersions.collect { ":${it.project}:${name}" }
     }
+}
+
+// Uploads every buildable node's jar to Modrinth and CurseForge (gradle/publish.gradle; the Release workflow).
+tasks.register('publishAllMods') {
+    group = 'gemrender'
+    description = 'Uploads every buildable version to Modrinth and CurseForge'
+    dependsOn buildableVersions.collect { ":${it.project}:publishMods" }
 }
 
 // Force the per-version builds to run one at a time, oldest first. Two Minecraft toolchains

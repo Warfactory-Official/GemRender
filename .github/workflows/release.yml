@@ -1,0 +1,143 @@
+# Publishes a GemRender release: builds every buildable version and uploads its jar to Modrinth and CurseForge
+# (gradle/publish.gradle), then attaches them to a GitHub release.
+#
+# Trigger it by pushing a tag that matches mod_version in gradle.properties:
+#     git tag -a v0.1.18 -m "changelog text"        -> release
+#     git tag -a v0.1.18-beta.1 -m "changelog text" -> beta   (alpha likewise)
+#     git push origin v0.1.18
+# The changelog is the "## <version>" section of CHANGELOG.md, else the tag message. Or run it from the
+# Actions tab (workflow_dispatch).
+#
+# Repository secrets: MODRINTH_TOKEN, CURSEFORGE_TOKEN.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      type:
+        description: Release type
+        type: choice
+        options: [beta, alpha, release]
+        default: beta
+      changelog:
+        description: Changelog (blank uses this version's section of CHANGELOG.md)
+        default: ''
+      dry_run:
+        description: Dry run (build and log the uploads, upload nothing)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+      # ModDevGradle builds Minecraft through its binary pipeline whenever CI=true (GitHub always sets it). That jar
+      # keeps Forge's signature digests over remapped classes and loses parameter names; use the local recompile.
+      CI: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Release settings
+        id: cfg
+        env:
+          INPUT_TYPE: ${{ inputs.type }}
+          INPUT_CHANGELOG: ${{ inputs.changelog }}
+          INPUT_DRY: ${{ inputs.dry_run }}
+        run: |
+          version=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          changelog="$RUNNER_TEMP/changelog.md"
+          : > "$changelog"
+
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            tag="$GITHUB_REF_NAME"
+            case "$tag" in
+              "v$version"|"v$version"-*) ;;
+              *) echo "::error::Tag $tag does not match mod_version $version in gradle.properties"; exit 1 ;;
+            esac
+            case "$tag" in *alpha*) type=alpha ;; *beta*|*pre*|*rc*) type=beta ;; *) type=release ;; esac
+            # actions/checkout fetches the tag as a lightweight ref; fetch the annotated object for its message.
+            git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
+            git tag -l --format='%(contents)' "$tag" | sed '/-----BEGIN PGP SIGNATURE-----/,$d' > "$changelog"
+            dry=false
+          else
+            tag="v$version"
+            type="$INPUT_TYPE"
+            printf '%s\n' "$INPUT_CHANGELOG" > "$changelog"
+            dry="$INPUT_DRY"
+          fi
+          # This version's "## <version>" section of CHANGELOG.md wins over the tag message; typed text wins over both.
+          if [ -f CHANGELOG.md ] && { [ "$GITHUB_EVENT_NAME" = push ] || [ -z "$INPUT_CHANGELOG" ]; }; then
+            awk -v v="$version" '
+              /^## / { h=$2; gsub(/[][]/, "", h); sub(/^v/, "", h); if (on) exit; on = (h == v); next }
+              on' CHANGELOG.md > "$RUNNER_TEMP/section.md"
+            if [ -n "$(tr -d '[:space:]' < "$RUNNER_TEMP/section.md")" ]; then mv "$RUNNER_TEMP/section.md" "$changelog"; fi
+          fi
+          # Blank: let the Gradle script fall back to its placeholder.
+          if [ -z "$(tr -d '[:space:]' < "$changelog")" ]; then changelog=""; fi
+
+          {
+            echo "version=$version"; echo "tag=$tag"; echo "type=$type"
+            echo "changelog=$changelog"; echo "dry=$dry"
+          } >> "$GITHUB_OUTPUT"
+          echo "GemRender $version ($type), tag $tag, dry run=$dry"
+
+      - name: Build every version
+        run: bash ./gradlew buildAll --no-daemon --no-parallel --stacktrace
+
+      - name: Publish
+        env:
+          CHANGELOG_FILE: ${{ steps.cfg.outputs.changelog }}
+        run: |
+          bash ./gradlew publishAllMods --no-daemon --no-parallel --stacktrace \
+            -Ppublish.type=${{ steps.cfg.outputs.type }} \
+            -Ppublish.dryRun=${{ steps.cfg.outputs.dry }} \
+            ${CHANGELOG_FILE:+-Ppublish.changelogFile=$CHANGELOG_FILE}
+
+      - name: Collect release jars
+        if: steps.cfg.outputs.dry != 'true'
+        run: |
+          mkdir -p dist
+          # Several NeoForge/Forge nodes name their jar gemrender-<version>.jar; rename each to the uploaded version.
+          for dir in versions/*/; do
+            props="$dir/gradle.properties"
+            grep -q '^version_buildable=false' "$props" && continue
+            mc=$(grep -E '^minecraft_version=' "$props" | cut -d= -f2- | tr -d '[:space:]')
+            loader=$(grep -E '^loader=' "$props" | cut -d= -f2- | tr -d '[:space:]')
+            jar=$(find "$dir/build/libs" -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev*.jar' | head -1)
+            [ -n "$jar" ] && cp "$jar" "dist/gemrender-${{ steps.cfg.outputs.version }}+$mc-$loader.jar"
+          done
+          ls -l dist
+
+      - name: GitHub release
+        if: steps.cfg.outputs.dry != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.cfg.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: GemRender ${{ steps.cfg.outputs.version }}
+          prerelease: ${{ steps.cfg.outputs.type != 'release' }}
+          body_path: ${{ steps.cfg.outputs.changelog || '' }}
+          generate_release_notes: ${{ steps.cfg.outputs.changelog == '' }}
+          files: dist/*.jar

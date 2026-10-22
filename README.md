@@ -83,6 +83,10 @@ Required client dependency of a mod drawing through it: declare it in `neoforge.
 
 Root `runClient` launches every target; use `client` or the `:<target>:` form.
 
+Releasing: push a tag matching `mod_version` (`git tag -a v0.1.18 -m "notes"`, `-beta.1` / `-alpha.1` for those types).
+`.github/workflows/release.yml` builds every target and uploads to Modrinth and CurseForge (`gradle/publish.gradle`,
+secrets `MODRINTH_TOKEN`, `CURSEFORGE_TOKEN`). Locally: `./gradlew publishAllMods -Ppublish.dryRun=true`.
+
 ## Layout
 
 | | |
