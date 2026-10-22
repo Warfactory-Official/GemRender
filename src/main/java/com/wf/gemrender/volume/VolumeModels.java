@@ -19,7 +19,7 @@ import net.minecraft.resources.ResourceLocation;
 
 public final class VolumeModels {
     public static final MaterialShaders VOLUME_SHADERS = new SimpleMaterialShaders(
-            Ids.of("flywheel", "material/default.vert"),
+            Ids.of(GemRender.MOD_ID, "material/absorbance.vert"),
             Ids.of(GemRender.MOD_ID, "material/volume.frag"));
 
     private static final ResourceLocation WHITE =

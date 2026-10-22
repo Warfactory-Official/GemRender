@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParticleModels {
     public static final MaterialShaders ABSORBANCE_SHADERS = new SimpleMaterialShaders(
-            Ids.of("flywheel", "material/default.vert"),
+            Ids.of(GemRender.MOD_ID, "material/absorbance.vert"),
             Ids.of(GemRender.MOD_ID, "material/absorbance.frag"));
 
     private static final Map<Key, Model> BILLBOARDS = new ConcurrentHashMap<>();
@@ -38,7 +38,7 @@ public final class ParticleModels {
             Collections.synchronizedMap(new WeakHashMap<>());
 
     public static final MaterialShaders GLOW_SHADERS = new SimpleMaterialShaders(
-            Ids.of("flywheel", "material/default.vert"),
+            Ids.of(GemRender.MOD_ID, "material/absorbance.vert"),
             Ids.of(GemRender.MOD_ID, "material/absorbance_glow.frag"));
 
     static {

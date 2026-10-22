@@ -2,6 +2,11 @@ uniform sampler2D _gr_accumulate;
 uniform sampler2D _gr_frontAccumulate;
 uniform sampler2D _gr_emission;
 uniform sampler2D _gr_frontEmission;
+// Full-res share (Absorbance#resubmitFull), same layers.
+uniform sampler2D _gr_fullAccumulate;
+uniform sampler2D _gr_fullFrontAccumulate;
+uniform sampler2D _gr_fullEmission;
+uniform sampler2D _gr_fullFrontEmission;
 uniform sampler2D _gr_depthRange;
 uniform sampler2D _gr_cloudDepth;
 uniform sampler2D _gr_lowDepth;
@@ -15,16 +20,16 @@ uniform float _gr_zfar;
 
 out vec4 frag;
 
-vec4 accumulated(ivec2 t) {
-    vec4 all = texelFetch(_gr_accumulate, t, 0);
-    vec4 front = texelFetch(_gr_frontAccumulate, t, 0);
+vec4 layer(vec4 all, vec4 front) {
     return _gr_mode == 0 ? all : _gr_mode == 1 ? max(all - front, vec4(0.)) : front;
 }
 
+vec4 accumulated(ivec2 t) {
+    return layer(texelFetch(_gr_accumulate, t, 0), texelFetch(_gr_frontAccumulate, t, 0));
+}
+
 vec3 glowing(ivec2 t) {
-    vec3 all = texelFetch(_gr_emission, t, 0).rgb;
-    vec3 front = texelFetch(_gr_frontEmission, t, 0).rgb;
-    return _gr_mode == 0 ? all : _gr_mode == 1 ? max(all - front, vec3(0.)) : front;
+    return layer(texelFetch(_gr_emission, t, 0), texelFetch(_gr_frontEmission, t, 0)).rgb;
 }
 
 // Accumulators sum tau => linear, filter before exp. Bilinear x depth match: texels across an edge lose.
@@ -54,7 +59,9 @@ void main() {
         total += w;
     }
 
-    frag = gemrender_absorbance(acc / total, glow / total);
+    acc = acc / total + layer(texelFetch(_gr_fullAccumulate, px, 0), texelFetch(_gr_fullFrontAccumulate, px, 0));
+    glow = glow / total + layer(texelFetch(_gr_fullEmission, px, 0), texelFetch(_gr_fullFrontEmission, px, 0)).rgb;
+    frag = gemrender_absorbance(acc, glow);
     if (_gr_mode == 0) {
         gl_FragDepth = delinearize_depth(-texelFetch(_gr_depthRange, px, 0).r, _gr_znear, _gr_zfar);
     } else {

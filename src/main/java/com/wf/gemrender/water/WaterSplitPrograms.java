@@ -38,11 +38,15 @@ final class WaterSplitPrograms {
     private static final int UNIT_DEPTH_RANGE_ABSORBANCE = 4;
     private static final int UNIT_LOW_DEPTH = 6;
     private static final int UNIT_FULL_DEPTH = 7;
+    private static final int UNIT_FULL_ACCUMULATE = 8;
+    private static final int UNIT_FULL_FRONT = 9;
+    private static final int UNIT_FULL_EMISSION = 10;
+    private static final int UNIT_FULL_FRONT_EMISSION = 11;
     private static final int MODE_COMPOSITE = 0;
     private static final int MODE_BEHIND = 1;
     private static final int MODE_FRONT = 2;
-    private final int[] borrowed = new int[UNIT_FULL_DEPTH + 1];
-    private final int[] borrowedSampler = new int[UNIT_FULL_DEPTH + 1];
+    private final int[] borrowed = new int[UNIT_FULL_FRONT_EMISSION + 1];
+    private final int[] borrowedSampler = new int[UNIT_FULL_FRONT_EMISSION + 1];
     private int depthCopyProgram;
     private int behindProgram;
     private int frontProgram;
@@ -166,6 +170,10 @@ final class WaterSplitPrograms {
             glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_cloudDepth"), UNIT_CLOUD_DEPTH);
             glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_lowDepth"), UNIT_LOW_DEPTH);
             glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_depth"), UNIT_FULL_DEPTH);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_fullAccumulate"), UNIT_FULL_ACCUMULATE);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_fullFrontAccumulate"), UNIT_FULL_FRONT);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_fullEmission"), UNIT_FULL_EMISSION);
+            glUniform1i(glGetUniformLocation(upsampleProgram, "_gr_fullFrontEmission"), UNIT_FULL_FRONT_EMISSION);
             upsampleFactorLoc = glGetUniformLocation(upsampleProgram, "_gr_factor");
             upsampleModeLoc = glGetUniformLocation(upsampleProgram, "_gr_mode");
             upsampleCloudPhaseLoc = glGetUniformLocation(upsampleProgram, "_gr_cloudPhase");
@@ -324,8 +332,16 @@ final class WaterSplitPrograms {
             bind2d(UNIT_CLOUD_DEPTH, cloudDepth);
             bind2d(UNIT_LOW_DEPTH, layer.linearTexture());
             bind2d(UNIT_FULL_DEPTH, fullDepth);
+            bind2d(UNIT_FULL_ACCUMULATE, a.accumulateTexture());
+            bind2d(UNIT_FULL_FRONT, a.frontTexture());
+            bind2d(UNIT_FULL_EMISSION, a.emissionTexture());
+            bind2d(UNIT_FULL_FRONT_EMISSION, a.frontEmissionTexture());
             drawAccumulators(upsampleProgram, main.accumulateTexture(), front.accumulateTexture(),
                     main.emissionTexture(), front.emissionTexture());
+            unbind(UNIT_FULL_FRONT_EMISSION);
+            unbind(UNIT_FULL_EMISSION);
+            unbind(UNIT_FULL_FRONT);
+            unbind(UNIT_FULL_ACCUMULATE);
             unbind(UNIT_FULL_DEPTH);
             unbind(UNIT_LOW_DEPTH);
             unbind(UNIT_CLOUD_DEPTH);

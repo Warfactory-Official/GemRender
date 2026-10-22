@@ -21,6 +21,8 @@ public final class LightEvents {
     public static void onRenderStage(RenderLevelStageEvent event) {
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY) {
             IrTarget.afterSky();
+        } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+            LightGlare.draw(event.getModelViewMatrix(), event.getProjectionMatrix());
         }
     }
 }

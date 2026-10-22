@@ -44,7 +44,6 @@ import org.junit.jupiter.api.Test;
  */
 @Tag("gl")
 class ParticleContactGlTest {
-	private static final String PARTICLE_GLSL = "assets/gemrender/flywheel/particle.glsl";
 
 	/** Not unit 0: an unassigned sampler reads unit 0, which would pass this test without the uniform. */
 	private static final int SAMPLER_UNIT = 3;
@@ -63,7 +62,7 @@ class ParticleContactGlTest {
 				layout(location = 0) uniform float uAge;
 
 				"""
-				+ ShaderSources.read(PARTICLE_GLSL)
+				+ ShaderSources.particleGlsl()
 				+ """
 
 						void main() {

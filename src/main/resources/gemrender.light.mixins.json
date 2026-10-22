@@ -17,6 +17,8 @@
     "ShaderInstanceMixin",
     "SodiumProgramBuilderMixin",
     "SodiumShaderLoaderMixin",
-    "VeilShaderInstanceMixin"
+    "VeilShaderInstanceMixin",
+    "VoxyShaderBuilderMixin",
+    "VoxyShaderLoaderMixin"
   ]
 }

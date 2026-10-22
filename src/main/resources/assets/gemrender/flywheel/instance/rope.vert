@@ -1,4 +1,5 @@
 #include "gemrender:rope.glsl"
+#include "gemrender:absorbance_band.glsl"
 
 void flw_instanceVertex(in FlwInstance i) {
     GemRenderRope r;
@@ -35,7 +36,17 @@ void flw_instanceVertex(in FlwInstance i) {
     flw_vertexNormal = abs(capSign) > 0.5 ? forward * sign(capSign) : normalize(radial);
 
     flw_vertexColor = i.color;
-    flw_vertexOverlay = ivec2(0, 10);
+    // Split frame only: other passes draw opaque ropes, whose overlay is vanilla's.
+    // Ends + middle agree => instance-constant share, collapsible like a sprite; else per vertex.
+    if (gemrender_bandSplit()) {
+        int ends = gemrender_bandShareQ(r.a, r.radius);
+        bool even = ends == gemrender_bandShareQ(r.b, r.radius)
+                && ends == gemrender_bandShareQ(gemrender_ropePoint(r, 0.5), r.radius);
+        flw_vertexOverlay = ivec2(0, GEMRENDER_BAND_BASE + (even ? ends
+                : gemrender_bandShareQ(center, r.radius) + GEMRENDER_BAND_VARYING));
+    } else {
+        flw_vertexOverlay = ivec2(0, 10);
+    }
 
     // v runs along the rope, so a texture tiles by length rather than stretching with it.
     flw_vertexTexCoord = vec2(flw_vertexTexCoord.x, flw_vertexTexCoord.y * r.uvScale);

@@ -20,6 +20,15 @@ public interface LightSink {
     void point(double x, double y, double z, float range, int rgb, float intensity, boolean shadow, boolean ir);
 
     /**
+     * @param softness metres, as {@link #spot}'s softness: floor 1 m, flattens the near field. Sinks that do not
+     *                 know it ignore it.
+     */
+    default void point(double x, double y, double z, float range, int rgb, float intensity, boolean shadow,
+                       boolean ir, float softness) {
+        point(x, y, z, range, rgb, intensity, shadow, ir);
+    }
+
+    /**
      * @param direction unit beam axis
      * @param up        any vector off the axis; orients the cookie
      * @param outerDegrees half angle, {@code < 89}

@@ -79,7 +79,7 @@ public final class ParticleEmitter {
                                            double velocityZ, float life, float sizeScale, float spinPhase,
                                            float tintScale, int look) {
         ParticleCollision.Contact contact = ParticleCollision.none(life);
-        write(x, y, z, velocityX, velocityY, velocityZ, sizeScale, spinPhase, tintScale, contact, look);
+        write(x, y, z, velocityX, velocityY, velocityZ, sizeScale, spinPhase, tintScale, contact, look, true);
         return contact;
     }
 
@@ -93,7 +93,7 @@ public final class ParticleEmitter {
     public void spawnDecal(double x, double y, double z, double normalX, double normalY, double normalZ, float life,
                            float sizeScale, float roll, int look) {
         requireDecalReach(origin, x, y, z);
-        spawn(x, y, z, normalX, normalY, normalZ, life, sizeScale, roll, 1.0f, look);
+        write(x, y, z, normalX, normalY, normalZ, sizeScale, roll, 1.0f, ParticleCollision.none(life), look, false);
     }
 
     static void requireDecalReach(Vec3i origin, double x, double y, double z) {
@@ -168,7 +168,7 @@ public final class ParticleEmitter {
                 : ParticleCollision.predict(probe, particleStyle, x, y, z,
                 (float) velocityX, (float) velocityY, (float) velocityZ, life, radius);
 
-        write(x, y, z, velocityX, velocityY, velocityZ, sizeScale, spinPhase, tintScale, contact, look);
+        write(x, y, z, velocityX, velocityY, velocityZ, sizeScale, spinPhase, tintScale, contact, look, true);
         return contact;
     }
 
@@ -184,9 +184,16 @@ public final class ParticleEmitter {
 
     private void write(double x, double y, double z, double velocityX, double velocityY, double velocityZ,
                        float sizeScale, float spinPhase, float tintScale, ParticleCollision.Contact contact,
-                       int look) {
+                       int look, boolean thin) {
         if (closed || contact.life() <= 0.0f) {
             return;
+        }
+        float keep = thin ? ParticleThinning.keep(x, y, z, style, sizeScale) : 1.0f;
+        if (keep < 1.0f) {
+            if (ParticleThinning.drop(keep)) {
+                return;
+            }
+            sizeScale *= (float) (1.0 / Math.sqrt(keep));
         }
 
         float now = ParticleClock.seconds();

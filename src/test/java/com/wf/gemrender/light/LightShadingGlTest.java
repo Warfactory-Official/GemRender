@@ -137,6 +137,7 @@ class LightShadingGlTest {
 				.putFloat((float) (EYE.z - cam[2] * 16.0)).putFloat(irView.ordinal());
 		ubo.putInt(cam[0]).putInt(cam[1]).putInt(cam[2]).putInt(lights.size());
 		ubo.putFloat(night).putFloat(0.0f).putFloat(0.0f).putFloat(0.0f);
+		ubo.position(LightFrame.HEADER_BYTES);
 		for (int i = 0; i < lights.size(); i++) {
 			lights.get(i).write(ubo);
 			grid.add(i, lights.get(i), cam[0], cam[1], cam[2], EYE.x, EYE.y, EYE.z);

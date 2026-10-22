@@ -4,10 +4,12 @@
 
 // _grl_cameraFrac.w = Lights.IrView ordinal; _grl_lights[i*5+4].y = 1 => IR light, .z = falloff softening radius m (floor 1).
 // _grl_night.x = night-sky irradiance on fully sky-lit surfaces, IR/NV channel only (Lights.nightSky).
+// _grl_night.y = far light count; _grl_far = their light indices (LOD terrain, no section grid there).
 layout(std140) uniform GemRenderLights {
     vec4 _grl_cameraFrac;
     ivec4 _grl_cameraSection;
     vec4 _grl_night;
+    ivec4 _grl_far[2];
     vec4 _grl_lights[GEMRENDER_LIGHT_MAX * 5];
 };
 
@@ -174,6 +176,24 @@ vec3 gemrender_lights(vec3 _grl_p, vec3 _grl_n) {
             } else {
                 _grl_sum += _grl_e;
             }
+        }
+    }
+    return _grl_sum + _grl_irSum * step(1.5, _grl_cameraFrac.w);
+}
+
+// gemrender_lights for surfaces past the section grid: far list only.
+vec3 gemrender_farLights(vec3 _grl_p, vec3 _grl_n) {
+    _grl_irSum = vec3(0.0);
+    int _grl_count = int(_grl_night.y);
+    float _grl_footprint = max(length(_grl_dpx), length(_grl_dpy));
+    vec3 _grl_sum = vec3(0.0);
+    for (int _grl_k = 0; _grl_k < _grl_count; _grl_k++) {
+        int _grl_i = _grl_far[_grl_k >> 2][_grl_k & 3];
+        vec3 _grl_e = _grl_one(_grl_i, _grl_p, _grl_n, _grl_footprint);
+        if (_grl_lights[_grl_i * 5 + 4].y > 0.5) {
+            _grl_irSum += _grl_e;
+        } else {
+            _grl_sum += _grl_e;
         }
     }
     return _grl_sum + _grl_irSum * step(1.5, _grl_cameraFrac.w);

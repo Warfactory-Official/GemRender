@@ -15,6 +15,6 @@ void flw_instanceVertex(in FlwInstance i) {
                                                 flw_vertexPos.xy, size, s.streak), 1.0);
     flw_vertexNormal = -vec3(flw_viewInverse[2]);
     flw_vertexColor = gemrender_particleColor(p, s, unitAge);
-    flw_vertexOverlay = gemrender_particleOverlay(gemrender_particleHeat(s, unitAge));
+    flw_vertexOverlay = gemrender_particleOverlay(gemrender_particleHeat(s, unitAge), center, 0.5 * size);
     flw_vertexLight = gemrender_particleLight(p, s);
 }

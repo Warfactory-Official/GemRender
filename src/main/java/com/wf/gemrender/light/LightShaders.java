@@ -58,6 +58,40 @@ public final class LightShaders {
     private static final Pattern FLYWHEEL_FOG = Pattern.compile("    color = flw_fogFilter\\(color\\);");
     private static final Pattern FLYWHEEL_OUT = Pattern.compile("(?m)^out vec4 _flw_outputColor;");
 
+    private static final String VOXY_VERTEX = "voxy:lod/gl46/quads3.vert";
+    private static final String VOXY_FRAGMENT = "voxy:lod/gl46/quads.frag";
+    private static final Pattern VOXY_TINTING = Pattern.compile("vec4 tinting = getLighting\\(lighting\\);");
+    private static final Pattern VOXY_ATTRIBUTES = Pattern.compile("attributes\\.z = addin\\|\\(face<<8\\);");
+    private static final Pattern VOXY_CORNER_FN = Pattern.compile("vec4 getQuadCornerPos\\(in QuadData quad, uint cornerId\\) \\{");
+    private static final Pattern VOXY_CORNER = Pattern.compile("vec4 pos = MVP \\* vec4\\(point, 1\\.0f\\);");
+    private static final Pattern VOXY_POSITION = Pattern.compile("\\(getQuadCornerPos\\(quad, cornerId\\)\\);");
+    private static final Pattern VOXY_FIRST_UNIFORM = Pattern.compile("(?m)^layout\\(binding = 0\\) uniform sampler2D blockModelAtlas;");
+    private static final Pattern VOXY_OUT = Pattern.compile("(?m)^layout\\(location = 0\\) out vec4 outColour;");
+    private static final Pattern VOXY_COLOUR = Pattern.compile("(?m)^    colour = computeColour\\(texPos, colour\\);");
+    /** Location 2 free: Voxy uses 0, 1 (uv), 7 (debug). */
+    private static final String VOXY_POS_OUT = """
+            #ifndef PATCHED_SHADER
+            layout(location = 2) out vec3 _grl_pos;
+            #endif
+            """;
+    private static final String VOXY_ADD = """
+            $0
+                uint _grl_id = interData.w >> 16;
+                float _grl_sky = float(_grl_id & 15u) / 15.0;
+                uint _grl_face = getFace();
+                const int _grl_axes[3] = int[3](1, 2, 0);
+                vec3 _grl_n = vec3(0.0);
+                _grl_n[_grl_axes[_grl_face >> 1]] = (_grl_face & 1u) == 1u ? 1.0 : -1.0;
+                vec3 _grl_albedo = colour.rgb;
+                colour.rgb = _grl_albedo * (texture(_grl_voxyLightmap, getLightmapUv(_grl_id)).rgb
+                        + gemrender_farLights(_grl_pos, _grl_n) + gemrender_mergedNight(_grl_sky));
+                #ifdef TRANSLUCENT
+                _grl_irOut = vec4(_grl_albedo * (_grl_irSum + gemrender_nightSky(_grl_sky)), colour.a);
+                #else
+                _grl_irOut = vec4(_grl_albedo * (_grl_irSum + gemrender_nightSky(_grl_sky)), 1.0);
+                #endif
+            """;
+
     private static final String VERTEX_DECLARATIONS = """
             out vec3 _grl_pos;
             out vec3 _grl_normal;
@@ -148,6 +182,33 @@ public final class LightShaders {
             patched = replaceOne(name, patched, SODIUM_FOG,
                     ADD.formatted("$1", "gemrender_lights(_grl_pos, gemrender_lightFaceNormal(_grl_pos))") + "$0");
             return afterVersion(name, patched, include() + FRAGMENT_INPUTS);
+        }
+        return source;
+    }
+
+    /**
+     * Voxy LOD terrain ({@code ShaderLoader.parse} output, imports inlined, defines not yet injected): the vertex
+     * stage packs the light id ({@code block << 4 | sky}) into {@code interData.w} bits 16-23 instead of baking an
+     * 8-bit lit tint, so albedo stays exact at lightmap 0. Dynamic lights: far list only. IR -> location 1 ->
+     * Voxy aux target ({@code voxy.auxColour}). Lightmap = Voxy's unit 1. {@code PATCHED_SHADER} (Iris) untouched.
+     */
+    public static String voxy(String id, String source) {
+        if (id.equals(VOXY_VERTEX)) {
+            String patched = replaceOne(id, source, VOXY_TINTING, "vec4 tinting = vec4(1.0);");
+            patched = replaceOne(id, patched, VOXY_ATTRIBUTES, "attributes.z = addin|(face<<8)|(lighting<<16);");
+            patched = replaceOne(id, patched, VOXY_CORNER_FN, "vec3 _grl_corner;\n" + VOXY_POS_OUT + "$0");
+            patched = replaceOne(id, patched, VOXY_CORNER, "_grl_corner = point;\n    $0");
+            return replaceOne(id, patched, VOXY_POSITION,
+                    "$0\n#ifndef PATCHED_SHADER\n    _grl_pos = _grl_corner - cameraSubPos;\n#endif");
+        }
+        if (id.equals(VOXY_FRAGMENT)) {
+            String patched = replaceOne(id, source, VOXY_OUT, "$0\nlayout(location = 1) out vec4 _grl_irOut;");
+            patched = replaceOne(id, patched, MAIN, "$0\n#ifndef PATCHED_SHADER\n    gemrender_lightPrepare(_grl_pos);\n#endif");
+            patched = replaceOne(id, patched, VOXY_COLOUR, VOXY_ADD);
+            // Before the first declaration: #extension lines may follow #version.
+            return replaceOne(id, patched, VOXY_FIRST_UNIFORM, Matcher.quoteReplacement("#ifndef PATCHED_SHADER\n"
+                    + include() + "layout(binding = 1) uniform sampler2D _grl_voxyLightmap;\n"
+                    + "layout(location = 2) in vec3 _grl_pos;\n#endif\n") + "$0");
         }
         return source;
     }

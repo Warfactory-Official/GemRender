@@ -131,7 +131,7 @@ class ParticleInstanceShadersGlTest {
 				vec2 flw_vertexLight;
 
 				"""
-				+ ShaderSources.read(ROOT + "particle.glsl")
+				+ ShaderSources.particleGlsl()
 				+ strip("instance/" + type + ".vert")
 				+ strip("instance/cull/" + type + ".glsl")
 				+ """

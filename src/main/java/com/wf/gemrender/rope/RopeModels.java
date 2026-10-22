@@ -90,6 +90,8 @@ public final class RopeModels {
                 // A capped tube is closed, so the far wall is never wanted and culling it is free.
                 .backfaceCulling(true)
                 .cardinalLightingMode(CardinalLightingMode.ENTITY)
+                // Absorbance overlay.y = band share.
+                .useOverlay(shaders != ParticleModels.ABSORBANCE_SHADERS && shaders != ParticleModels.GLOW_SHADERS)
                 .mipmap(false)
                 .build();
     }

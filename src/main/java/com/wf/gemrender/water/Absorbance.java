@@ -1,6 +1,7 @@
 package com.wf.gemrender.water;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.wf.gemrender.render.TextureUnits;
 import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.material.MaterialShaders;
@@ -24,9 +25,20 @@ public final class Absorbance {
             GL_COLOR_ATTACHMENT0 + EMISSION_SLOT};
     /** Non-glow: emission buffer unbound, no bandwidth. */
     private static final int[] DRAW_SMOKE = {GL_COLOR_ATTACHMENT0 + ABSORBANCE_SLOT, GL_NONE};
+    /** Full-res resubmit: wavelet draws already landed in the evaluate. */
+    private static final int[] DRAW_NOTHING = {GL_NONE};
     private static final int WAVELET = 0;
     private static final int SMOKE = 1;
     private static final int GLOW = 2;
+    /** gemrender:absorbance_band.glsl pass. */
+    private static final int BAND_WHOLE = 0;
+    private static final int BAND_REDUCED = 1;
+    private static final int BAND_FULL = 2;
+    /**
+     * Projected sprite radius in reduced texels: full-res share 1 at <= LO, 0 at >= HI.
+     * {@code -Dgemrender.absorbanceBand=lo:hi}; {@code -1:0} = reduced only.
+     */
+    private static final float[] BAND = band(System.getProperty("gemrender.absorbanceBand", "4:8"));
 
     private static final float[] ZERO = {0f, 0f, 0f, 0f};
 
@@ -45,6 +57,11 @@ public final class Absorbance {
     private boolean exclusive;
     private boolean inEvaluate;
     private boolean reducedFrame;
+    /** Full-res resubmit of a reduced frame: draws stay on the OIT framebuffer. */
+    private boolean fullPass;
+    private int band;
+    private int bandPass = -1;
+    private final float[] bandTexel = new float[4];
     private volatile int factor = FORCED_FACTOR != null ? FORCED_FACTOR : 4;
     /** {@link #factor} latched at evaluate: draws and upsample agree. */
     private int frameFactor;
@@ -60,6 +77,19 @@ public final class Absorbance {
     private long framesMixed;
 
     private Absorbance() {
+    }
+
+    private static float[] band(String spec) {
+        String[] parts = spec.split(":");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("gemrender.absorbanceBand " + spec + ": want lo:hi");
+        }
+        float lo = Float.parseFloat(parts[0].trim());
+        float hi = Float.parseFloat(parts[1].trim());
+        if (!(lo < hi)) {
+            throw new IllegalArgumentException("gemrender.absorbanceBand " + spec + ": want lo:hi with lo < hi");
+        }
+        return new float[] {lo, hi};
     }
 
     public static Absorbance getInstance() {
@@ -133,7 +163,7 @@ public final class Absorbance {
         }
 
         if (mine != route) {
-            if (reducedFrame && (route == WAVELET) != (mine == WAVELET)) {
+            if (reducedFrame && !fullPass && (route == WAVELET) != (mine == WAVELET)) {
                 if (mine == WAVELET) {
                     active.leave();
                 } else {
@@ -141,7 +171,8 @@ public final class Absorbance {
                 }
             }
             route = mine;
-            glDrawBuffers(mine == GLOW ? DRAW_ABSORBANCE : mine == SMOKE ? DRAW_SMOKE : DRAW_WAVELET);
+            glDrawBuffers(mine == GLOW ? DRAW_ABSORBANCE : mine == SMOKE ? DRAW_SMOKE
+                    : fullPass ? DRAW_NOTHING : DRAW_WAVELET);
         }
     }
 
@@ -164,6 +195,7 @@ public final class Absorbance {
         }
 
         ensureTextures();
+        band(BAND_WHOLE);
         attach(accumulate, emission);
 
         chainTimer.begin();
@@ -179,6 +211,7 @@ public final class Absorbance {
         if (reducedFrame) {
             reduced.prepare(Vanilla.depthTextureId(Minecraft.getInstance()
                     .getMainRenderTarget()), frameFactor);
+            band(BAND_REDUCED);
         } else {
             clearAbsorbance();
         }
@@ -190,16 +223,43 @@ public final class Absorbance {
         }
         inEvaluate = false;
         suspendRoute();
+        band(BAND_WHOLE);
     }
 
     /** Back on the OIT framebuffer's wavelet buffer; the next absorbance material re-enters its route. */
     public void suspendRoute() {
         if (route != WAVELET) {
-            if (reducedFrame) {
+            if (reducedFrame && !fullPass) {
                 active.leave();
             }
             route = WAVELET;
             glDrawBuffers(DRAW_WAVELET);
+        }
+    }
+
+    /**
+     * Reduced frame: {@code submit} again into the full-res accumulators, the sprites below the band
+     * ({@link #BAND}); the upsample adds them. {@code front}: between
+     * {@link #beginFrontResubmit} and {@link #endFrontResubmit}.
+     */
+    public void resubmitFull(Runnable submit, boolean front) {
+        if (!reducedFrame) {
+            return;
+        }
+        suspendRoute();
+        if (front) {
+            attach(this.front, frontEmission);
+        }
+        clearAbsorbance();
+        glDrawBuffers(DRAW_NOTHING);
+        fullPass = true;
+        band(BAND_FULL);
+        try {
+            submit.run();
+        } finally {
+            suspendRoute();
+            fullPass = false;
+            band(BAND_WHOLE);
         }
     }
 
@@ -218,6 +278,7 @@ public final class Absorbance {
         if (reducedFrame) {
             reducedFront.prepare(depthTexture, frameFactor);
             active = reducedFront;
+            band(BAND_REDUCED);
         } else {
             attach(front, frontEmission);
             clearAbsorbance();
@@ -232,6 +293,22 @@ public final class Absorbance {
         suspendRoute();
         active = reduced;
         attach(accumulate, emission);
+        band(BAND_WHOLE);
+    }
+
+    private void band(int pass) {
+        if (pass == bandPass) {
+            return;
+        }
+        bandPass = pass;
+        int previousUnit = TextureUnits.activate(TextureUnits.ABSORBANCE_BAND);
+        glBindTexture(GL_TEXTURE_2D, band);
+        bandTexel[0] = pass;
+        bandTexel[1] = frameFactor;
+        bandTexel[2] = BAND[0];
+        bandTexel[3] = BAND[1];
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, bandTexel);
+        TextureUnits.restore(previousUnit);
     }
 
     private static void attach(int absorbance, int glow) {
@@ -301,6 +378,16 @@ public final class Absorbance {
     }
 
     private void ensureTextures() {
+        if (band == 0) {
+            int previousUnit = TextureUnits.activate(TextureUnits.ABSORBANCE_BAND);
+            band = glGenTextures();
+            glBindTexture(GL_TEXTURE_2D, band);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 1, 1, 0, GL_RGBA, GL_FLOAT, (java.nio.ByteBuffer) null);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            TextureUnits.restore(previousUnit);
+        }
+
         Minecraft mc = Minecraft.getInstance();
         int newWidth = mc.getMainRenderTarget().width;
         int newHeight = mc.getMainRenderTarget().height;

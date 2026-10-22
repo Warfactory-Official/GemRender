@@ -21,13 +21,17 @@ import java.util.List;
 public final class RopeSpikeVisual extends AbstractVisual implements EffectVisual<RopeSpikeEffect> {
 	private static final ResourceLocation TEXTURE =
 			Ids.vanilla("textures/block/chain.png");
+	private static final ResourceLocation SMOKE = Ids.vanilla("textures/misc/white.png");
+	private static final boolean ABSORBANCE = "absorbance".equals(System.getProperty("gemrender.ropematerial"));
 
 	private final List<RopeInstance> ropes = new ArrayList<>();
 
 	public RopeSpikeVisual(VisualizationContext ctx, RopeSpikeEffect effect, float partialTick) {
 		super(ctx, (Level) effect.level(), partialTick);
 
-		Model model = RopeModels.cutout(TEXTURE, RopeSpikeEffect.RINGS, RopeSpikeEffect.SIDES);
+		Model model = ABSORBANCE
+				? RopeModels.absorbance(SMOKE, RopeSpikeEffect.RINGS, RopeSpikeEffect.SIDES)
+				: RopeModels.cutout(TEXTURE, RopeSpikeEffect.RINGS, RopeSpikeEffect.SIDES);
 		Instancer<RopeInstance> instancer = ctx.instancerProvider()
 				.instancer(GemRenderRopeTypes.ROPE, model);
 
@@ -62,6 +66,9 @@ public final class RopeSpikeVisual extends AbstractVisual implements EffectVisua
 						.sway(RopeSpikeEffect.SWAY * 0.25f, 0.5f, lane * 2.3f, 1.0f);
 			}
 
+			if (ABSORBANCE) {
+				rope.color(220, 220, 220, 120);
+			}
 			rope.radius(RopeSpikeEffect.RADIUS)
 					.tiling(Math.max(1.0f, span))
 					.litUniformly(0xF000F0)

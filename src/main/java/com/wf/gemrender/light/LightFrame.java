@@ -30,14 +30,16 @@ import static org.lwjgl.opengl.GL30C.glBindBufferBase;
 
 /**
  * Render thread. {@link #begin} at level render start: collect -> frustum cull -> nearest {@link Lights#MAX}
- * (shadowed: source in the occupancy window and a free tile, else dropped) -> UBO + section grid ->
+ * (shadowed: in the occupancy window => free tile or dropped; outside => unshadowed) -> UBO + section grid ->
  * occupancy -> shadow trace. {@link #end} after the hand, before the GUI: zero-light UBO.
  */
 public final class LightFrame {
     public static final int UBO_BINDING = Integer.getInteger("gemrender.lightubo", 12);
 
-    /** Header (camera frac + IrView, section + count, night sky) + 5 vec4 per light. */
-    static final int HEADER_BYTES = 48;
+    /** Header (camera frac + IrView, section + count, night sky + far count, far indices) + 5 vec4 per light. */
+    static final int HEADER_BYTES = 80;
+    /** Brightest lights reaching past vanilla terrain; LOD terrain loops these only. <= 8 (UBO slots). */
+    static final int FAR_MAX = Math.min(8, Integer.getInteger("gemrender.lightFarMax", 8));
     static final int UBO_BYTES = HEADER_BYTES + Lights.MAX * 80;
 
     private static final LightFrame INSTANCE = new LightFrame();
@@ -64,6 +66,7 @@ public final class LightFrame {
     private int lastShaded;
     private int lastShadowed;
     private int lastShadowDropped;
+    private int lastFar;
     private long cpuNanos;
     private long cpuSamples;
     private long frames;
@@ -97,6 +100,7 @@ public final class LightFrame {
         RenderSystem.assertOnRenderThread();
         frames++;
         levelGpu.begin();
+        LightGlare.clear();
         if (LightShaders.standDown()) {
             return;
         }
@@ -120,6 +124,7 @@ public final class LightFrame {
             light.relativeTo(eye);
             if (frustum.testSphere(light.boundX, light.boundY, light.boundZ, light.boundR)) {
                 visible[count++] = light;
+                LightGlare.add(light);
             }
         }
         Arrays.sort(visible, 0, count, NEAREST);
@@ -136,6 +141,9 @@ public final class LightFrame {
         ubo.putInt(camSx).putInt(camSy).putInt(camSz).putInt(0);
         float night = irView == Lights.IrView.OFF ? 0.0f : Lights.nightSky(irView);
         ubo.putFloat(night).putFloat(0.0f).putFloat(0.0f).putFloat(0.0f);
+        ubo.position(HEADER_BYTES);
+        float near = Minecraft.getInstance().options.getEffectiveRenderDistance() * 16.0f - 16.0f;
+        int far = 0;
         int shaded = 0;
         int dropped = 0;
         for (int i = 0; i < count && shaded < Lights.MAX; i++) {
@@ -145,15 +153,23 @@ public final class LightFrame {
                 boolean inside = occupancy.inWindow((int) Math.floor(light.x / 16.0),
                         (int) Math.floor(light.y / 16.0), (int) Math.floor(light.z / 16.0));
                 light.tile = inside ? shadows.claim(shaded) : -1;
-                if (light.tile < 0) {
+                if (inside && light.tile < 0) {
                     dropped++;
                     continue;
                 }
             }
             light.write(ubo);
+            if (light.distance + 2.0 * light.boundR > near) {
+                far = farInsert(far, shaded, light.r + light.g + light.b);
+            }
             grid.add(shaded++, light, camSx, camSy, camSz, eye.x, eye.y, eye.z);
         }
         ubo.putInt(28, shaded);
+        ubo.putFloat(36, far);
+        lastFar = far;
+        for (int k = 0; k < far; k++) {
+            ubo.putInt(48 + 4 * k, farSlot[k]);
+        }
         ubo.position(UBO_BYTES).flip();
 
         int previous = glGetInteger(GL_UNIFORM_BUFFER_BINDING);
@@ -190,7 +206,7 @@ public final class LightFrame {
 
     public String report() {
         return "lightsCollected=" + lastCollected + " lightsVisible=" + lastVisible + " lightsShaded=" + lastShaded
-                + " shadowed=" + lastShadowed + " shadowDropped=" + lastShadowDropped
+                + " far=" + lastFar + " glares=" + LightGlare.lastDrawn + " shadowed=" + lastShadowed + " shadowDropped=" + lastShadowDropped
                 + " cellTests=" + grid.cellTests() + " cellsLit=" + grid.cellsLit()
                 + " lightCpuUs=" + (cpuSamples == 0 ? 0 : cpuNanos / cpuSamples / 1000)
                 + " " + occupancy.report(cpuSamples) + " " + shadows.report()
@@ -221,6 +237,26 @@ public final class LightFrame {
         shadows.resetRun();
     }
 
+    private final int[] farSlot = new int[FAR_MAX];
+    private final float[] farScore = new float[FAR_MAX];
+
+    /** Keeps the {@link #FAR_MAX} highest-scoring slots, descending. @return new count */
+    private int farInsert(int count, int slot, float score) {
+        int at = count;
+        while (at > 0 && farScore[at - 1] < score) {
+            at--;
+        }
+        if (at == FAR_MAX) {
+            return count;
+        }
+        int moved = Math.min(count, FAR_MAX - 1) - at;
+        System.arraycopy(farSlot, at, farSlot, at + 1, moved);
+        System.arraycopy(farScore, at, farScore, at + 1, moved);
+        farSlot[at] = slot;
+        farScore[at] = score;
+        return Math.min(count + 1, FAR_MAX);
+    }
+
     private Light next() {
         if (collected == pool.size()) {
             pool.add(new Light());
@@ -239,6 +275,13 @@ public final class LightFrame {
             }
             next().set(x, y, z, range, rgb, intensity, false, 0, 0, 0, 0, 0, 0, -2.0f, 1.0f, -1, shadow);
             pool.get(collected - 1).ir = ir;
+        }
+
+        @Override
+        public void point(double x, double y, double z, float range, int rgb, float intensity, boolean shadow,
+                          boolean ir, float softness) {
+            point(x, y, z, range, rgb, intensity, shadow, ir);
+            pool.get(collected - 1).softness = softness;
         }
 
         @Override

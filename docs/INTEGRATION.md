@@ -1235,9 +1235,8 @@ at the next `GuiGraphics.flush()` like anything else. Measured with two real van
 between every copy: 36 models and 72 vanilla items still come out as **one flush and one draw**.
 
 What still costs a flush is an item that draws something over itself -- a decoration, a label, a
-cooldown sweep. And one thing to know if you draw with a scissor: an item's own flush is deferred, so
-if you enable a scissor immediately after drawing GemRender items and before anything else draws, call
-`DirectRenderer.flush(DirectPass.GUI)` first.
+cooldown sweep. `GuiGraphics.applyScissor` drains the queue (mixin): else queued items land under the next
+scissor (creative tab icons clipped by the inventory player box).
 
 ### Texture slots
 
@@ -1342,6 +1341,9 @@ public final class ExhaustEffect implements Effect {
 ```
 
 - `spawn` overwrites the oldest slot: never full, never allocates. Unwritten slot = dead, culled.
+- Thinning (not decals): mid-life radius under 3 px from the camera => kept with p = `(px/3)^2` (floor 1/64), survivor
+  size x `1/sqrt(p)`: coverage kept, count cut. Spawn returns its contact either way. `-Dgemrender.particleThinPx=0`
+  off.
 - Ring sizing: `capacity == rate x life` wraps as the oldest dies (`-Pparticles=3000` settles ~2880
   alive). Size 10-20% above.
 
@@ -1517,8 +1519,9 @@ Contract:
 - Shape helpers: `gemrender_planeBasis`, `gemrender_decalCorner`, `gemrender_streakCorner`,
   `gemrender_particleMotion`, `gemrender_bodyBasis`, `gemrender_particleFade`, `gemrender_nearFade`. Java
   mirror: `ParticleShapes`, `ParticleCollision.motionAt`, `ParticleMotion.heat`.
-- `glowing` material: `flw_vertexOverlay = gemrender_particleOverlay(heat)` (heat 0..1, e.g.
-  `gemrender_particleHeat(s, unitAge)`); else `ivec2(0, 10)`.
+- `absorbance` / `glowing` material: `flw_vertexOverlay = gemrender_particleOverlay(heat, center, radius)`
+  (heat 0..1, e.g. `gemrender_particleHeat(s, unitAge)`; `radius` = world half-extent of the sprite's thin side).
+  `gemrender_particleOverlay(heat)` / `ivec2(0, 10)` => reduced only (see below).
 - `_gemrender_particles` bound on every Flywheel program; nothing to bind.
 
 ### What a closed form cannot do
@@ -1550,6 +1553,12 @@ Only frame-rate decision on this page.
 - Exclusive frames: `absorbance` / `glowing` (+ volumes) draw at 1/`Absorbance.resolutionFactor` per axis
   (default 4; `-Dgemrender.absorbanceFactor` overrides). Depth = farthest per block; upsample = bilinear x
   depth match. Mixed frames: full res (gap).
+- Band: projected radius <= 4 reduced texels => full res, >= 8 => reduced, smoothstep between
+  (`-Dgemrender.absorbanceBand=lo:hi`; `-1:0` = reduced only); tau split, not
+  duplicated (`gemrender:absorbance_band.glsl`). Full share = second evaluate (+ front) submit into the full-res
+  accumulators, upsample adds them. No radius in overlay (volumes, decals) => reduced only.
+- `RopeModels.absorbance`: share per vertex (width varies along the rope); ends + middle agree => collapsed like a
+  sprite, else both passes raster it and drop zero-share fragments.
 - wflib smoke grenade, 6 m through the cloud, chain GPU us: factor 1 2506, 2 756, 4 329.
 
 In game, wflib blast scenes, 1920x1080, RX 7900 XTX, Fancy:

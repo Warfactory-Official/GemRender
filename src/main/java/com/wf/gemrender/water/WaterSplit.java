@@ -108,6 +108,8 @@ public final class WaterSplit {
         oitDrawsThisFrame = true;
         Absorbance.getInstance()
                 .suspendRoute();
+        Absorbance.getInstance()
+                .resubmitFull(resubmit, false);
 
         if (pendingStage != null) {
             prepassTimer.begin();
@@ -139,6 +141,8 @@ public final class WaterSplit {
         GlAudit.Scope audit = GlAudit.open("water:oit-front");
         try {
             resubmit.run();
+            Absorbance.getInstance()
+                    .resubmitFull(resubmit, true);
         } finally {
             Absorbance.getInstance()
                     .endFrontResubmit();

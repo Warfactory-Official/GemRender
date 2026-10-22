@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Test;
 /** The shipped {@code particle.glsl} shape and look functions against {@link ParticleShapes} / {@link ParticleLook}. */
 @Tag("gl")
 class ParticleShapesGlTest {
-	private static final String PARTICLE_GLSL = "assets/gemrender/flywheel/particle.glsl";
 
 	private static final int SAMPLER_UNIT = 3;
 
@@ -73,7 +72,7 @@ class ParticleShapesGlTest {
 
 				"""
 				+ "const float NEAR_SIZE = " + NEAR_SIZE + ";\nconst float CULL = " + CULL + ";\n"
-				+ ShaderSources.read(PARTICLE_GLSL)
+				+ ShaderSources.particleGlsl()
 				+ """
 
 						void put(int at, vec3 v) {

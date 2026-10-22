@@ -19,5 +19,8 @@ public final class GemRender {
 
     public GemRender() {
         LOGGER.info("GemRender loading");
+        //? if lights {
+        System.setProperty("voxy.auxColour", "true");
+        //?}
     }
 }
