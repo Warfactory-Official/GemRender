@@ -228,6 +228,9 @@ public abstract class GemRenderEntityVisual<T extends Entity> extends ComponentE
 
         // Unconditional, unlike a machine's: the transform has already changed by the time we are
         // here, so there is nothing to compare against that would ever say otherwise.
+        //? if >=26.2 {
+        /*target.write();
+        *///?}
         target.setChanged();
     }
 

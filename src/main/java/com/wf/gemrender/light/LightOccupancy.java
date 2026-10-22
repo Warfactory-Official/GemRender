@@ -147,7 +147,7 @@ final class LightOccupancy {
         }
         LevelChunkSection section = chunk.getSection(index);
         PalettedContainer<BlockState> states = section.getStates();
-        if (section.hasOnlyAir() || !states.maybeHas(state -> state.isSolidRender(level, cursor))) {
+        if (section.hasOnlyAir() || !states.maybeHas(state -> solid(state, level, cursor))) {
             zero(slot);
             return;
         }
@@ -156,7 +156,7 @@ final class LightOccupancy {
             for (int z = 0; z < 16; z++) {
                 int row = 0;
                 for (int x = 0; x < 16; x++) {
-                    if (states.get(x, y, z).isSolidRender(level, cursor.set(x0 + x, y0 + y, z0 + z))) {
+                    if (solid(states.get(x, y, z), level, cursor.set(x0 + x, y0 + y, z0 + z))) {
                         row |= 1 << x;
                     }
                 }
@@ -210,8 +210,16 @@ final class LightOccupancy {
             return;
         }
         blockUpdates++;
-        set(pos.getX(), pos.getY(), pos.getZ(), state.isSolidRender(level, pos));
+        set(pos.getX(), pos.getY(), pos.getZ(), solid(state, level, pos));
         markDirty(slot);
+    }
+
+    private static boolean solid(BlockState state, ClientLevel level, BlockPos pos) {
+        //? if >=26.2 {
+        /*return state.isSolidRender();
+        *///?} else {
+        return state.isSolidRender(level, pos);
+        //?}
     }
 
     void set(int x, int y, int z, boolean solid) {

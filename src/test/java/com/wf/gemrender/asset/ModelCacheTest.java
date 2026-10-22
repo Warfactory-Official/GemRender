@@ -22,6 +22,21 @@ class ModelCacheTest {
 		return Ids.of("gemrender", path);
 	}
 
+	//? if <26.1 {
+	@Test
+	@DisplayName("rendered caches accept loads before the first reload on older targets")
+	void renderedCacheLoadsBeforeFirstReload() {
+		var loads = new AtomicInteger();
+		var cache = ModelCache.rendered("test", location -> {
+			loads.incrementAndGet();
+			return "ready";
+		}, (location, value) -> {});
+
+		assertThat(cache.getBlocking(id("initial"))).isEqualTo("ready");
+		assertThat(loads).hasValue(1);
+	}
+	//?}
+
 	private static final class Recorder {
 		final AtomicInteger loads = new AtomicInteger();
 

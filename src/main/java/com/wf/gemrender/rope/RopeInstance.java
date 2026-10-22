@@ -3,8 +3,10 @@ package com.wf.gemrender.rope;
 import dev.engine_room.flywheel.api.instance.InstanceHandle;
 import dev.engine_room.flywheel.api.instance.InstanceType;
 import dev.engine_room.flywheel.lib.instance.ColoredLitInstance;
+import dev.engine_room.flywheel.lib.util.ExtraMemoryOps;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import org.lwjgl.system.MemoryUtil;
 
 
 public class RopeInstance extends ColoredLitInstance {
@@ -42,7 +44,7 @@ public class RopeInstance extends ColoredLitInstance {
      */
     public RopeInstance sag(float sag) {
         shape.x = Math.max(0.0f, sag);
-        return this;
+        return write();
     }
 
     /**
@@ -61,19 +63,19 @@ public class RopeInstance extends ColoredLitInstance {
 
     public RopeInstance radius(float radius) {
         shape.y = radius;
-        return this;
+        return write();
     }
 
     /** How many times the texture repeats along the rope. */
     public RopeInstance tiling(float repeats) {
         shape.z = repeats;
-        return this;
+        return write();
     }
 
     /** Full turns of the ring about the rope's own axis, end to end. */
     public RopeInstance twist(float turns) {
         shape.w = turns;
-        return this;
+        return write();
     }
 
     /**
@@ -83,18 +85,61 @@ public class RopeInstance extends ColoredLitInstance {
      */
     public RopeInstance sway(float amplitude, float frequency, float phase, float waves) {
         sway.set(amplitude, frequency, phase, waves);
-        return this;
+        return write();
     }
 
     public RopeInstance lightB(int light) {
         this.lightB = light;
+        //? if >=26.2 {
+        /*ExtraMemoryOps.put2x16(slabPtr() + 8, light);
+        *///?}
         return this;
     }
 
     /** Both ends lit the same. */
     public RopeInstance litUniformly(int light) {
+        //? if >=26.2 {
+        /*light(light);
+        return lightB(light);
+        *///?} else {
         this.light = light;
         this.lightB = light;
+        return this;
+        //?}
+    }
+
+    //? if >=26.2 {
+    /*/^* Layout puts lightA at 4; CrankShaft's {@code ColoredLitInstance} writes 8. ^/
+    @Override
+    public RopeInstance light(int light) {
+        ExtraMemoryOps.put2x16(slabPtr() + 4, light);
+        return this;
+    }
+    *///?}
+
+    private RopeInstance write() {
+        //? if >=26.2 {
+        /*long p = slabPtr();
+        ExtraMemoryOps.put2x16(p + 8, lightB);
+        MemoryUtil.memPutFloat(p + 12, a.x);
+        MemoryUtil.memPutFloat(p + 16, a.y);
+        MemoryUtil.memPutFloat(p + 20, a.z);
+        MemoryUtil.memPutFloat(p + 24, b.x);
+        MemoryUtil.memPutFloat(p + 28, b.y);
+        MemoryUtil.memPutFloat(p + 32, b.z);
+        MemoryUtil.memPutFloat(p + 36, shape.x);
+        MemoryUtil.memPutFloat(p + 40, shape.y);
+        MemoryUtil.memPutFloat(p + 44, shape.z);
+        MemoryUtil.memPutFloat(p + 48, shape.w);
+        MemoryUtil.memPutFloat(p + 52, sway.x);
+        MemoryUtil.memPutFloat(p + 56, sway.y);
+        MemoryUtil.memPutFloat(p + 60, sway.z);
+        MemoryUtil.memPutFloat(p + 64, sway.w);
+        MemoryUtil.memPutFloat(p + 68, sphere.x);
+        MemoryUtil.memPutFloat(p + 72, sphere.y);
+        MemoryUtil.memPutFloat(p + 76, sphere.z);
+        MemoryUtil.memPutFloat(p + 80, sphere.w);
+        *///?}
         return this;
     }
 
@@ -103,6 +148,6 @@ public class RopeInstance extends ColoredLitInstance {
      */
     public RopeInstance refresh() {
         RopeCurve.sphere(sphere, a.x, a.y, a.z, b.x, b.y, b.z, shape.x, shape.y + sway.x);
-        return this;
+        return write();
     }
 }

@@ -27,6 +27,8 @@ public interface LevelRendererAccessor {
     it.unimi.dsi.fastutil.objects.ObjectArrayList<net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection> gemrender$visibleSections();
     //?}
 
+    //? if <26.2 {
     @Accessor("ticks")
     int gemrender$getTicks();
+    //?}
 }

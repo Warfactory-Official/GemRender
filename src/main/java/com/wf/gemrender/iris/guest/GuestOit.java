@@ -1,5 +1,6 @@
 package com.wf.gemrender.iris.guest;
 
+import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.wf.gemrender.render.TextureUnits;
 import dev.engine_room.flywheel.backend.NoiseTextures;
@@ -125,13 +126,13 @@ final class GuestOit {
         GlStateManager._disableDepthTest();
         GlStateManager._depthMask(false);
         GlStateManager._disableCull();
-        GlStateManager._enableBlend();
+        GlState.enableBlend();
         GlStateManager._blendEquation(GL_FUNC_ADD);
         GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         GlStateManager._glUseProgram(resources.composite());
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        GlStateManager._disableBlend();
+        GlState.disableBlend();
         GlStateManager._colorMask(false, false, false, false);
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL_LEQUAL);

@@ -1,5 +1,6 @@
 package com.wf.gemrender.mixin;
 
+//? if <26.2 {
 import com.wf.gemrender.water.Absorbance;
 //? if water {
 import com.wf.gemrender.water.WaterSplit;
@@ -43,3 +44,11 @@ abstract class InstancedDrawManagerMixin {
     }
     //?}
 }
+//?} else {
+/*import dev.engine_room.flywheel.backend.engine.instancing.InstancedDrawManager;
+import org.spongepowered.asm.mixin.Mixin;
+
+@Mixin(value = InstancedDrawManager.class, remap = false)
+abstract class InstancedDrawManagerMixin {
+}
+*///?}

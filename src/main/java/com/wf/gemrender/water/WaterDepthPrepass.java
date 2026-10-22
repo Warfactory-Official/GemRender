@@ -70,8 +70,8 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
-*/
-//?}
+
+*///?}
 
 final class WaterDepthPrepass {
 
@@ -193,7 +193,7 @@ final class WaterDepthPrepass {
      */
     boolean run(LevelStage stage, WaterSplitPrograms programs, boolean foldClouds) {
         Minecraft mc = Minecraft.getInstance();
-        RenderTarget main = mc.getMainRenderTarget();
+        RenderTarget main = com.wf.gemrender.render.Vanilla.mainTarget();
         ensureSize(main.width, main.height);
         foldedClouds = false;
 
@@ -228,7 +228,7 @@ final class WaterDepthPrepass {
                         int cloudDepth) {
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-        GlStateManager._disableBlend();
+        GlState.disableBlend();
         GlStateManager._enableDepthTest();
         GlStateManager._depthMask(true);
         GlStateManager._stencilMask(0xFF);
@@ -325,7 +325,7 @@ final class WaterDepthPrepass {
         ensureCloudTarget();
 
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, cloudFbo);
-        GlStateManager._disableBlend();
+        GlState.disableBlend();
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL_LEQUAL);
 

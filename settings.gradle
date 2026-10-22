@@ -55,6 +55,7 @@ stonecutter {
         // want in every task path.
         versions '1.20.1', '1.21.1'
         vers '26.1', '26.1.2'
+        vers '26.2', '26.2'
         // Fabric targets. The project name carries the loader because the Minecraft version alone no
         // longer identifies a node; the second argument is what `//? if` predicates still evaluate
         // against, so a version guard reads the same on either loader.

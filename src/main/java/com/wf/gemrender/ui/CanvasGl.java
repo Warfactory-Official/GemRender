@@ -1,7 +1,10 @@
 package com.wf.gemrender.ui;
 
+import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
+//? if <26.2 {
 import com.mojang.blaze3d.vertex.BufferUploader;
+//?}
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.render.GlPrograms;
 import org.joml.Matrix4f;
@@ -82,7 +85,9 @@ final class CanvasGl {
         growIndices(1024);
         glBindVertexArray(previousVao);
         glBindBuffer(GL_ARRAY_BUFFER, previousBuffer);
+        //? if <26.2 {
         BufferUploader.invalidate();
+        //?}
         return true;
     }
 
@@ -157,7 +162,7 @@ final class CanvasGl {
      */
     void save(boolean deep) {
         savedProgram = Math.max(GlShadow.program(), 0);
-        savedActiveTexture = GlStateManager._getActiveTexture();
+        savedActiveTexture = GlState.activeTexture();
         savedBlend = GlShadow.blend();
         savedSrcRgb = GlShadow.srcRgb();
         savedDstRgb = GlShadow.dstRgb();
@@ -195,16 +200,18 @@ final class CanvasGl {
         GlStateManager._glUseProgram(savedProgram);
         GlStateManager._glBindVertexArray(0);
         GlStateManager._glBindBuffer(GL_ARRAY_BUFFER, 0);
+        //? if <26.2 {
         BufferUploader.invalidate();
+        //?}
         if (savedDeep) {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, savedFramebuffer);
             GlStateManager._viewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
         }
         GlStateManager._blendFuncSeparate(savedSrcRgb, savedDstRgb, savedSrcAlpha, savedDstAlpha);
         if (savedBlend) {
-            GlStateManager._enableBlend();
+            GlState.enableBlend();
         } else {
-            GlStateManager._disableBlend();
+            GlState.disableBlend();
         }
         GlStateManager._depthMask(savedDepthMask);
         if (savedDepthTest) {
@@ -239,7 +246,7 @@ final class CanvasGl {
         growIndices(maxBatchQuads);
         GlStateManager._glBindBuffer(GL_ARRAY_BUFFER, vbo);
         int base = upload(vertices, vertexCount);
-        GlStateManager._enableBlend();
+        GlState.enableBlend();
         GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         GlStateManager._disableDepthTest();
         GlStateManager._depthMask(false);

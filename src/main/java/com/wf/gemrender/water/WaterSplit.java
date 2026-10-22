@@ -180,7 +180,7 @@ public final class WaterSplit {
 
             GlStateManager._depthMask(false);
             GlState.colorMask(true, true, true, true);
-            GlStateManager._enableBlend();
+            GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                     GL_ONE_MINUS_SRC_ALPHA);
             GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
@@ -247,7 +247,7 @@ public final class WaterSplit {
 
             GlStateManager._depthMask(true);
             GlState.colorMask(true, true, true, true);
-            GlStateManager._enableBlend();
+            GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                     GL_ONE_MINUS_SRC_ALPHA);
             GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
@@ -279,12 +279,12 @@ public final class WaterSplit {
         try {
             Minecraft mc = Minecraft.getInstance();
             boolean fabulous = Minecraft.useShaderTransparency();
-            Vanilla.bindWrite(fabulous ? mc.levelRenderer.getItemEntityTarget() : mc.getMainRenderTarget());
+            Vanilla.bindWrite(fabulous ? mc.levelRenderer.getItemEntityTarget() : com.wf.gemrender.render.Vanilla.mainTarget());
 
             GlStateManager._depthMask(fabulous);
             GlStateManager._enableDepthTest();
             GlState.colorMask(true, true, true, true);
-            GlStateManager._enableBlend();
+            GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                     GL_ONE_MINUS_SRC_ALPHA);
             GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);

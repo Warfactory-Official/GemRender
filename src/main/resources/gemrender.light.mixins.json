@@ -12,6 +12,8 @@
     "FlywheelProgramLinkerMixin",
     "FlywheelSourcesMixin",
     "GameRendererMixin",
+    "GlCommandEncoderMixin",
+    "IrRenderStateMixin",
     "LevelRendererMixin",
     "ProgramMixin",
     "ShaderInstanceMixin",

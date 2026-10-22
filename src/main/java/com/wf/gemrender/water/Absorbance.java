@@ -141,10 +141,16 @@ public final class Absorbance {
      * Exclusive frame: coefficient passes skipped. Fabulous keeps depth range: composite sorts against the
      * other Fabulous layers by its nearest depth.
      */
-    public boolean skips(dev.engine_room.flywheel.backend.compile.PipelineCompiler.OitMode mode) {
+    public boolean skips(
+            //? if >=26.2 {
+            /*dev.engine_room.flywheel.backend.compile.OitMode mode
+            *///?} else {
+            dev.engine_room.flywheel.backend.compile.PipelineCompiler.OitMode mode
+            //?}
+    ) {
         return exclusive && switch (mode) {
             case EVALUATE, OFF -> false;
-            case DEPTH_RANGE -> !Minecraft.useShaderTransparency();
+            case DEPTH_RANGE -> !com.wf.gemrender.render.Vanilla.shaderTransparency();
             default -> true;
         };
     }
@@ -209,8 +215,7 @@ public final class Absorbance {
         reducedFrame = exclusive && frameFactor > 1 && reduced.enabled() && reducedFront.enabled();
         active = reduced;
         if (reducedFrame) {
-            reduced.prepare(Vanilla.depthTextureId(Minecraft.getInstance()
-                    .getMainRenderTarget()), frameFactor);
+            reduced.prepare(Vanilla.depthTextureId(Vanilla.mainTarget()), frameFactor);
             band(BAND_REDUCED);
         } else {
             clearAbsorbance();
@@ -334,6 +339,7 @@ public final class Absorbance {
     /**
      * Smoke / gas draw at 1/{@code factor} of the screen per axis (1 = full).
      * Ignored under {@code -Dgemrender.absorbanceFactor}.
+     * Applies to targets before 26.2; 26.2 uses CrankShaft's OIT scene without this reduced pass.
      */
     public void resolutionFactor(int factor) {
         if (factor < 1) {
@@ -389,8 +395,8 @@ public final class Absorbance {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        int newWidth = mc.getMainRenderTarget().width;
-        int newHeight = mc.getMainRenderTarget().height;
+        int newWidth = com.wf.gemrender.render.Vanilla.mainTarget().width;
+        int newHeight = com.wf.gemrender.render.Vanilla.mainTarget().height;
 
         if (width == newWidth && height == newHeight) {
             return;

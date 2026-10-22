@@ -22,6 +22,22 @@ public final class GlState {
         //?}
     }
 
+    public static void enableBlend() {
+        //? if >=26.2 {
+        /*GlStateManager._enableBlend(0);
+        *///?} else {
+        GlStateManager._enableBlend();
+        //?}
+    }
+
+    public static void disableBlend() {
+        //? if >=26.2 {
+        /*GlStateManager._disableBlend(0);
+        *///?} else {
+        GlStateManager._disableBlend();
+        //?}
+    }
+
     public static void blendEquation(int mode) {
         //? if >=26.1 {
         /*GL14C.glBlendEquation(mode);

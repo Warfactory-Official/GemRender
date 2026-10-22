@@ -37,7 +37,12 @@ import static org.lwjgl.opengl.GL32C.glFramebufferTexture;
 public final class CameraMedium {
     private static final String VERSION = "#version 420 core\n";
 
+    //? if >=26.2 {
+    /*// Volumes and particles remain in CrankShaft's OIT scene instead of being replaced by camera fog.
+    private static final boolean ENABLED = false;
+    *///?} else {
     private static final boolean ENABLED = !"false".equalsIgnoreCase(System.getProperty("gemrender.medium"));
+    //?}
 
     private static final CameraMedium INSTANCE = new CameraMedium();
 
@@ -210,8 +215,7 @@ public final class CameraMedium {
         if (!active || hidden.getAsBoolean() || !ensureCreated()) {
             return;
         }
-        RenderTarget main = Minecraft.getInstance()
-                .getMainRenderTarget();
+        RenderTarget main = Vanilla.mainTarget();
         int color = Vanilla.colorTextureId(main);
         int lightmap = Vanilla.lightmapTextureId();
 
@@ -229,14 +233,23 @@ public final class CameraMedium {
             GlStateManager._disableDepthTest();
             GlStateManager._depthMask(false);
             GlState.colorMask(true, true, true, true);
-            GlStateManager._enableBlend();
+            GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
             GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
 
             GlStateManager._glUseProgram(program);
-            new Matrix4f(projection).mul(modelView)
-                    .invert()
-                    .get(matrix);
+            Matrix4f clipToRelative = new Matrix4f(projection).mul(modelView)
+                    .invert();
+            //? if >=26.2 {
+            /*if (com.mojang.blaze3d.systems.RenderSystem.getDevice()
+                    .getDeviceInfo()
+                    .isZZeroToOne()) {
+                // medium.frag: NDC z = 2d - 1; clip control ZERO_TO_ONE => NDC z = d.
+                clipToRelative.translate(0.0f, 0.0f, 0.5f)
+                        .scale(1.0f, 1.0f, 0.5f);
+            }
+            *///?}
+            clipToRelative.get(matrix);
             glUniformMatrix4fv(clipLoc, false, matrix);
             glUniform3f(boxMinLoc, (float) (box.minX - camera.x), (float) (box.minY - camera.y),
                     (float) (box.minZ - camera.z));

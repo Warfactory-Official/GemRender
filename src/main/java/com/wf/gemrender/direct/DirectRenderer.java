@@ -1,5 +1,6 @@
 package com.wf.gemrender.direct;
 
+import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.wf.gemrender.gltf.GemRenderGltfModel;
@@ -457,14 +458,18 @@ public final class DirectRenderer {
             PaintArray.bind();
 
             program.use();
-            program.matrices(new Matrix4f(RenderSystem.getModelViewMatrix()),
+            program.matrices(new Matrix4f(com.wf.gemrender.render.Vanilla.modelViewMatrix()),
                     new Matrix4f(DirectVanilla.projection()));
 
             Vector3f[] lights = DirectVanilla.lightDirections();
             program.lightDirections(lights[0], lights[1]);
 
             GlStateManager._enableDepthTest();
+            //? if >=26.2 {
+            /*GlStateManager._depthFunc(GL_GEQUAL);
+            *///?} else {
             GlStateManager._depthFunc(GL_LEQUAL);
+            //?}
             // Inherited mask may drop alpha (26.1 GUI pipelines): an atlas slot cleared to alpha 0 stays invisible.
             com.wf.gemrender.render.GlState.colorMask(true, true, true, true);
 
@@ -529,13 +534,13 @@ public final class DirectRenderer {
             DirectMaterial material = batch.part.material();
 
             if (blended) {
-                GlStateManager._enableBlend();
+                GlState.enableBlend();
 
                 GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                         GL_ONE_MINUS_SRC_ALPHA);
                 GlStateManager._depthMask(false);
             } else {
-                GlStateManager._disableBlend();
+                GlState.disableBlend();
                 GlStateManager._depthMask(true);
             }
 

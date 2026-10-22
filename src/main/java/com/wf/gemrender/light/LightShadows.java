@@ -1,5 +1,6 @@
 package com.wf.gemrender.light;
 
+import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.render.GlPrograms;
@@ -127,7 +128,7 @@ final class LightShadows {
         gpu.begin();
         state.saveDeep();
         glGetIntegerv(GL_VIEWPORT, viewport);
-        GlStateManager._disableBlend();
+        GlState.disableBlend();
         GlStateManager._disableDepthTest();
         GlStateManager._disableCull();
         try {

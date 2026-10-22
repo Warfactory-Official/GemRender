@@ -19,11 +19,8 @@ public interface ArmorAppearance {
     /**
      * The model this piece draws, or {@code null} for none.
      *
-     * <p>{@code entity} is the wearer, and is {@code null} on 26.1 and only there. Armour is chosen
-     * during the submit phase now, which is handed the wearer's {@code HumanoidRenderState} and not the
-     * wearer -- the entity is extracted a phase earlier and deliberately not carried forward, so there
-     * is no truthful way to produce one here. Everything on the stack is still available; a mod that
-     * varies a model by the wearer rather than by the item has to carry what it needs on the item.
+     * <p>{@code entity} is the wearer. The 26.1 hook has no wearer; 26.2 reads it from the render state
+     * ({@code GemRenderArmorModel.WEARER}), or supplies {@code null} for non-living renderers.
      */
     @Nullable
     GemRenderGltfModel model(@Nullable LivingEntity entity, ItemStack stack, EquipmentSlot slot);

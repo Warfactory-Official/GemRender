@@ -16,9 +16,15 @@ public record GltfMaterial(@Nullable ResourceLocation texture, AlphaMode alphaMo
             Ids.of(GemRender.MOD_ID, "untextured");
     public static final float[] CUTOUTS = {0.0f, 0.1f, 0.5f};
     private static final boolean OIT = !"false".equalsIgnoreCase(System.getProperty("gemrender.oit"));
+    //? if >=26.2 {
+    /*private static final MaterialShaders PBR_SHADERS = new SimpleMaterialShaders(
+            Ids.of(GemRender.MOD_ID, "material/varyings26.vert"),
+            Ids.of(GemRender.MOD_ID, "material/pbr.frag"));
+    *///?} else {
     private static final MaterialShaders PBR_SHADERS = new SimpleMaterialShaders(
             Ids.of("flywheel", "material/default.vert"),
             Ids.of(GemRender.MOD_ID, "material/pbr.frag"));
+    //?}
 
     public GltfMaterial(@Nullable ResourceLocation texture, AlphaMode alphaMode, float alphaCutoff,
                         boolean doubleSided) {

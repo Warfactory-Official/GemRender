@@ -18,9 +18,15 @@ import dev.engine_room.flywheel.lib.model.SingleMeshModel;
 import net.minecraft.resources.ResourceLocation;
 
 public final class VolumeModels {
+    //? if >=26.2 {
+    /*public static final MaterialShaders VOLUME_SHADERS = new SimpleMaterialShaders(
+            Ids.of(GemRender.MOD_ID, "material/varyings26.vert"),
+            Ids.of(GemRender.MOD_ID, "material/volume.frag"));
+    *///?} else {
     public static final MaterialShaders VOLUME_SHADERS = new SimpleMaterialShaders(
             Ids.of(GemRender.MOD_ID, "material/absorbance.vert"),
             Ids.of(GemRender.MOD_ID, "material/volume.frag"));
+    //?}
 
     private static final ResourceLocation WHITE =
             Ids.vanilla("textures/misc/white.png");
@@ -29,10 +35,12 @@ public final class VolumeModels {
 
     private static Model cloud;
 
+    //? if <26.2 {
     static {
         Absorbance.getInstance()
                 .register(VOLUME_SHADERS);
     }
+    //?}
 
     private VolumeModels() {
     }

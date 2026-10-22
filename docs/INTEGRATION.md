@@ -1896,6 +1896,9 @@ merged sensors pre-scale), `OFF` => none.
 
 Not in `IrTarget`: Fabulous translucent/particle/weather targets, Flywheel OIT.
 
+The IR attachment is writable only for programs declaring `_grl_irOut` at location 1. Shader and draw-framebuffer
+changes update that routing; programs without the IR output preserve the existing IR image.
+
 Lightmap: albedo recovery floors the lightmap at 1/255 => darkness mods zeroing it still light dynamically.
 
 ### Shadows

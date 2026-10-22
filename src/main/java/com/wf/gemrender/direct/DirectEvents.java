@@ -2,7 +2,9 @@ package com.wf.gemrender.direct;
 
 import com.wf.gemrender.GemRender;
 
+//? if <26.2 {
 import dev.engine_room.flywheel.api.event.EndClientResourceReloadEvent;
+//?}
 //? if neoforge {
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -32,9 +34,20 @@ public final class DirectEvents {
         com.wf.gemrender.render.Vanilla.intoMainTarget(() -> DirectRenderer.flush(DirectPass.LEVEL));
     }
 
+    /^* Posted after {@code LevelRenderer.render} pops the view rotation off the model-view stack. ^/
     @SubscribeEvent
     public static void onAfterLevel(RenderLevelStageEvent.AfterLevel event) {
+        //? if >=26.2 {
+        /^org.joml.Matrix4fStack modelView = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
+        modelView.pushMatrix().mul(event.getModelViewMatrix());
+        try {
+            com.wf.gemrender.render.Vanilla.intoMainTarget(() -> DirectRenderer.flush(DirectPass.LEVEL));
+        } finally {
+            modelView.popMatrix();
+        }
+        ^///?} else {
         com.wf.gemrender.render.Vanilla.intoMainTarget(() -> DirectRenderer.flush(DirectPass.LEVEL));
+        //?}
     }
 *///?} else {
     @SubscribeEvent
@@ -48,6 +61,12 @@ public final class DirectEvents {
     }
     //?}
 
+    //? if >=26.2 {
+    /*@SubscribeEvent
+    public static void onEndClientResourceReload(net.neoforged.neoforge.client.event.ClientResourceLoadFinishedEvent event) {
+        DirectReload.run();
+    }
+    *///?} else {
     @SubscribeEvent
     public static void onEndClientResourceReload(EndClientResourceReloadEvent event) {
         if (event.error()
@@ -57,6 +76,7 @@ public final class DirectEvents {
 
         DirectReload.run();
     }
+    //?}
 
     //? if >=26.1 {
 	
@@ -65,5 +85,13 @@ public final class DirectEvents {
 			net.neoforged.neoforge.client.event.RegisterSpecialModelRendererEvent event) {
 		event.register(GemRenderItemRenderer.TYPE_ID, GemRenderItemRenderer.Unbaked.MAP_CODEC);
 	}
+
+	//? if >=26.2 {
+	/^@SubscribeEvent
+	public static void onRegisterRenderStateModifiers(
+			net.neoforged.neoforge.client.renderstate.RegisterRenderStateModifiersEvent event) {
+		GemRenderArmorModel.registerWearer(event);
+	}
+	^///?}
 *///?}
 }

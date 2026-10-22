@@ -48,12 +48,16 @@ public final class GemRenderParticleTypes {
                         .vector("origin", FloatRepr.FLOAT, 3)
                         .scalar("particle", UnsignedIntegerRepr.UNSIGNED_INT)
                         .build())
+                //? if >=26.2 {
+                /*.seed(ptr -> MemoryUtil.memSet(ptr, 0, 16))
+                *///?} else {
                 .writer((ptr, instance) -> {
                     MemoryUtil.memPutFloat(ptr, instance.originX);
                     MemoryUtil.memPutFloat(ptr + 4, instance.originY);
                     MemoryUtil.memPutFloat(ptr + 8, instance.originZ);
                     MemoryUtil.memPutInt(ptr + 12, instance.particle);
                 })
+                //?}
                 .vertexShader(vertexShader)
                 .cullShader(cullShader)
                 .build();

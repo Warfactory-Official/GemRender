@@ -2,7 +2,9 @@
 #define GEMRENDER_ABSORBANCE_BAND
 
 // Absorbance band texel: (pass, factor, lo, hi). pass 0 = whole sprite, 1 = reduced share, 2 = full-res share.
+#ifndef GEMRENDER_CHUNK_OIT
 uniform sampler2D _gemrender_absorbanceBand;
+#endif
 
 // overlay.y = BASE + q (+ VARYING): full-res share q / 1023. Below BASE (0, vanilla 10) => reduced only.
 // VARYING: share differs across the primitive => never collapsed, zero-share fragments discarded.
@@ -10,7 +12,11 @@ const int GEMRENDER_BAND_BASE = 1024;
 const int GEMRENDER_BAND_VARYING = 1024;
 
 vec4 _gemrender_band() {
+    #ifdef GEMRENDER_CHUNK_OIT
+    return vec4(0.0);
+    #else
     return texelFetch(_gemrender_absorbanceBand, ivec2(0), 0);
+    #endif
 }
 
 // Reduced or full-res pass of a split frame.

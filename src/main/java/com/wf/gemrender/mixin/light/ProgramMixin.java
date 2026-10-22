@@ -1,11 +1,32 @@
 package com.wf.gemrender.mixin.light;
 
-import com.mojang.blaze3d.shaders.Program;
-import com.mojang.blaze3d.preprocessor.GlslPreprocessor;
 import com.wf.gemrender.light.LightShaders;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+//? if >=26.2 {
+/*import com.mojang.blaze3d.shaders.ShaderSource;
+import com.mojang.blaze3d.shaders.ShaderType;
+import net.minecraft.resources.ResourceLocation;
+
+@Mixin(targets = "com.mojang.blaze3d.opengl.GlDevice", remap = false)
+abstract class ProgramMixin {
+    @Redirect(method = "compileShader", at = @At(value = "INVOKE",
+            target = "Lcom/mojang/blaze3d/shaders/ShaderSource;get(Lnet/minecraft/resources/ResourceLocation;Lcom/mojang/blaze3d/shaders/ShaderType;)Ljava/lang/String;"))
+    private String gemrender$patch(ShaderSource source, ResourceLocation id, ShaderType type) {
+        String text = source.get(id, type);
+        if (text != null && "sodium".equals(id.getNamespace())) {
+            // Sodium 0.9 terrain = vanilla RenderPipeline; ids extensionless, unlike its old ShaderLoader.
+            return LightShaders.sodium(id.withSuffix(type == ShaderType.VERTEX ? ".vsh" : ".fsh"), text);
+        }
+        return LightShaders.vanilla(id.getPath(), type == ShaderType.VERTEX, text);
+    }
+}
+*///?} else {
+import com.mojang.blaze3d.shaders.Program;
+import com.mojang.blaze3d.preprocessor.GlslPreprocessor;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -34,3 +55,4 @@ abstract class ProgramMixin {
         return List.of(LightShaders.vanilla(gemrender$name, gemrender$vertex, String.join("", source)));
     }
 }
+//?}

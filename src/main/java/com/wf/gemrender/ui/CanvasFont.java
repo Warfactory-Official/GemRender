@@ -1,17 +1,23 @@
 package com.wf.gemrender.ui;
 
 import com.mojang.blaze3d.font.GlyphInfo;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.wf.gemrender.mixin.ui.BakedGlyphAccessor;
 import com.wf.gemrender.mixin.ui.FontAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.font.FontSet;
 import net.minecraft.client.gui.font.glyphs.BakedGlyph;
 import net.minecraft.client.gui.font.glyphs.EmptyGlyph;
+//? if >=26.2 {
+/*import com.wf.gemrender.render.Vanilla;
+import net.minecraft.client.gui.GlyphSource;
+import net.minecraft.network.chat.FontDescription;
+*///?} else {
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.font.FontSet;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
+//?}
 
 import java.util.Arrays;
 
@@ -28,11 +34,19 @@ public final class CanvasFont {
 
     private int seenGeneration = -1;
     int version;
+    //? if >=26.2 {
+    /*private GlyphSource cachedSet;
+    *///?} else {
     private FontSet cachedSet;
+    //?}
     private boolean cachedFishy;
     private final Glyph[][] glyphs = new Glyph[256][];
 
+    //? if >=26.2 {
+    /*private Object[] types = new Object[4];
+    *///?} else {
     private RenderType[] types = new RenderType[4];
+    //?}
     private int[] ids = new int[4];
     private int count;
 
@@ -47,6 +61,22 @@ public final class CanvasFont {
         return Minecraft.getInstance().font;
     }
 
+    //? if >=26.2 {
+    /*GlyphSource fontSet() {
+        return ((FontAccessor) font()).gemrender$provider()
+                .glyphs(FontDescription.DEFAULT);
+    }
+
+    GlyphSource fontSet(FontDescription font) {
+        return ((FontAccessor) font()).gemrender$provider()
+                .glyphs(font);
+    }
+
+    boolean filterFishy() {
+        // Minecraft.font = FontManager.createFont() => anyGlyphs, unfiltered.
+        return false;
+    }
+    *///?} else {
     FontSet fontSet() {
         return fontSet(Style.DEFAULT_FONT);
     }
@@ -58,10 +88,11 @@ public final class CanvasFont {
     boolean filterFishy() {
         return ((FontAccessor) font()).gemrender$filterFishyGlyphs();
     }
+    //?}
 
     /** Called once per {@code begin}: revalidates against the current default font set. */
     void refresh() {
-        FontSet set = fontSet();
+        var set = fontSet();
         boolean fishy = filterFishy();
         if (seenGeneration != generation || set != cachedSet || fishy != cachedFishy) {
             seenGeneration = generation;
@@ -95,7 +126,13 @@ public final class CanvasFont {
     private final Glyph scratch = new Glyph();
 
     /** Cached for BMP code points of the cached set; else {@link #scratch}, valid until the next call. */
-    Glyph glyph(FontSet set, boolean fishy, int cp) {
+    Glyph glyph(
+            //? if >=26.2 {
+            /*GlyphSource set,
+            *///?} else {
+            FontSet set,
+            //?}
+            boolean fishy, int cp) {
         if (set != cachedSet || fishy != cachedFishy || cp >= 0x10000) {
             return fill(scratch, set, fishy, cp);
         }
@@ -110,14 +147,30 @@ public final class CanvasFont {
         return glyph;
     }
 
-    private Glyph fill(Glyph out, FontSet set, boolean fishy, int cp) {
+    private Glyph fill(Glyph out,
+                       //? if >=26.2 {
+                       /*GlyphSource set,
+                       *///?} else {
+                       FontSet set,
+                       //?}
+                       boolean fishy, int cp) {
+        //? if >=26.2 {
+        /*BakedGlyph baked = set.getGlyph(cp);
+        GlyphInfo info = baked.info();
+        *///?} else {
         GlyphInfo info = set.getGlyphInfo(cp, fishy);
         BakedGlyph baked = set.getGlyph(cp);
+        //?}
         out.advance = info.getAdvance(false);
         out.advanceBold = info.getAdvance(true);
         out.boldOffset = info.getBoldOffset();
         out.shadowOffset = info.getShadowOffset();
+        //? if >=26.2 {
+        /*// Space/missing glyphs: anonymous BakedGlyph, no sheet.
+        out.empty = !(baked instanceof net.minecraft.client.gui.font.glyphs.BakedSheetGlyph);
+        *///?} else {
         out.empty = baked instanceof EmptyGlyph;
+        //?}
         if (!out.empty) {
             BakedGlyphAccessor g = (BakedGlyphAccessor) baked;
             out.u0 = g.gemrender$u0();
@@ -135,6 +188,19 @@ public final class CanvasFont {
 
     /** GL texture id of the glyph's page, {@link #INTENSITY_FLAG} set for single-channel pages. */
     private int texture(BakedGlyph glyph) {
+        //? if >=26.2 {
+        /*BakedGlyphAccessor sheet = (BakedGlyphAccessor) glyph;
+        Object type = sheet.gemrender$textureView();
+        for (int i = 0; i < count; i++) {
+            if (types[i] == type) {
+                return ids[i];
+            }
+        }
+        int id = Canvas.magNearest(Vanilla.textureId(sheet.gemrender$textureView().texture()));
+        if (sheet.gemrender$renderTypes().guiPipeline() == net.minecraft.client.renderer.RenderPipelines.GUI_TEXT_GRAYSCALE) {
+            id |= INTENSITY_FLAG;
+        }
+        *///?} else {
         RenderType type = glyph.renderType(Font.DisplayMode.NORMAL);
         for (int i = 0; i < count; i++) {
             if (types[i] == type) {
@@ -147,6 +213,7 @@ public final class CanvasFont {
         if ("text_intensity".equals(type.toString())) {
             id |= INTENSITY_FLAG;
         }
+        //?}
         if (count == types.length) {
             types = Arrays.copyOf(types, count * 2);
             ids = Arrays.copyOf(ids, count * 2);

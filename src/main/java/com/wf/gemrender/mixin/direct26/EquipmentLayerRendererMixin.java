@@ -32,7 +32,7 @@ public class EquipmentLayerRendererMixin {
         Model<?> replacement = IClientItemExtensions.of(itemStack)
                 .getGenericArmorModel(itemStack, layerType, model);
 
-        if (replacement instanceof GemRenderArmorModel armour && armour.gemrender$submitArmour(poseStack,
+        if (replacement instanceof GemRenderArmorModel armour && armour.gemrender$submitEquipment(poseStack,
                 state, lightCoords, OverlayTexture.NO_OVERLAY)) {
             ci.cancel();
         }

@@ -1,10 +1,18 @@
 package com.wf.gemrender.mixin.ui;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.font.FontSet;
-import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
+
+//? if >=26.2 {
+/*@Mixin(Font.class)
+public interface FontAccessor {
+    @Accessor("provider")
+    Font.Provider gemrender$provider();
+}
+*///?} else {
+import net.minecraft.client.gui.font.FontSet;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(Font.class)
@@ -15,3 +23,4 @@ public interface FontAccessor {
     @Accessor("filterFishyGlyphs")
     boolean gemrender$filterFishyGlyphs();
 }
+//?}

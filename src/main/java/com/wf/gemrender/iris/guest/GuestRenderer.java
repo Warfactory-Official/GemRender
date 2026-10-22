@@ -1,5 +1,6 @@
 package com.wf.gemrender.iris.guest;
 
+import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -113,10 +114,10 @@ final class GuestRenderer {
             return;
         }
         if (blend) {
-            GlStateManager._enableBlend();
+            GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         } else {
-            GlStateManager._disableBlend();
+            GlState.disableBlend();
         }
         GlStateManager._depthMask(true);
         cull(cull);
@@ -207,7 +208,7 @@ final class GuestRenderer {
                 // apply() bound the pack's framebuffer and blend, per buffer behind GlStateManager's cache:
                 // producers own both, set uncached.
                 GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-                GlStateManager._enableBlend();
+                GlState.enableBlend();
                 glEnable(GL_BLEND);
                 int equation = pass == OitPass.DEPTH_RANGE ? GL_MAX : GL_FUNC_ADD;
                 GlStateManager._blendEquation(equation);

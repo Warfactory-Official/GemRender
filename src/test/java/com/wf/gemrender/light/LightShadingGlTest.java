@@ -481,28 +481,32 @@ class LightShadingGlTest {
 		return texture;
 	}
 
-	/** {@link IrTarget}'s premise: a program without a location-1 output leaves COLOR1 untouched. */
+	/** Only the declared IR output may update the IR attachment, including after a program is relinked. */
 	@Test
-	void unwrittenLocationKeepsContents() {
+	void irDrawBuffersFollowProgramOutputs() {
 		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
-			int program = glCreateProgram();
 			int vertex = shader("fill", GL_VERTEX_SHADER, """
 					#version 330 core
 					void main() {
 					    gl_Position = vec4(vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0), 0.0, 1.0);
 					}
 					""");
-			int fragment = shader("fill", GL_FRAGMENT_SHADER, """
-					#version 330 core
-					layout(location = 0) out vec4 colour;
-					void main() {
-					    colour = vec4(1.0);
-					}
-					""");
-			glAttachShader(program, vertex);
-			glAttachShader(program, fragment);
-			glLinkProgram(program);
-			glUseProgram(program);
+			var outputs = new String[] {"", "layout(location = 1) out vec4 _grl_irOut;",
+					"layout(location = 1) out vec4 unrelated;"};
+			var writes = new String[] {"", "_grl_irOut = vec4(0.75, 0.25, 0.5, 1.0);", "unrelated = vec4(1.0);"};
+			var programs = new int[outputs.length];
+			var fragments = new int[outputs.length];
+			for (var i = 0; i < outputs.length; i++) {
+				programs[i] = glCreateProgram();
+				fragments[i] = shader("fill", GL_FRAGMENT_SHADER, "#version 330 core\n"
+						+ "layout(location = 0) out vec4 colour;\n" + outputs[i]
+						+ "\nvoid main() { colour = vec4(1.0); " + writes[i] + " }\n");
+				glAttachShader(programs[i], vertex);
+				glAttachShader(programs[i], fragments[i]);
+				glLinkProgram(programs[i]);
+				assertThat(glGetProgrami(programs[i], GL_LINK_STATUS)).as(glGetProgramInfoLog(programs[i]))
+						.isEqualTo(GL_TRUE);
+			}
 			int vao = glGenVertexArrays();
 			glBindVertexArray(vao);
 			int[] targets = {texture(8, 8, 0.0f), texture(8, 8, 0.0f)};
@@ -513,20 +517,52 @@ class LightShadingGlTest {
 			glDrawBuffers(new int[] {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1});
 			glViewport(0, 0, 8, 8);
 			glClearBufferfv(GL_COLOR, 1, new float[] {0.25f, 0.5f, 0.75f, 1.0f});
-			glDrawArrays(GL_TRIANGLES, 0, 3);
 			float[] colour = new float[4];
 			float[] kept = new float[4];
-			glReadBuffer(GL_COLOR_ATTACHMENT0);
-			glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, colour);
+			var expected = new float[] {0.25f, 0.5f, 0.75f, 1.0f};
+			for (var i : new int[] {0, 1, 2, 0}) {
+				glUseProgram(programs[i]);
+				IrTarget.drawBuffersForProgram(programs[i]);
+				assertThat(glGetInteger(GL_DRAW_BUFFER1)).isEqualTo(i == 1 ? GL_COLOR_ATTACHMENT1 : GL_NONE);
+				glDrawArrays(GL_TRIANGLES, 0, 3);
+				if (i == 1) {
+					expected = new float[] {0.75f, 0.25f, 0.5f, 1.0f};
+				}
+				glReadBuffer(GL_COLOR_ATTACHMENT0);
+				glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, colour);
+				glReadBuffer(GL_COLOR_ATTACHMENT1);
+				glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, kept);
+				assertThat(colour).containsOnly(1.0f);
+				assertThat(kept).containsExactly(expected);
+			}
+
+			glDetachShader(programs[1], fragments[1]);
+			glAttachShader(programs[1], fragments[0]);
+			glLinkProgram(programs[1]);
+			assertThat(glGetProgrami(programs[1], GL_LINK_STATUS)).isEqualTo(GL_TRUE);
+			glUseProgram(programs[1]);
+			IrTarget.drawBuffersForProgram(programs[1]);
+			assertThat(glGetInteger(GL_DRAW_BUFFER1)).isEqualTo(GL_NONE);
+			glDrawArrays(GL_TRIANGLES, 0, 3);
 			glReadBuffer(GL_COLOR_ATTACHMENT1);
 			glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, kept);
-			assertThat(colour).containsOnly(1.0f);
-			assertThat(kept).containsExactly(0.25f, 0.5f, 0.75f, 1.0f);
+			assertThat(kept).containsExactly(expected);
+
+			glUseProgram(0);
+			IrTarget.drawBuffersForProgram(0);
+			assertThat(glGetInteger(GL_DRAW_BUFFER1)).isEqualTo(GL_NONE);
+			assertThat(glGetError()).isEqualTo(GL_NO_ERROR);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glDeleteFramebuffers(fbo);
 			glDeleteTextures(targets);
 			glDeleteVertexArrays(vao);
-			glDeleteProgram(program);
+			for (var program : programs) {
+				glDeleteProgram(program);
+			}
+			for (var fragment : fragments) {
+				glDeleteShader(fragment);
+			}
+			glDeleteShader(vertex);
 		}
 	}
 

@@ -10,7 +10,8 @@ import com.wf.gemrender.texture.ModelTextures;
 import com.wf.gemrender.vendor.jgltf.GltfResourceHook;
 //? if fabric {
 /*import java.util.Optional;
-*///?} else {
+*///?} elif >=26.2 {
+//?} else {
 import dev.engine_room.flywheel.api.event.EndClientResourceReloadEvent;
 //?}
 import net.minecraft.resources.ResourceLocation;
@@ -230,6 +231,11 @@ public final class GemRenderModels {
         if (error.isPresent()) {
             return;
         }
+        onResourceReload();
+    }
+    *///?} else if >=26.2 {
+    /*@SubscribeEvent
+    public static void onEndClientResourceReload(net.neoforged.neoforge.client.event.ClientResourceLoadFinishedEvent event) {
         onResourceReload();
     }
     *///?} else {

@@ -53,8 +53,8 @@ public final class RopeModels {
 
     /**
      * A rope that takes on the colour of the water it hangs in, for anything moored below a surface.
-     * Shares the water split's absorbance pass with {@link ParticleModels#absorbance}, so it is tinted
-     * and faded by depth rather than drawn flat through a hundred blocks of ocean.
+     * Shares {@link ParticleModels#absorbance}: CrankShaft's ordinary OIT on 26.2, and GemRender's water-split
+     * absorbance pass on earlier targets.
      */
     public static Model absorbance(ResourceLocation texture) {
         return absorbance(texture, RopeMesh.DEFAULT_RINGS, RopeMesh.DEFAULT_SIDES);
@@ -68,8 +68,16 @@ public final class RopeModels {
     public static Model model(ResourceLocation texture, int rings, int sides,
                               Transparency transparency, CutoutShader cutout, MaterialShaders shaders) {
         return MODELS.computeIfAbsent(new Key(texture, rings, sides, transparency, cutout, shaders),
-                key -> new SingleMeshModel(mesh(key.rings(), key.sides()),
-                        material(key.texture(), key.transparency(), key.cutout(), key.shaders())));
+                key -> {
+                    var mesh = mesh(key.rings(), key.sides());
+                    var material = material(key.texture(), key.transparency(), key.cutout(), key.shaders());
+                    //? if >=26.2 {
+                    /*return key.shaders() == ParticleModels.GLOW_SHADERS ? ParticleModels.glowing(mesh, material)
+                            : new SingleMeshModel(mesh, material);
+                    *///?} else {
+                    return new SingleMeshModel(mesh, material);
+                    //?}
+                });
     }
 
     /**

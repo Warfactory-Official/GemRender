@@ -23,12 +23,16 @@ public final class GemRenderVolumeTypes {
                         .vector("center", FloatRepr.FLOAT, 3)
                         .scalar("volume", UnsignedIntegerRepr.UNSIGNED_INT)
                         .build())
+                //? if >=26.2 {
+                /*.seed(ptr -> MemoryUtil.memSet(ptr, 0, 16))
+                *///?} else {
                 .writer((ptr, instance) -> {
                     MemoryUtil.memPutFloat(ptr, instance.centerX);
                     MemoryUtil.memPutFloat(ptr + 4, instance.centerY);
                     MemoryUtil.memPutFloat(ptr + 8, instance.centerZ);
                     MemoryUtil.memPutInt(ptr + 12, instance.volume);
                 })
+                //?}
                 .vertexShader(shader("instance/" + name + ".vert"))
                 .cullShader(shader("instance/cull/" + name + ".glsl"))
                 .build();

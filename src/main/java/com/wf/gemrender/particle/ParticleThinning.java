@@ -29,7 +29,9 @@ public final class ParticleThinning {
         if (s == null || mc.gameRenderer == null) {
             return 1.0f;
         }
-        //? if >=26.1 {
+        //? if >=26.2 {
+        /*Vec3 eye = mc.gameRenderer.mainCamera().position();
+        *///?} else if >=26.1 {
         /*Vec3 eye = mc.gameRenderer.getMainCamera().position();
         *///?} else {
         Vec3 eye = mc.gameRenderer.getMainCamera().getPosition();

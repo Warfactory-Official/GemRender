@@ -80,7 +80,7 @@ final class ReducedAbsorbance {
         try {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, fbo);
             GlStateManager._viewport(0, 0, width, height);
-            GlStateManager._disableBlend();
+            GlState.disableBlend();
             GlStateManager._enableDepthTest();
             GlStateManager._depthFunc(GL_ALWAYS);
             GlStateManager._depthMask(true);

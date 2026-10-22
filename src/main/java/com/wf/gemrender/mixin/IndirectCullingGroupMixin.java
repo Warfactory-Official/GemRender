@@ -1,5 +1,6 @@
 package com.wf.gemrender.mixin;
 
+//? if <26.2 {
 import com.wf.gemrender.water.Absorbance;
 import dev.engine_room.flywheel.backend.compile.PipelineCompiler;
 import dev.engine_room.flywheel.backend.engine.indirect.IndirectCullingGroup;
@@ -23,3 +24,11 @@ abstract class IndirectCullingGroupMixin {
         }
     }
 }
+//?} else {
+/*import dev.engine_room.flywheel.backend.engine.indirect.IndirectCullingGroup;
+import org.spongepowered.asm.mixin.Mixin;
+
+@Mixin(value = IndirectCullingGroup.class, remap = false)
+abstract class IndirectCullingGroupMixin {
+}
+*///?}

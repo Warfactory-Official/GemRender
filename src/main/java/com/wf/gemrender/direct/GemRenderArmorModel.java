@@ -57,7 +57,7 @@ import java.util.Map;
  * <p><b>On 26.1</b> it is {@code getHumanoidArmorModel(ItemStack, EquipmentClientInfo.LayerType,
  * Model)}: armour is chosen in the submit phase, which is handed the wearer's
  * {@code HumanoidRenderState} rather than the wearer, and a layer type rather than a slot. So the mod
- * passes {@code null} for the entity and the slot it derives from the layer type -- and
+ * passes {@code null} for the entity and takes the equipment slot from the stack -- and
  * {@link ArmorAppearance} is told, in its own javadoc, that its entity is null there and only there.
  *
  * <pre>{@code
@@ -65,11 +65,13 @@ import java.util.Map;
  * 	 consumer.accept(new IClientItemExtensions() {
  * 		 public Model getHumanoidArmorModel(ItemStack stack, EquipmentClientInfo.LayerType layer,
  * 				 Model original) {
- * 			 return MY_ARMOR.prepare(null, stack, slotFor(layer));
+ * 			 return MY_ARMOR.prepare(null, stack, stack.get(DataComponents.EQUIPPABLE).slot());
  *         }
  *     });
  * }
  * }</pre>
+ * <p>The equipment submit resolves the slot from the stack's equippable component. On 26.2, it also
+ * resolves the wearer from {@code WEARER} render data installed by {@code registerWearer}.
  */
 //? if >=26.1 {
 /*public class GemRenderArmorModel extends HumanoidModel<HumanoidRenderState> {
@@ -157,14 +159,18 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
         // the same in every one. 26.1 replaced the inner/outer pair with one ArmorModelSet per wearer,
         // so there is no PLAYER_INNER_ARMOR to name -- the chest layer is the nearest thing to it.
         //? if >=26.1 {
-		/*super(Minecraft.getInstance()
+		/*this(Minecraft.getInstance()
 				.getEntityModels()
-				.bakeLayer(ModelLayers.PLAYER_ARMOR.chest()));
+				.bakeLayer(ModelLayers.PLAYER_ARMOR.chest()), appearance, bones);
 		*///?} else {
-        super(Minecraft.getInstance()
+        this(Minecraft.getInstance()
                 .getEntityModels()
-                .bakeLayer(ModelLayers.PLAYER_INNER_ARMOR));
+                .bakeLayer(ModelLayers.PLAYER_INNER_ARMOR), appearance, bones);
         //?}
+    }
+
+    GemRenderArmorModel(ModelPart root, ArmorAppearance appearance, Map<String, String> bones) {
+        super(root);
         this.appearance = appearance;
         this.bones = Map.copyOf(bones);
     }
@@ -204,7 +210,22 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 	*///?}
 
     //? if >=26.1 {
-	/*// 26.1 made Model#renderToBuffer final and moved the draw behind a submit node, so this piece is
+	/*//? if >=26.2 {
+	/^// The wearer, on every living render state: the submit phase gets the state, not the entity.
+	public static final net.minecraft.util.context.ContextKey<LivingEntity> WEARER =
+			new net.minecraft.util.context.ContextKey<>(
+					net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID, "armour_wearer"));
+
+	public static void registerWearer(
+			net.neoforged.neoforge.client.renderstate.RegisterRenderStateModifiersEvent event) {
+		event.registerEntityModifier(new com.google.common.reflect.TypeToken<
+				net.minecraft.client.renderer.entity.LivingEntityRenderer<? extends LivingEntity,
+						net.minecraft.client.renderer.entity.state.LivingEntityRenderState, ?>>() {
+		}, (wearer, state) -> state.setRenderData(WEARER, wearer));
+	}
+	^///?}
+
+	// 26.1 made Model#renderToBuffer final and moved the draw behind a submit node, so this piece is
 	// queued from EquipmentLayerRendererMixin instead of from an override. That mixin is the better
 	// seam anyway: renderLayers is handed the PoseStack, the light and the wearer's render state in
 	// one call and then submits the same model up to four times over -- once per material layer, again
@@ -224,13 +245,33 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 		if (!pending) {
 			return true;
 		}
+		//? if >=26.2 {
+		/^if (entity == null && state instanceof net.minecraft.client.renderer.entity.state.EntityRenderState rendered) {
+			entity = rendered.getRenderData(WEARER);
+		}
+		^///?}
 		render(pose, light, overlay);
 		return true;
+	}
+
+	// Armour-layer entry: HUMANOID serves head, chest and feet alike, so a layer-derived slot can be
+	// wrong; the layer draws a piece only on its equippable slot.
+	public boolean gemrender$submitEquipment(PoseStack pose, Object state, int light, int overlay) {
+		net.minecraft.world.item.equipment.Equippable equippable = stack == null ? null
+				: stack.get(net.minecraft.core.component.DataComponents.EQUIPPABLE);
+		if (pending && equippable != null) {
+			slot = equippable.slot();
+		}
+		return gemrender$submitArmour(pose, state, light, overlay);
 	}
 	*///?}
 
     private void render(PoseStack pose, int light, int overlay) {
-        if (entity == null || stack == null || slot == null || !pending) {
+        if (
+                //? if <26.1 {
+                entity == null ||
+                //?}
+                stack == null || slot == null || !pending) {
             return;
         }
         pending = false;

@@ -11,12 +11,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemInHandRenderer.class)
 public class ItemInHandRendererMixin {
+    //? if >=26.2 {
+    /*@Inject(method = "submitHandsWithItems", at = @At("HEAD"))
+    *///?} else {
     @Inject(method = "renderHandsWithItems", at = @At("HEAD"))
+    //?}
     private void gemrender$beginHand(CallbackInfo ci) {
         DirectRenderer.beginSink(DirectPass.HAND);
     }
 
+    //? if >=26.2 {
+    /*@Inject(method = "submitHandsWithItems", at = @At("RETURN"))
+    *///?} else {
     @Inject(method = "renderHandsWithItems", at = @At("RETURN"))
+    //?}
     private void gemrender$endHand(CallbackInfo ci) {
 
         Vanilla.intoMainTarget(DirectRenderer::endSink);

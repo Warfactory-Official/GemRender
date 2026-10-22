@@ -12,6 +12,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class ClientChunkCacheMixin {
     @Inject(method = "drop", at = @At("HEAD"))
     private void gemrender$occupancyDrop(ChunkPos pos, CallbackInfo ci) {
+        //? if >=26.2 {
+        /*LightFrame.chunkChanged(pos.x(), pos.z());
+        *///?} else {
         LightFrame.chunkChanged(pos.x, pos.z);
+        //?}
     }
 }

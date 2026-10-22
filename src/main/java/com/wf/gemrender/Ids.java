@@ -11,7 +11,7 @@ import net.minecraft.resources.ResourceLocation;
  * missing symbol there. The split is stated once here rather than at each of the twenty sites.
  *
  * <p>These cannot be a Stonecutter string replacement: replacements are reversible, so they have to
- * be injective across the whole project, and {@code ResourceLocation -> Identifier} already claims
+ * be injective across the whole project, and {@code ResourceLocation -> ResourceLocation} already claims
  * that token for 26.1.
  */
 public final class Ids {

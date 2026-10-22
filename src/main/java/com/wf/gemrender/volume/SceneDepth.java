@@ -99,7 +99,7 @@ public final class SceneDepth {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        RenderTarget main = mc.getMainRenderTarget();
+        RenderTarget main = com.wf.gemrender.render.Vanilla.mainTarget();
         ensureSize(main.width, main.height);
 
         GlAudit.Scope audit = GlAudit.open("volume:depth");
@@ -111,14 +111,20 @@ public final class SceneDepth {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, fbo);
             GlStateManager._viewport(0, 0, width, height);
 
-            GlStateManager._disableBlend();
+            GlState.disableBlend();
             GlStateManager._disableDepthTest();
 
             int previousProgram = glGetInteger(GL_CURRENT_PROGRAM);
             try {
                 GlStateManager._glUseProgram(program);
+                //? if >=26.2 {
+                /*// Reverse-Z: scene_depth.frag's forward formula with near/far swapped, as Projection swaps them.
+                glUniform1f(znearLoc, Vanilla.depthFar());
+                glUniform1f(zfarLoc, Vanilla.zNear());
+                *///?} else {
                 glUniform1f(znearLoc, Vanilla.zNear());
                 glUniform1f(zfarLoc, Vanilla.depthFar());
+                //?}
                 glUniform1i(depthLoc, 0);
 
                 GlStateManager._activeTexture(GL_TEXTURE0);
@@ -193,6 +199,9 @@ public final class SceneDepth {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT,
                     (java.nio.ByteBuffer) null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            //? if >=26.2 {
+            /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+            *///?}
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);

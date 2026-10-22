@@ -34,7 +34,12 @@ import static org.lwjgl.opengl.GL30C.glBindBufferBase;
  * occupancy -> shadow trace. {@link #end} after the hand, before the GUI: zero-light UBO.
  */
 public final class LightFrame {
+    /** Off CrankShaft's raw-bound UBO points (IndirectDrawManager UBO_*, GlInsertOitChain). */
+    //? if >=26.2 {
+    /*public static final int UBO_BINDING = Integer.getInteger("gemrender.lightubo", 13);
+    *///?} else {
     public static final int UBO_BINDING = Integer.getInteger("gemrender.lightubo", 12);
+    //?}
 
     /** Header (camera frac + IrView, section + count, night sky + far count, far indices) + 5 vec4 per light. */
     static final int HEADER_BYTES = 80;
@@ -96,7 +101,11 @@ public final class LightFrame {
         glBindBuffer(GL_UNIFORM_BUFFER, previous);
     }
 
+    //? if >=26.2 {
+    /*public void begin(Vec3 eye, Matrix4f view, Matrix4f projection, float partialTick) {
+    *///?} else {
     public void begin(Camera camera, Matrix4f view, Matrix4f projection, float partialTick) {
+    //?}
         RenderSystem.assertOnRenderThread();
         frames++;
         levelGpu.begin();
@@ -113,7 +122,9 @@ public final class LightFrame {
             provider.collect(sink, partialTick);
         }
 
+        //? if <26.2 {
         Vec3 eye = camera.getPosition();
+        //?}
         frustum.set(viewProjection.set(projection).mul(view));
         if (visible.length < collected) {
             visible = new Light[pool.size()];
