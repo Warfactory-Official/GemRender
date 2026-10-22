@@ -248,6 +248,9 @@ modding.with {
 
 }
 
+// Reads the main resources (access transformers) stonecutterGenerate writes.
+tasks.named('createMinecraftArtifacts') { dependsOn tasks.named('stonecutterGenerate') }
+
 sourceSets {
     ktxTest {
         compileClasspath += sourceSets.main.output
@@ -386,11 +389,20 @@ if (isLegacy) {
         annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     }
 
+    def refmap = 'gemrender.refmap.json'
+
     mixin {
 
-        add sourceSets.main, 'gemrender.refmap.json'
+        add sourceSets.main, refmap
 
         mixinConfigs.each { config it }
+    }
+
+    // MDG Legacy writes no "refmap" key; absent => Mixin reads mixin.refmap.json, every SRG lookup misses in production.
+    tasks.named('processResources', ProcessResources) {
+        filesMatching('*.mixins.json') {
+            filter { String line -> line.trim().startsWith('"package"') ? "${line}\n  \"refmap\": \"${refmap}\"," : line }
+        }
     }
 
     tasks.named('jar', Jar) {
