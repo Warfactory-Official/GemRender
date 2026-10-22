@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-//? if >=26.2 {
+//? if >=26.1 {
 /*import com.mojang.blaze3d.shaders.ShaderSource;
 import com.mojang.blaze3d.shaders.ShaderType;
 import net.minecraft.resources.ResourceLocation;
@@ -17,7 +17,7 @@ abstract class ProgramMixin {
     private String gemrender$patch(ShaderSource source, ResourceLocation id, ShaderType type) {
         String text = source.get(id, type);
         if (text != null && "sodium".equals(id.getNamespace())) {
-            // Sodium 0.9 terrain = vanilla RenderPipeline; ids extensionless, unlike its old ShaderLoader.
+            // 26.2 Sodium terrain = vanilla RenderPipeline; ids extensionless. 26.1 Sodium keeps its ShaderLoader.
             return LightShaders.sodium(id.withSuffix(type == ShaderType.VERTEX ? ".vsh" : ".fsh"), text);
         }
         return LightShaders.vanilla(id.getPath(), type == ShaderType.VERTEX, text);

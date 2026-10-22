@@ -134,10 +134,14 @@ public final class LightSpike implements Lights.Provider {
 		if (LAYOUT.equals("spam")) {
 			benchBlockChanged();
 		}
-		Screenshot.grab(mc.gameDirectory, String.format(Locale.ROOT, "lights-%s-%s-%s-n%02d.png", LAYOUT, KIND,
-						SHADOW ? "shadow" : "lit", n),
-				mc.getMainRenderTarget(), message -> {
-				});
+		String name = String.format(Locale.ROOT, "lights-%s-%s-%s-n%02d.png", LAYOUT, KIND, SHADOW ? "shadow" : "lit", n);
+		//? if >=26.1 <26.2 {
+		/*Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), 1, message -> {
+		});
+		*///?} else {
+		Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), message -> {
+		});
+		//?}
 	}
 
 	/** Occupancy hook alone: alternating stone/air over the spam region. */

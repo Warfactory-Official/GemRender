@@ -11,8 +11,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.function.Function;
 
+/** Sodium 0.6+ and Sodium 0.5 (1.20.1). */
 @Pseudo
-@Mixin(targets = "net.caffeinemc.mods.sodium.client.gl.shader.GlProgram$Builder", remap = false)
+@Mixin(targets = {"net.caffeinemc.mods.sodium.client.gl.shader.GlProgram$Builder",
+        "me.jellysquid.mods.sodium.client.gl.shader.GlProgram$Builder"}, remap = false)
 abstract class SodiumProgramBuilderMixin {
     @Shadow
     @Final

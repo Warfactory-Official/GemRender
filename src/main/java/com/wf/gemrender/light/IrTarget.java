@@ -49,7 +49,7 @@ public final class IrTarget {
         pending = split && !attached;
     }
 
-    static void afterSky() {
+    public static void afterSky() {
         if (!pending || attached) {
             return;
         }
@@ -119,7 +119,7 @@ public final class IrTarget {
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_HALF_FLOAT, 0L);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        //? if >=26.2 {
+        //? if >=26.1 {
         /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
         *///?}
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

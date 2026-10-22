@@ -2,8 +2,8 @@ package com.wf.gemrender.mixin.light;
 
 import org.spongepowered.asm.mixin.Mixin;
 
-//? if >=26.2 {
-/*// TODO(26.2): Veil recompile hook unported (no 26.2 Veil source); vanilla compiles go through ProgramMixin. Empty => config valid.
+//? if >=26.1 {
+/*// TODO(26.x): Veil recompile hook unported (no 26.x Veil source); vanilla compiles go through ProgramMixin. Empty => config valid.
 @Mixin(targets = "com.mojang.blaze3d.opengl.GlDevice", remap = false)
 abstract class VeilShaderInstanceMixin {
 }

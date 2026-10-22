@@ -54,7 +54,7 @@ Required client dependency of a mod drawing through it: declare it in `neoforge.
 | Java | 21 | 21 | 17 | 17 | 25 | 25 | 25 |
 | Flywheel | 1.0.6, bundled | 1.0.6, bundled | 1.0.6, bundled | 1.0.6-281, bundled | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** | CrankShaft 1.6.1, **install separately** |
 | Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no | no |
-| Lights | yes | no | no | no | no | no | yes |
+| Lights | yes | yes | yes | yes | yes | yes | yes |
 | Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | opt-in split | CrankShaft chunk OIT |
 
 - Bundled Flywheel: Create nests the same coordinate => one copy; a Flywheel in `mods/` displaces it.

@@ -101,7 +101,7 @@ public final class LightFrame {
         glBindBuffer(GL_UNIFORM_BUFFER, previous);
     }
 
-    //? if >=26.2 {
+    //? if >=26.1 {
     /*public void begin(Vec3 eye, Matrix4f view, Matrix4f projection, float partialTick) {
     *///?} else {
     public void begin(Camera camera, Matrix4f view, Matrix4f projection, float partialTick) {
@@ -122,7 +122,7 @@ public final class LightFrame {
             provider.collect(sink, partialTick);
         }
 
-        //? if <26.2 {
+        //? if <26.1 {
         Vec3 eye = camera.getPosition();
         //?}
         frustum.set(viewProjection.set(projection).mul(view));

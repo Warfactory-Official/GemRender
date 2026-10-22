@@ -432,6 +432,9 @@ if (isLegacy) {
     if (irisSupported && colorwheel_version) {
         mixinConfigs += 'gemrender.colorwheel.mixins.json'
     }
+    if (lightsSupported) {
+        mixinConfigs += 'gemrender.light.mixins.json'
+    }
 
     dependencies {
         annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'

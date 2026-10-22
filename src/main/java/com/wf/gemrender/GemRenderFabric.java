@@ -5,6 +5,7 @@ package com.wf.gemrender;
 import com.wf.gemrender.fabric.DirectHooks;
 import com.wf.gemrender.fabric.IrisHooks;
 import com.wf.gemrender.fabric.LevelStageHooks;
+import com.wf.gemrender.fabric.LightHooks;
 import dev.engine_room.flywheel.api.event.EndClientResourceReloadCallback;
 import net.fabricmc.api.ClientModInitializer;
 
@@ -25,6 +26,7 @@ public final class GemRenderFabric implements ClientModInitializer {
         LevelStageHooks.init();
         DirectHooks.init();
         IrisHooks.init();
+        LightHooks.init();
         attachHarness();
         attachBench();
     }

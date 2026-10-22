@@ -1845,12 +1845,12 @@ the reason to turn the tessellation *down* for something thin and short rather t
 
 ## 9. Lights
 
-Point and spot lights, forward-shaded: every surface shader adds `albedo x E` before fog. 1.21.1
-NeoForge only. Shadows opt-in per light.
+Point and spot lights, forward-shaded: every surface shader adds `albedo x E` before fog. Every target:
+1.20.1, 1.21.1 and 26.1.2 on every loader, and 26.2. Shadows opt-in per light.
 
 | lit | not lit |
 |---|---|
-| terrain (vanilla, Sodium 0.6/0.8), entities, block entities, items in the world, vanilla particles, Flywheel instances, direct path in the level, first-person hand (vanilla + direct `HAND`) | GUI, anything after the level (`AFTER_LEVEL` included) |
+| terrain (vanilla, Sodium 0.5/0.6/0.8, 0.9 on 26.1), entities, block entities, items in the world, vanilla particles, Flywheel instances, direct path in the level, first-person hand (vanilla + direct `HAND`) | GUI, anything after the level (`AFTER_LEVEL` included) |
 
 ### Submitting
 
@@ -1888,7 +1888,7 @@ the one source `Lights.irView(Supplier<IrView>)` polled at every level pass star
 | `IrView` | IR lights |
 |---|---|
 | `OFF` (default) | dropped at collection |
-| `SPLIT` | main view only: `albedo x E_ir` -> `IrTarget.texture()` (RGBA16F, COLOR1 from `AFTER_SKY` through the hand); colour untouched. `IrTarget.filled()` after the level render |
+| `SPLIT` | main view only: `albedo x E_ir` -> `IrTarget.texture()` (RGBA16F, COLOR1 from `AFTER_SKY`, Fabric `AFTER_SETUP` below 26.1 and `START_MAIN` on 26.1, through the hand); colour untouched. `IrTarget.filled()` after the level render |
 | `MERGED` | added into colour (IR sensor views) |
 
 `Lights.nightSky(ToDoubleFunction<IrView>)`: moon + starlight irradiance on a fully sky-lit surface x (lightmap sky

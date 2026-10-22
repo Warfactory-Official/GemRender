@@ -1,6 +1,7 @@
 package com.wf.gemrender.light;
 
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.Ids;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.IOException;
@@ -18,14 +19,15 @@ import static org.lwjgl.opengl.GL31C.glGetUniformBlockIndex;
 import static org.lwjgl.opengl.GL31C.glUniformBlockBinding;
 
 /**
- * Source patches: before fog, {@code colour = albedo * (lightmap + gemrender_lights(p, n))}; IR term ->
+ * Source patches: before fog, {@code colour += albedo * gemrender_lights(p, n)}; the lit colour is never rebuilt as
+ * albedo x lightmap (on Sable sub-levels that product loses the face shading); IR term ->
  * {@code _grl_irOut} (location 1, {@link IrTarget}). Albedo = lit colour / lightmap sample, the vanilla path fed
  * {@code max(lightmap, 1/255)} => a zeroed lightmap (darkness mods) still recovers albedo.
  * Anchor missing => throw: a changed upstream shader must not silently go unlit.
  */
 public final class LightShaders {
-    /** 26.2 core shader ids (path only); earlier versions use the rendertype_* program names. */
-    //? if >=26.2 {
+    /** 26.1+ core shader ids (path only); earlier versions use the rendertype_* program names. */
+    //? if >=26.1 {
     /*private static final Set<String> VANILLA = Set.of("core/terrain", "core/block", "core/entity", "core/item",
             "core/particle");
     *///?} else {
@@ -37,11 +39,18 @@ public final class LightShaders {
             "rendertype_armor_cutout_no_cull", "particle");
     //?}
 
+    /** Block formats without a Normal attribute: facing from position derivatives, as on Sodium. */
+    //? if >=26.1 <26.2 {
+    /*private static final Set<String> FACE_NORMAL = Set.of("core/terrain", "core/block");
+    *///?} else {
+    private static final Set<String> FACE_NORMAL = Set.of();
+    //?}
+
     /**
      * Lightmap call head; whole call wrapped through its matching paren. Arguments vary: Veil reprint
      * {@code texelFetch(Sampler2, (UV2 / 16), 0)}, Sable {@code minecraft_sample_lightmap(Sampler2, ivec2((UV2 * ...)))}.
      */
-//? if >=26.2 {
+//? if >=26.1 {
     /*private static final Pattern VANILLA_LIGHTMAP = Pattern.compile(
             "\\b(?:sample_lightmap|minecraft_sample_lightmap|texelFetch)\\(\\s*Sampler2\\s*,");
     private static final Pattern VANILLA_FOG = Pattern.compile(
@@ -58,9 +67,9 @@ public final class LightShaders {
     private static final Pattern SODIUM_POSITION = Pattern.compile(
             "vec3 position = _vert_position \\+ translation;");
     private static final Pattern SODIUM_FOG = Pattern.compile("fragColor = _linearFog\\((\\w+),");
-    private static final ResourceLocation SODIUM_VERTEX = ResourceLocation.fromNamespaceAndPath("sodium",
+    private static final ResourceLocation SODIUM_VERTEX = Ids.of("sodium",
             "blocks/block_layer_opaque.vsh");
-    private static final ResourceLocation SODIUM_FRAGMENT = ResourceLocation.fromNamespaceAndPath("sodium",
+    private static final ResourceLocation SODIUM_FRAGMENT = Ids.of("sodium",
             "blocks/block_layer_opaque.fsh");
 
     private static final Pattern FLYWHEEL_LIGHT = Pattern.compile("    vec4 lightColor = vec4\\(1\\.\\);");
@@ -92,10 +101,10 @@ public final class LightShaders {
             """;
     private static final String REPLAY_ADD = """
             vec3 _grl_albedo = color.rgb / max(_grl_lmColor.rgb, vec3(1.0 / 255.0));
-                color.rgb = _grl_albedo * (_grl_lmColor.rgb + %s + gemrender_mergedNight(_grl_sky));
+                color.rgb += _grl_albedo * (%s + gemrender_mergedNight(_grl_sky));
             """;
     *///?} else {
-    private static final ResourceLocation FLYWHEEL_COMMON = ResourceLocation.fromNamespaceAndPath("flywheel",
+    private static final ResourceLocation FLYWHEEL_COMMON = Ids.of("flywheel",
             "internal/common.frag");
     private static final Pattern FLYWHEEL_MAIN = Pattern.compile("void _flw_main\\(\\) \\{");
     private static final Pattern FLYWHEEL_FOG = Pattern.compile("    color = flw_fogFilter\\(color\\);");
@@ -164,7 +173,7 @@ public final class LightShaders {
     /** %1$s colour variable, %2$s light call. */
     private static final String ADD = """
             vec3 _grl_albedo = %1$s.rgb / max(_grl_lmColor.rgb, vec3(1.0 / 255.0));
-                %1$s.rgb = _grl_albedo * (_grl_lmColor.rgb + %2$s + gemrender_mergedNight(_grl_sky));
+                %1$s.rgb += _grl_albedo * (%2$s + gemrender_mergedNight(_grl_sky));
                 _grl_irOut = vec4(_grl_albedo * (_grl_irSum + gemrender_nightSky(_grl_sky)), %1$s.a);
                 """;
 
@@ -198,7 +207,7 @@ public final class LightShaders {
             return source;
         }
         if (vertex) {
-//? if >=26.2 {
+//? if >=26.1 {
             /*String position = source.contains("ChunkPosition")
                     ? "Position + (ChunkPosition - CameraBlockPos) + CameraOffset"
                     : source.contains("uniform vec3 ChunkOffset;") ? "Position + ChunkOffset"
@@ -216,7 +225,8 @@ public final class LightShaders {
         String patched = replaceOne(name, source, MAIN, PREPARE);
         patched = replaceOne(name, patched, VANILLA_OUT, "layout(location = 0) out vec4 fragColor;");
         patched = replaceOne(name, patched, VANILLA_FOG,
-                ADD.formatted("color", "gemrender_lights(_grl_pos, gemrender_lightNormal(_grl_normal))") + "$0");
+                ADD.formatted("color", "gemrender_lights(_grl_pos, " + (FACE_NORMAL.contains(name)
+                        ? "gemrender_lightFaceNormal(_grl_pos)" : "gemrender_lightNormal(_grl_normal)") + ")") + "$0");
         return afterVersion(name, patched, EXPLICIT_LOCATION + include() + FRAGMENT_INPUTS);
     }
 
@@ -355,7 +365,7 @@ public final class LightShaders {
 
     /** After link: block -> {@link LightFrame#UBO_BINDING}, samplers -> units. No block => untouched. */
     public static void bindProgram(int program) {
-        //? if >=26.2 {
+        //? if >=26.1 {
         /*if (program <= 0) {
             return;
         }
@@ -371,7 +381,8 @@ public final class LightShaders {
         glUniform1i(glGetUniformLocation(program, "_grl_cookies"), LightCookies.UNIT);
         glUniform1i(glGetUniformLocation(program, "_grl_grid"), LightGrid.UNIT);
         glUniform1i(glGetUniformLocation(program, "_grl_shadows"), LightShadows.UNIT);
-        glUseProgram(previous);
+        // A reload deletes the programs it replaces; one still current dies once unbound here.
+        glUseProgram(glIsProgram(previous) ? previous : 0);
     }
 
     static boolean standDown() {

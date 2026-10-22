@@ -377,7 +377,7 @@ if (direct_supported.toBoolean() && directMixinSet == 'direct26') {
     sourceSets.main.java.exclude 'com/wf/gemrender/mixin/direct26/EquipmentLayerRendererMixin.java'
 }
 
-// The three annotated event subscribers, and the only parts of their subsystems that are Forge or
+// The annotated event subscribers, and the only parts of their subsystems that are Forge or
 // NeoForge only: two are a class of @SubscribeEvent methods taking RenderLevelStageEvent, a type
 // that does not exist here, and the third a client tick taking ClientTickEvent.Post. What they do is
 // done on this loader by the classes in com/wf/gemrender/fabric/, which register the Fabric API
@@ -392,6 +392,7 @@ sourceSets.main.java.exclude 'com/wf/gemrender/water/WaterSplitEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/direct/DirectEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/medium/CameraMediumEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/iris/IrisPbrEvents.java'
+sourceSets.main.java.exclude 'com/wf/gemrender/light/LightEvents.java'
 
 // The mixins are NOT excluded either. gemrender.mixins.json names all nine unconditionally, and
 // dropping a class here while leaving its name in a `required` config is a hard load failure;
@@ -489,6 +490,9 @@ def mixinConfigs = ['gemrender.mixins.json']
 if (direct_supported.toBoolean()) {
     mixinConfigs += "gemrender.${directMixinSet}.mixins.json"
 }
+if (lights_supported.toBoolean()) {
+    mixinConfigs += 'gemrender.light.mixins.json'
+}
 if (irisSupported) {
     mixinConfigs += 'gemrender.iris.mixins.json'
 }
@@ -532,6 +536,12 @@ tasks.named('processResources', ProcessResources) {
     }
     filesMatching('gemrender.direct26.mixins.json') {
         filter { String line -> line.contains('"EquipmentLayerRendererMixin"') ? null : line }
+    }
+    // As in build.gradle: the draw-buffer reset it follows is 26.2's.
+    if (!stonecutter.eval(mcVersion, '>=26.2')) {
+        filesMatching('gemrender.light.mixins.json') {
+            filter { String line -> line.contains('"GlCommandEncoderMixin"') ? null : line }
+        }
     }
 }
 

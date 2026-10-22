@@ -7,6 +7,7 @@ import com.wf.gemrender.gl.HeadlessGl;
 import com.wf.gemrender.gl.ShaderSources;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.system.MemoryUtil;
@@ -365,6 +366,7 @@ class LightShadingGlTest {
 	 */
 	@Test
 	void zeroLightmapStillLit() {
+		Assumptions.assumeTrue(LEGACY_UNIFORMS, "26.x programs read their uniforms from blocks this draw does not bind");
 		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
 			int program = glCreateProgram();
 			int vertex = shader("solid", GL_VERTEX_SHADER, LightShaders.vanilla("rendertype_solid", true,
@@ -433,16 +435,18 @@ class LightShadingGlTest {
 			float[][] open = draw(buffer, List.of(), Lights.IrView.SPLIT, 0.5f);
 			float[][] openMerged = draw(buffer, List.of(), Lights.IrView.MERGED, 0.5f);
 
-			assertThat(none[0]).as("unlit, zero lightmap").containsOnly(0.0f);
+			// The light term is added to vanilla's colour, which keeps the 1/255 lightmap floor.
+			float floor = 1.0f / 255.0f;
+			assertThat(none[0]).as("unlit, zero lightmap").containsOnly(new float[] {floor}, org.assertj.core.data.Offset.offset(1.0e-4f));
 			assertThat(lit[0][0]).as("visible light on zero lightmap").isGreaterThan(0.5f);
 			assertThat(lit[1][0]).as("visible light, IR attachment").isEqualTo(0.0f);
-			assertThat(split[0][0]).as("IR light, colour under SPLIT").isEqualTo(0.0f);
-			assertThat(split[1][0]).as("IR light, IR attachment").isCloseTo(lit[0][0], org.assertj.core.data.Offset.offset(1.0e-3f));
+			assertThat(split[0][0]).as("IR light, colour under SPLIT").isEqualTo(none[0][0]);
+			assertThat(split[1][0]).as("IR light, IR attachment").isCloseTo(lit[0][0] - floor, org.assertj.core.data.Offset.offset(1.0e-3f));
 			assertThat(merged[0][0]).as("IR light, colour under MERGED").isCloseTo(lit[0][0], org.assertj.core.data.Offset.offset(1.0e-3f));
 			assertThat(roofed[1]).as("night sky, sky level 0").containsOnly(0.0f);
-			assertThat(open[0]).as("night sky not in colour under SPLIT").containsOnly(0.0f);
+			assertThat(open[0]).as("night sky not in colour under SPLIT").containsOnly(none[0][0]);
 			assertThat(open[1][0]).as("night sky, sky level 15").isCloseTo(0.5f, org.assertj.core.data.Offset.offset(1.0e-3f));
-			assertThat(openMerged[0][0]).as("night sky, MERGED colour").isCloseTo(0.5f, org.assertj.core.data.Offset.offset(1.0e-3f));
+			assertThat(openMerged[0][0]).as("night sky, MERGED colour").isCloseTo(0.5f + floor, org.assertj.core.data.Offset.offset(1.0e-3f));
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glDeleteFramebuffers(fbo);
@@ -566,17 +570,28 @@ class LightShadingGlTest {
 		}
 	}
 
+	//? if >=26.1 {
+	/*private static final boolean LEGACY_UNIFORMS = false;
+
+	private static final Set<String> VANILLA = Set.of("core/terrain", "core/block", "core/entity", "core/item",
+			"core/particle");
+	*///?} else {
+	private static final boolean LEGACY_UNIFORMS = true;
+
 	private static final Set<String> VANILLA = Set.of("rendertype_solid", "rendertype_cutout_mipped",
 			"rendertype_cutout", "rendertype_translucent", "rendertype_tripwire", "rendertype_entity_solid",
 			"rendertype_entity_cutout", "rendertype_entity_cutout_no_cull", "rendertype_entity_cutout_no_cull_z_offset",
 			"rendertype_entity_translucent", "rendertype_entity_translucent_cull", "rendertype_entity_smooth_cutout",
 			"rendertype_entity_no_outline", "rendertype_entity_decal", "rendertype_item_entity_translucent_cull",
 			"rendertype_armor_cutout_no_cull", "particle");
+	//?}
 
-	private static final Pattern IMPORT = Pattern.compile("#moj_import <(\\w+\\.glsl)>");
+	private static final Pattern IMPORT = Pattern.compile("#moj_import <(?:minecraft:)?(\\w+\\.glsl)>");
 
+	/** {@code file} under {@code shaders/core}; a {@code core/} prefix (26.x program id) is dropped. */
 	private static String vanilla(String file) {
-		Matcher matcher = IMPORT.matcher(ShaderSources.read("assets/minecraft/shaders/core/" + file));
+		Matcher matcher = IMPORT.matcher(ShaderSources.read("assets/minecraft/shaders/core/"
+				+ file.replaceFirst("^core/", "")));
 		StringBuilder out = new StringBuilder();
 		while (matcher.find()) {
 			matcher.appendReplacement(out, Matcher.quoteReplacement(
@@ -613,10 +628,12 @@ class LightShadingGlTest {
 			for (String name : VANILLA) {
 				String source = vanilla(name + ".vsh").replace("texelFetch(Sampler2, UV2 / 16, 0)", "texelFetch(Sampler2, (UV2 / 16), 0)")
 						.replace("minecraft_sample_lightmap(Sampler2, UV2)",
-								"minecraft_sample_lightmap(Sampler2, ivec2((UV2 * vec2(1.0, 1.0))))");
+								"minecraft_sample_lightmap(Sampler2, ivec2((UV2 * vec2(1.0, 1.0))))")
+						.replace("sample_lightmap(Sampler2, UV2)", "sample_lightmap(Sampler2, ivec2((UV2 * vec2(1.0, 1.0))))");
 				String patched = LightShaders.vanilla(name, true, source);
 				assertThat(patched).as(name).containsAnyOf("_grl_lm(texelFetch(Sampler2, (UV2 / 16), 0), clamp(float(((UV2 / 16)).y)",
-						"_grl_lm(minecraft_sample_lightmap(Sampler2, ivec2((UV2 * vec2(1.0, 1.0)))), clamp(float((ivec2((UV2 * vec2(1.0, 1.0)))).y)");
+						"_grl_lm(minecraft_sample_lightmap(Sampler2, ivec2((UV2 * vec2(1.0, 1.0)))), clamp(float((ivec2((UV2 * vec2(1.0, 1.0)))).y)",
+						"_grl_lm(sample_lightmap(Sampler2, ivec2((UV2 * vec2(1.0, 1.0)))), clamp(float((ivec2((UV2 * vec2(1.0, 1.0)))).y)");
 				int program = glCreateProgram();
 				int vertex = shader(name, GL_VERTEX_SHADER, patched);
 				int fragment = shader(name, GL_FRAGMENT_SHADER, LightShaders.vanilla(name, false, vanilla(name + ".fsh")));

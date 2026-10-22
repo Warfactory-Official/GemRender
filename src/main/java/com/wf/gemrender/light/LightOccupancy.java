@@ -10,7 +10,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
+//? if >=1.21 {
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+//?} else {
+/*import net.minecraft.world.level.chunk.ChunkStatus;
+*///?}
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.MemoryUtil;
 
@@ -216,7 +220,7 @@ final class LightOccupancy {
     }
 
     private static boolean solid(BlockState state, ClientLevel level, BlockPos pos) {
-        //? if >=26.2 {
+        //? if >=26.1 {
         /*return state.isSolidRender();
         *///?} else {
         return state.isSolidRender(level, pos);

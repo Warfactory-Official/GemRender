@@ -17,10 +17,16 @@ abstract class ClientLevelMixin {
         LightFrame.blockChanged(pos, newState);
     }
 
-    //? if >=26.2 {
+    //? if >=26.1 {
     /*@Inject(method = "onChunkLoaded", at = @At("TAIL"))
     private void gemrender$occupancyLoad(net.minecraft.world.level.ChunkPos pos, CallbackInfo ci) {
         LightFrame.chunkChanged(pos.x(), pos.z());
+    }
+    *///?} elif <1.21 {
+    /*/^* No LevelRenderer.onChunkLoaded before 1.21. ^/
+    @Inject(method = "onChunkLoaded", at = @At("TAIL"))
+    private void gemrender$occupancyLoad(net.minecraft.world.level.ChunkPos pos, CallbackInfo ci) {
+        LightFrame.chunkChanged(pos.x, pos.z);
     }
     *///?}
 }
