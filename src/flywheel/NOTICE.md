@@ -73,7 +73,8 @@ Recorded so the fork can be re-based rather than re-derived. See
     to per call.
   - `impl/FlwDebugScreenEntry` (new), `impl/mixin/EntityRendererAccessor` (new) — the removed
     `CustomizeGuiOverlayEvent.DebugText` and the now-protected culling-box methods.
-- **Stubbed**: `SodiumCompat`, `IrisCompat`, `EmbeddiumCompat` — none of the three has a 26.1 build.
+- **Stubbed**: `IrisCompat`, `EmbeddiumCompat` — neither has a 26.1 build. `SodiumCompat` was stubbed
+  too until Sodium shipped one; see below.
 
 ### Mixins that compiled and would not have applied
 
@@ -127,6 +128,51 @@ instancing backend, with the atlas, the bone-matrix upload, palette sharing and 
 exercised is the `AfterSky` and `AfterOpaqueFeatures` path; `beforeCrumbling` and the indirect/OIT
 backend have not been seen to run. See the "what is unverified" section of
 `gemrender-internal/docs/MULTIVERSION.md` before trusting the rest.
+
+## Fabric 26.1 port
+
+- **Platform layer** in `src/flywheelFabric`, compiled only on a node with `loader=fabric` and
+  `flywheel_vendored=true` (`gradle/flywheel-fabric.gradle`). It replaces, under the same class names,
+  `FlywheelNeoForge` (as `FlywheelFabric`), `FlwImplXplatImpl`, `NeoForgeFlwConfig` (as `FabricFlwConfig`,
+  upstream's `config/flywheel.json`), `FlwCommands` (upstream's Fabric copy on `ClientCommands`),
+  `FlwBackendXplatImpl` (NeoForge's `getLightEmission(level, pos)` is a patched method) and
+  `impl/event/FlwLevelRenderHooks` (Fabric API `LevelRenderEvents`: `START_MAIN` for `AfterSky`,
+  `AFTER_SOLID_FEATURES`, `AFTER_TRANSLUCENT_TERRAIN`, `END_MAIN` for `AfterLevel`). The two API
+  events are upstream's Fabric callbacks, `EndClientResourceReloadCallback` and `ReloadLevelRendererCallback`.
+  The NeoForge files are excluded from `src/flywheel` on that node; nothing else in it differs by loader.
+  On Fabric the fog is read from `CameraRenderState.fogData` at `START_MAIN`.
+- **Mixins** (`flywheel.impl.fabric.mixins.json`): `MinecraftMixin` raises `EndClientResourceReloadCallback`
+  by wrapping the `LoadingOverlay` completion callback at its two construction sites (`@ModifyArg`; Fabric
+  API has no end-of-reload event and the lambda numbers are not stable). `SystemReportMixin` is upstream's.
+- **Access widener** (`gemrender.accesswidener`): `ArgumentTypeInfos.BY_CLASS` (client argument types),
+  `DebugScreenEntries.register` (the F3 entry; vanilla's profiles are immutable, so it starts disabled) and,
+  for GemRender itself, `SpecialModelRenderers.ID_MAPPER`.
+- **Mod id.** The jar nests a metadata-only `flywheel` mod at `flywheel_vendored_version` and GemRender
+  depends on exactly that version, so a mod depending on `flywheel` resolves and a real Flywheel in `mods/`
+  is refused, as on NeoForge. The entrypoint runs from GemRender's entrypoint list, before GemRender's own.
+- The client level is invalidated on level change and, through `Minecraft#execute`, on disconnect: Fabric
+  fires `DISCONNECT` on the Netty thread and invalidation frees GL objects.
+- `FlywheelFabric` logs `Flywheel backend: <id>` whenever the chosen backend changes.
+
+## 26.1 parity with vanilla (both loaders)
+
+- **View bob.** 26.1 multiplies hurt tilt, view bob and the nausea warp into a copy of
+  `CameraRenderState.projectionMatrix` and draws the level with it. `impl/mixin/GameRendererMixin` captures
+  that copy (the argument of `ProjectionMatrixBuffer#getBuffer` in `GameRenderer#renderLevel`) into
+  `impl/event/LevelProjection`, and both `FlwLevelRenderHooks` build the render context from it. Before,
+  instances swayed against the world while walking.
+- **Fog upload.** `Uniforms#update` writes `FogUniforms` every frame. Nothing called it on 26.1 (upstream's
+  `RenderSystemMixin` hook is gone), so the fog block stayed zero and no instance was fogged.
+- **Fog shape.** `fog/linear.glsl` is 26.1's `fog.glsl`: a linear ramp, not 1.21's `smoothstep`, and the larger
+  of the environmental ramp over the spherical distance and the render-distance ramp over the cylindrical
+  distance (`flw_cylindricalDistance`, `flw_fogRenderDistanceRange`). `fog/linear_fade.glsl` follows 26.1's
+  `glint.fsh` the same way.
+- **Two-sided lighting.** With `CardinalLightingMode.ENTITY` and backface culling off, a back face is lit with
+  the negated normal, as 26.1's two-sided entity pipelines do (`PER_FACE_LIGHTING` in `entity.vsh`).
+- **Sodium.** `impl/compat/SodiumCompat` is upstream's again, against Sodium 0.9.2's API
+  (`sodium_standalone_version` on Fabric, `net.caffeinemc:sodium-neoforge-api` on NeoForge). Sodium's chunk
+  builder never calls `SectionCompiler#handleBlockEntity`, so with the stub no block entity in a loaded
+  chunk was visualized under Sodium. `-Psodium` stages Sodium in dev runs.
 
 ## Licence
 

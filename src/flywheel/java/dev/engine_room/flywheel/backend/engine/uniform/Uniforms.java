@@ -23,6 +23,7 @@ public final class Uniforms {
 
 	public static void update(RenderContext context) {
 		FrameUniforms.update(context);
+		FogUniforms.update();
 		PlayerUniforms.update(context);
 		LevelUniforms.update(context);
 	}

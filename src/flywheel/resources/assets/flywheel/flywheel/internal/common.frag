@@ -72,7 +72,9 @@ out vec4 _flw_outputColor;
 
 float _flw_diffuseFactor() {
     if (flw_material.cardinalLightingMode == 2u) {
-        return diffuseFromLightDirections(flw_vertexNormal);
+        // 26.1's two-sided entity pipelines (PER_FACE_LIGHTING) light a back face with the negated normal.
+        bool backFace = !flw_material.backfaceCulling && !gl_FrontFacing;
+        return diffuseFromLightDirections(backFace ? -flw_vertexNormal : flw_vertexNormal);
     } else if (flw_material.cardinalLightingMode == 1u) {
         if (flw_constantAmbientLight == 1u) {
             return diffuseNether(flw_vertexNormal);

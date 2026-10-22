@@ -4,10 +4,10 @@
   "version": "${mod_version}",
   "name": "GemRender",
   "description": "A GPU-driven model and animation renderer for Minecraft.",
-  "license": "${mod_license}",
+  "license": "${mod_license}",${flywheel_vendored ? '\n  "accessWidener": "gemrender.accesswidener",\n  "jars": [{ "file": "META-INF/jars/flywheel-' + flywheel_vendored_version + '.jar" }],' : ''}
   "environment": "client",
   "entrypoints": {
-    "client": [
+    "client": [${flywheel_vendored ? '\n      "dev.engine_room.flywheel.impl.FlywheelFabric",' : ''}
       "com.wf.gemrender.GemRenderFabric"
     ]
   },
@@ -17,7 +17,7 @@
   "depends": {
     "fabricloader": ">=0.16",
     "minecraft": "${minecraft_version_range}",
-    "java": ">=${java_version}",
-    "flywheel": "${flywheel_version_range}"
+    "java": ">=${java_version}",${flywheel_vendored ? '\n    "fabric-api": "*",' : ''}
+    "flywheel": "${flywheel_vendored ? '=' + flywheel_vendored_version : flywheel_version_range}"
   }
 }

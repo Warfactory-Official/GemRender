@@ -48,17 +48,18 @@ Required client dependency of a mod drawing through it: declare it in `neoforge.
 
 ## Targets
 
-| | 1.21.1 NeoForge | 1.21.1 Fabric | 1.20.1 Forge | 1.20.1 Fabric | 26.1.2 NeoForge | 26.2 NeoForge |
-|---|---|---|---|---|---|---|
-| Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.109 | NeoForge 26.2.0.93 |
-| Java | 21 | 21 | 17 | 17 | 25 | 25 |
-| Flywheel | 1.0.6, bundled | 1.0.x, **install separately** | 1.0.6, bundled | 1.0.x, **install separately** | 1.0.7 fork, **provided** | CrankShaft 1.6.1, **install separately** |
-| Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no |
-| Lights | yes | no | no | no | no | yes |
-| Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | CrankShaft chunk OIT |
+| | 1.21.1 NeoForge | 1.21.1 Fabric | 1.20.1 Forge | 1.20.1 Fabric | 26.1.2 NeoForge | 26.1.2 Fabric | 26.2 NeoForge |
+|---|---|---|---|---|---|---|---|
+| Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.109 | Loader 0.19.5, API 0.155.3 | NeoForge 26.2.0.93 |
+| Java | 21 | 21 | 17 | 17 | 25 | 25 | 25 |
+| Flywheel | 1.0.6, bundled | 1.0.x, **install separately** | 1.0.6, bundled | 1.0.x, **install separately** | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** | CrankShaft 1.6.1, **install separately** |
+| Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no | no |
+| Lights | yes | no | no | no | no | no | yes |
+| Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | opt-in split | CrankShaft chunk OIT |
 
 - Bundled Flywheel: Create nests the same coordinate => one copy; a Flywheel in `mods/` displaces it.
-- 26.1: Flywheel vendored + ported (`src/flywheel`, MIT); a Flywheel in `mods/` = duplicate mod id, load failure.
+- 26.1: Flywheel vendored + ported (`src/flywheel`, MIT; Fabric platform layer in `src/flywheelFabric`); a Flywheel
+  in `mods/` = duplicate mod id, load failure.
 - 26.1 water split: on => OIT composited on the wrong side of water. `-Dgemrender.watersplit=force` /
   `-Dgemrender.cloudsplit=force` to enable.
 - 26.2: CrankShaft's `TRANSLUCENT_OIT` terrain mode orders translucent models, particles, ropes and volumes
@@ -89,6 +90,7 @@ Root `runClient` launches every target; use `client` or the `:<target>:` form.
 | `src/main` | the mod, shared by all targets (Stonecutter) |
 | `src/test`, `src/ktxTest` | unit tests; GPU tests tagged `gl` |
 | `src/flywheel` | vendored Flywheel, 26.1 only |
+| `src/flywheelFabric` | its Fabric platform layer, 26.1 Fabric only |
 | `src/harness`, `src/bench` | dev spike, cross-framework benchmark |
 | `versions/<target>` | per-target properties and build output |
 

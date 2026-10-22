@@ -1,6 +1,7 @@
 package com.wf.gemrender.light;
 
 import com.wf.gemrender.render.FlashbackState;
+import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.TextureUnits;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -257,6 +258,7 @@ final class LightOccupancy {
 
     void upload() {
         int previousUnit = TextureUnits.activate(UNIT);
+        GlState.resetUnpack();
         if (textureId == 0) {
             textureId = glGenTextures();
             glBindTexture(GL_TEXTURE_3D, textureId);

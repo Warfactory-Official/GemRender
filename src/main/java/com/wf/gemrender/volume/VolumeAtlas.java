@@ -1,6 +1,7 @@
 package com.wf.gemrender.volume;
 
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.TextureUnits;
 import org.lwjgl.system.MemoryUtil;
 
@@ -114,6 +115,7 @@ public final class VolumeAtlas {
         int previousUnit = TextureUnits.activate(TEXTURE_UNIT);
         try {
             glBindTexture(GL_TEXTURE_3D, textureId);
+            GlState.resetUnpack();
             glTexSubImage3D(GL_TEXTURE_3D, 0, tileX(tile) * TILE, tileY(tile) * TILE, tileZ(tile) * TILE,
                     TILE, TILE, TILE, GL_RED, GL_UNSIGNED_BYTE, voxels);
         } finally {
@@ -158,6 +160,7 @@ public final class VolumeAtlas {
         ByteBuffer zero = MemoryUtil.memCalloc(SIZE * SIZE * SIZE);
         int previousUnit = TextureUnits.activate(TEXTURE_UNIT);
         try {
+            GlState.resetUnpack();
             glBindTexture(GL_TEXTURE_3D, textureId);
             glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, SIZE, SIZE, SIZE, 0, GL_RED, GL_UNSIGNED_BYTE, zero);
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

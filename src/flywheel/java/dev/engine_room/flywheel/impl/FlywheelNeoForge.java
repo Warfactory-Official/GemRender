@@ -130,7 +130,7 @@ public final class FlywheelNeoForge {
 		});
 
 		// 26.1 packs the fog into a UBO Flywheel cannot read back, so catch it on the way past.
-		gameEventBus.addListener((ViewportEvent.RenderFog e) -> FogUniforms.onRenderFog(e));
+		gameEventBus.addListener((ViewportEvent.RenderFog e) -> FogUniforms.onRenderFog(e.getFogData()));
 	}
 
 	public static ArtifactVersion version() {

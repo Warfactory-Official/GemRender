@@ -1,13 +1,47 @@
 package com.wf.gemrender.fabric;
 
 import com.wf.gemrender.render.LevelStage;
+//? if >=26.1 {
+/*import com.wf.gemrender.render.Vanilla;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+//?}
 
 public final class LevelStageHooks {
     private LevelStageHooks() {
     }
 
+    // On 26.1 the NeoForge stages map to their Fabric counterparts. AfterLevel and AfterWeather both land
+    // on END_MAIN, the last hook Fabric offers, which runs before clouds and weather.
+    //? if >=26.1 {
+    /*public static void init() {
+        LevelRenderEvents.AFTER_SOLID_FEATURES.register(LevelStageHooks::afterSolidFeatures);
+        LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES.register(LevelStageHooks::afterTranslucentFeatures);
+        LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(LevelStageHooks::afterTranslucentTerrain);
+        LevelRenderEvents.END_MAIN.register(LevelStageHooks::endMain);
+    }
+
+    private static void afterSolidFeatures(LevelRenderContext context) {
+        Vanilla.intoMainTarget(LevelStageHooks::directFlush);
+        waterAfterEntities(new LevelStage(context.sectionsToRender()));
+    }
+
+    private static void afterTranslucentFeatures(LevelRenderContext context) {
+        Vanilla.intoMainTarget(LevelStageHooks::directFlush);
+    }
+
+    private static void afterTranslucentTerrain(LevelRenderContext context) {
+        waterAfterTranslucent();
+    }
+
+    private static void endMain(LevelRenderContext context) {
+        Vanilla.intoMainTarget(LevelStageHooks::directFlush);
+        waterAfterWeather();
+    }
+    *///?} else {
     public static void init() {
         WorldRenderEvents.AFTER_ENTITIES.register(LevelStageHooks::afterEntities);
         WorldRenderEvents.BEFORE_DEBUG_RENDER.register(LevelStageHooks::beforeDebugRender);
@@ -17,7 +51,7 @@ public final class LevelStageHooks {
 
     private static void afterEntities(WorldRenderContext context) {
         directFlush();
-        waterAfterEntities(context);
+        waterAfterEntities(stageOf(context));
     }
 
     private static void beforeDebugRender(WorldRenderContext context) {
@@ -32,11 +66,12 @@ public final class LevelStageHooks {
         directFlush();
         waterAfterWeather();
     }
+    //?}
 
     //? if water {
-    private static void waterAfterEntities(WorldRenderContext context) {
+    private static void waterAfterEntities(LevelStage stage) {
         com.wf.gemrender.water.WaterSplit.getInstance()
-                .onAfterEntities(stageOf(context));
+                .onAfterEntities(stage);
     }
 
     private static void waterAfterTranslucent() {
@@ -49,7 +84,7 @@ public final class LevelStageHooks {
                 .onAfterWeather();
     }
     //?} else {
-    /*private static void waterAfterEntities(WorldRenderContext context) {
+    /*private static void waterAfterEntities(LevelStage stage) {
     }
 
     private static void waterAfterTranslucent() {
@@ -68,12 +103,12 @@ public final class LevelStageHooks {
     }
     *///?}
 
-    //? if >=1.21 {
+    //? if >=1.21 <26.1 {
     private static LevelStage stageOf(WorldRenderContext context) {
         return new LevelStage(context.worldRenderer(), context.camera(), context.frustum(),
                 context.matrixStack(), context.positionMatrix(), context.projectionMatrix());
     }
-    //?} else {
+    //?} elif <1.21 {
 	/*private static LevelStage stageOf(WorldRenderContext context) {
 		return new LevelStage(context.worldRenderer(), context.camera(), context.frustum(),
 				context.matrixStack(), null, context.projectionMatrix());

@@ -7,7 +7,7 @@ This is the consumer-facing guide, and it is self-contained: everything you need
 here. Where a rule below looks arbitrary, the reasoning is in the maintainers' notes
 (`gemrender-internal/docs/`), which are kept outside this repository.
 
-GemRender ships for five targets, built from one source tree:
+GemRender ships for six targets, built from one source tree:
 
 | Minecraft | Loader | Java | Flywheel |
 |---|---|---|---|
@@ -16,6 +16,7 @@ GemRender ships for five targets, built from one source tree:
 | 1.20.1 | MinecraftForge 47.4.23 | 17 | 1.0.6-281, inside the jar |
 | 1.20.1 | Fabric Loader 0.19.3, Fabric API 0.92.2 | 17 | 1.0.x, install separately |
 | 26.1.2 | NeoForge 26.1.2.109 | 25 | 1.0.7 fork, provided by the jar |
+| 26.1.2 | Fabric Loader 0.19.5, Fabric API 0.155.3 | 25 | 1.0.7 fork, provided by the jar |
 
 A Flywheel in `mods/` displaces the bundled copy; on 26.1 it is a duplicate mod id and fails to load. Everything here is client side.
 
@@ -2146,6 +2147,8 @@ Capabilities absent on a target rather than different; none is API:
 
 - **Iris/shader packs**: 1.21.1 (both loaders) and 1.20.1 Fabric (through Colorwheel). None on 1.20.1
   Forge or 26.1.
+- **Armour hook on 26.1 Fabric**: there is no `IClientItemExtensions`; hand `GemRenderArmorModel` to Fabric
+  API's `ArmorRenderer`. The item renderer is claimed by model JSON as on 26.1 NeoForge.
 - **Lights** ([section 9](#9-lights)): 1.21.1 NeoForge only.
 - **Water split, and with it the cloud half, opt-in on 26.1** (`-Dgemrender.watersplit=force`,
   `-Dgemrender.cloudsplit=force`): on, OIT composites on the wrong side of water. Off, translucent

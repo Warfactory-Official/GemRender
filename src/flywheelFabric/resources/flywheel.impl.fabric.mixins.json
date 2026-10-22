@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.engine_room.flywheel.impl.mixin.fabric",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MinecraftMixin",
+    "SystemReportMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

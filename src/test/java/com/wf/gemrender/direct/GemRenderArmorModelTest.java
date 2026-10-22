@@ -9,6 +9,7 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GemRenderArmorModelTest {
     @BeforeAll
     static void bootstrapRegistries() {
+        SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
     }
 

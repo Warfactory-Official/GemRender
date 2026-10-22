@@ -3,6 +3,7 @@ package com.wf.gemrender.texture;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.TextureUnits;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
@@ -130,6 +131,7 @@ public final class PaintArray {
         int previousUnit = TextureUnits.activate(TEXTURE_UNIT);
         try {
             textureId = glGenTextures();
+            GlState.resetUnpack();
             glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
             glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, SIZE, SIZE, sources.size(), 0, GL_RGBA,
                     GL_UNSIGNED_BYTE, (ByteBuffer) null);

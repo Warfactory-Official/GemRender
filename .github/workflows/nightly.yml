@@ -31,13 +31,13 @@ jobs:
       - name: Build
         run: |
           chmod +x ./gradlew
-          ./gradlew :1.20.1:build :1.21.1:build :26.1:build :26.2:build --no-daemon --no-parallel --stacktrace
+          ./gradlew :1.20.1:build :1.21.1:build :26.1:build :26.1-fabric:build :26.2:build --no-daemon --no-parallel --stacktrace
 
       - name: Publish snapshot
         env:
           WARFACTORY_MAVEN_USER: ${{ secrets.WARFACTORY_MAVEN_USER }}
           WARFACTORY_MAVEN_TOKEN: ${{ secrets.WARFACTORY_MAVEN_TOKEN }}
-        run: ./gradlew :1.20.1:publish :1.21.1:publish :26.1:publish :26.2:publish --no-daemon --no-parallel --stacktrace
+        run: ./gradlew :1.20.1:publish :1.21.1:publish :26.1:publish :26.1-fabric:publish :26.2:publish --no-daemon --no-parallel --stacktrace
 
       - name: Rebuild dependents
         if: github.event_name != 'pull_request'

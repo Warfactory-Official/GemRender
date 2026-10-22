@@ -2,6 +2,7 @@ package com.wf.gemrender.light;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.TextureUnits;
 import com.wf.gemrender.texture.ModelTextures;
 import com.wf.gemrender.texture.Pixels;
@@ -77,6 +78,7 @@ public final class LightCookies {
         int previousUnit = TextureUnits.activate(UNIT);
         try {
             textureId = glGenTextures();
+            GlState.resetUnpack();
             glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
             glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, SIZE, SIZE, sources.size(), 0, GL_RGBA,
                     GL_UNSIGNED_BYTE, (ByteBuffer) null);

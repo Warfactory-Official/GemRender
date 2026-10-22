@@ -9,6 +9,7 @@
     "ClientChunkCacheMixin",
     "EntityRendererAccessor",
     "EntityTypeMixin",
+    "GameRendererMixin",
     "LevelMixin",
     "LevelRendererMixin",
     "MinecraftMixin",

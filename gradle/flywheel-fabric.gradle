@@ -1,0 +1,123 @@
+// The vendored Flywheel on a Fabric node (26.1 Fabric only today).
+//
+// src/flywheel is the 26.1 port shared with the NeoForge node; its NeoForge platform layer is left out
+// here and src/flywheelFabric supplies the Fabric one under the same class names, so the shared
+// engine code is compiled unchanged on both loaders. Both source sets go into GemRender's own jar,
+// as on NeoForge. A metadata-only `flywheel` mod at flywheel_vendored_version is nested in the jar
+// (and put on the dev classpath) so that a mod depending on `flywheel` resolves against the fork.
+//
+// Applied by build.fabric.gradle only where flywheel_vendored is true.
+
+def fabricFlwRoot = rootProject.file('src/flywheelFabric')
+
+sourceSets {
+    flywheel {
+        compileClasspath += sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.compileClasspath
+    }
+    flywheelFabric {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.flywheel.output
+        runtimeClasspath += sourceSets.main.compileClasspath + sourceSets.flywheel.output
+    }
+    main {
+        compileClasspath += sourceSets.flywheel.output + sourceSets.flywheelFabric.output
+        runtimeClasspath += sourceSets.flywheel.output + sourceSets.flywheelFabric.output
+    }
+    harness {
+        compileClasspath += sourceSets.flywheel.output + sourceSets.flywheelFabric.output
+        runtimeClasspath += sourceSets.flywheel.output + sourceSets.flywheelFabric.output
+    }
+    test {
+        compileClasspath += sourceSets.flywheel.output + sourceSets.flywheelFabric.output
+        runtimeClasspath += sourceSets.flywheel.output + sourceSets.flywheelFabric.output
+    }
+}
+
+// The NeoForge half of the fork. Each has a Fabric counterpart of the same name in src/flywheelFabric,
+// except the two event classes, whose Fabric form is a callback interface (upstream's Fabric API).
+[
+        'dev/engine_room/flywheel/api/event/EndClientResourceReloadEvent.java',
+        'dev/engine_room/flywheel/api/event/ReloadLevelRendererEvent.java',
+        'dev/engine_room/flywheel/backend/FlwBackendXplatImpl.java',
+        'dev/engine_room/flywheel/impl/FlywheelNeoForge.java',
+        'dev/engine_room/flywheel/impl/FlwImplXplatImpl.java',
+        'dev/engine_room/flywheel/impl/NeoForgeFlwConfig.java',
+        'dev/engine_room/flywheel/impl/FlwCommands.java',
+        'dev/engine_room/flywheel/impl/event/FlwLevelRenderHooks.java',
+].each { sourceSets.flywheel.java.exclude it }
+sourceSets.flywheel.resources.exclude 'flywheel.impl.neoforge.mixins.json'
+
+// Loom resolves the access widener against the node's Minecraft jar; Stonecutter leaves it alone.
+loom {
+    accessWidenerPath = new File(fabricFlwRoot, 'resources/gemrender.accesswidener')
+}
+
+tasks.named('processFlywheelResources', ProcessResources) {
+    filesMatching('*.mixins.json') {
+        filter { String line ->
+            line.contains('"refmap"') ? null
+                    : line.replace('"JAVA_21"', "\"JAVA_${java_version}\"")
+                          .replace('"JAVA_17"', "\"JAVA_${java_version}\"")
+        }
+    }
+}
+tasks.named('processFlywheelFabricResources', ProcessResources) {
+    filesMatching('*.mixins.json') {
+        filter { String line -> line.replace('"JAVA_21"', "\"JAVA_${java_version}\"") }
+    }
+}
+
+tasks.named('compileFlywheelJava', JavaCompile) {
+    options.compilerArgs += ['-Xmaxerrs', '100000']
+}
+
+
+// The `flywheel` id, at the fork's version, with no code of its own: the engine is GemRender's.
+def flywheelStubDir = layout.buildDirectory.dir('generated/flywheelStub')
+def flywheelStubMetadata = tasks.register('generateFlywheelStubMetadata') {
+    def version = flywheel_vendored_version
+    inputs.property 'version', version
+    outputs.dir flywheelStubDir
+    doLast {
+        def dir = flywheelStubDir.get().asFile
+        dir.mkdirs()
+        new File(dir, 'fabric.mod.json').text = """{
+  "schemaVersion": 1,
+  "id": "flywheel",
+  "version": "${version}",
+  "name": "Flywheel (vendored in GemRender)",
+  "description": "Engine-Room Flywheel, ported to this Minecraft version and compiled into GemRender. This entry only declares the id; the code ships in GemRender's jar.",
+  "authors": ["Jozufozu", "PepperCode1"],
+  "license": "MIT",
+  "environment": "client"
+}
+"""
+    }
+}
+def flywheelStubJar = tasks.register('flywheelStubJar', Jar) {
+    archiveBaseName = 'flywheel'
+    archiveVersion = flywheel_vendored_version
+    destinationDirectory = layout.buildDirectory.dir('flywheelStub')
+    from flywheelStubMetadata
+}
+
+// Nested by hand and listed under "jars" in fabric.mod.json: Loom's `include` takes only module
+// components, not a jar this build makes.
+tasks.named('jar', Jar) {
+    from sourceSets.flywheel.output
+    from sourceSets.flywheelFabric.output
+    from(flywheelStubJar) {
+        into 'META-INF/jars'
+    }
+}
+
+dependencies {
+    // JSR-305 annotations, on NeoForge's classpath but not on Fabric's.
+    flywheelCompileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+
+    // Sodium's block-entity render API, for SodiumCompat. Its chunk builder never reaches
+    // SectionCompiler, so without the predicate no block entity in a loaded chunk is visualized.
+    flywheelCompileOnly("maven.modrinth:sodium:${sodium_standalone_version}") { transitive = false }
+
+    runtimeOnly files(flywheelStubJar)
+}

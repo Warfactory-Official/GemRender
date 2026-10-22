@@ -57,8 +57,7 @@ public final class FlwLevelRenderHooks {
 			return;
 		}
 
-		var cameraState = event.getLevelRenderState().cameraRenderState;
-		context = RenderContextImpl.create(renderer, level, accessor.flywheel$getRenderBuffers(), event.getModelViewMatrix(), cameraState.projectionMatrix, Minecraft.getInstance()
+		context = RenderContextImpl.create(renderer, level, accessor.flywheel$getRenderBuffers(), event.getModelViewMatrix(), LevelProjection.copy(), Minecraft.getInstance()
 				.gameRenderer
 				.getMainCamera(), Minecraft.getInstance()
 				.getDeltaTracker()

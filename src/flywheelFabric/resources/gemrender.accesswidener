@@ -1,0 +1,7 @@
+accessWidener v2 official
+# GemRender's item renderer type, registered where NeoForge has RegisterSpecialModelRendererEvent.
+accessible field net/minecraft/client/renderer/special/SpecialModelRenderers ID_MAPPER Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
+# Flywheel's client-only argument types, kept out of the synced argument registry.
+accessible field net/minecraft/commands/synchronization/ArgumentTypeInfos BY_CLASS Ljava/util/Map;
+# Flywheel's F3 entry, registered where NeoForge has RegisterDebugEntriesEvent.
+accessible method net/minecraft/client/gui/components/debug/DebugScreenEntries register (Lnet/minecraft/resources/Identifier;Lnet/minecraft/client/gui/components/debug/DebugScreenEntry;)Lnet/minecraft/resources/Identifier;

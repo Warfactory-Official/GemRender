@@ -61,6 +61,7 @@ stonecutter {
         // against, so a version guard reads the same on either loader.
         vers '1.20.1-fabric', '1.20.1'
         vers '1.21.1-fabric', '1.21.1'
+        vers '26.1-fabric', '26.1.2'
 
         // The version the git tree is checked out at by default, and the one `stonecutter reset`
         // returns to. 1.21.1 is where the work happens and what the internal docs' recipes assume.

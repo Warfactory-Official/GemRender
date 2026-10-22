@@ -46,13 +46,18 @@ import net.minecraftforge.client.event.RenderLevelStageEvent;
 *///?}
 //? if fabric {
 /*import com.wf.gemrender.Ids;
-import com.wf.gemrender.fabric.HandRenderEvents;
 
 import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+*///?}
+//? if fabric && >=26.1 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+*///?} elif fabric {
+/*import com.wf.gemrender.fabric.HandRenderEvents;
+
+import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.world.item.Item;
 *///?}
 
@@ -370,7 +375,7 @@ public final class DirectSpike {
 		}
 	}
 
-	//? if >=26.1 {
+	//? if >=26.1 && neoforge {
 	/*@SubscribeEvent
 	public static void onRenderHand(RenderHandEvent event) {
 		if (event.getHand() != InteractionHand.MAIN_HAND) {
@@ -388,7 +393,7 @@ public final class DirectSpike {
 	}
 	//?}
 
-	//? if >=26.1 {
+	//? if >=26.1 && neoforge {
 	/*@SubscribeEvent
 	public static void onRenderGui(RenderGuiEvent.Post event) {
 		itemGrid(event.getGuiGraphics());
@@ -502,7 +507,7 @@ public final class DirectSpike {
 		guiInstances = DirectRenderer.instancesLastFlush();
 	}
 
-	//? if >=26.1 {
+	//? if >=26.1 && neoforge {
 	/*@SubscribeEvent(priority = EventPriority.HIGH)
 	public static void onRenderStage(RenderLevelStageEvent.AfterOpaqueFeatures event) {
 		levelCopies(event.getPoseStack());
@@ -570,7 +575,21 @@ public final class DirectSpike {
 		}
 	}
 
-	//? if fabric {
+	// 26.1 Fabric: no hand event, so -Pdirecthand draws nothing here. The level copies run in an early
+	// phase of AFTER_SOLID_FEATURES, as NeoForge runs them at HIGH priority.
+	//? if fabric && >=26.1 {
+	/*public static void init() {
+		LevelRenderEvents.AFTER_SOLID_FEATURES.addPhaseOrdering(EARLY, Event.DEFAULT_PHASE);
+		LevelRenderEvents.AFTER_SOLID_FEATURES.register(EARLY, context -> levelCopies(context.poseStack()));
+
+		Registry.register(BuiltInRegistries.ITEM, SpikeItems.SPIKE, SpikeItems.create());
+		GemRenderItemRenderer.register(SpikeItems.SPIKE, renderer());
+	}
+
+	public static void gui(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
+		itemGrid(graphics);
+	}
+	*///?} elif fabric {
 	/*public static void init() {
 		WorldRenderEvents.AFTER_ENTITIES.addPhaseOrdering(EARLY, Event.DEFAULT_PHASE);
 		WorldRenderEvents.AFTER_ENTITIES.register(EARLY, context -> levelCopies(context.matrixStack()));
@@ -582,8 +601,10 @@ public final class DirectSpike {
 				(stack, context, pose, buffers, light, overlay) -> renderer()
 						.renderByItem(stack, context, pose, buffers, light, overlay));
 	}
+	*///?}
 
-	private static final net.minecraft.resources.ResourceLocation EARLY =
+	//? if fabric {
+	/*private static final net.minecraft.resources.ResourceLocation EARLY =
 			Ids.of(GemRender.MOD_ID, "direct_spike");
 	*///?}
 

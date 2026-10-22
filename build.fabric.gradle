@@ -94,6 +94,9 @@ configurations {
     // The Colorwheel bridge, resolved only when -Pcolorwheel asks for it: it and iris-flw-compat do
     // the same job and cannot be installed together.
     colorwheelMod
+
+    // Sodium without Iris, staged by -Psodium (gradle/shader-mods.gradle), as build.gradle does.
+    sodiumMod
 }
 
 // Loom split at the obfuscation boundary: below 26.1 a mod dependency has to be remapped before it
@@ -117,6 +120,10 @@ dependencies {
         // those classes are not in the api artifact.
         modCompileCfg("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
         devRuntime("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
+    }
+
+    if (project.findProperty('sodium_standalone_version')) {
+        sodiumMod("maven.modrinth:sodium:${sodium_standalone_version}") { transitive = false }
     }
 
     if (irisSupported) {
@@ -226,6 +233,11 @@ if (harness_supported.toBoolean()) {
 } else {
     sourceSets.harness.java.setSrcDirs([])
     sourceSets.harness.resources.setSrcDirs([])
+}
+
+def flywheelVendored = flywheel_vendored.toBoolean()
+if (flywheelVendored) {
+    apply from: "${rootProject.projectDir}/gradle/flywheel-fabric.gradle"
 }
 
 // The cross-framework bench. Only the rival half of it is loader-bound: BenchClient, BenchGrid,
@@ -357,6 +369,12 @@ if (!direct_supported.toBoolean()) {
     sourceSets.main.java.exclude 'com/wf/gemrender/direct/**'
 }
 
+// The 26.1 armour mixin asks NeoForge's IClientItemExtensions for the model, which Fabric does not
+// have. Here a mod hands GemRenderArmorModel to Fabric API's ArmorRenderer instead.
+if (direct_supported.toBoolean() && directMixinSet == 'direct26') {
+    sourceSets.main.java.exclude 'com/wf/gemrender/mixin/direct26/EquipmentLayerRendererMixin.java'
+}
+
 // The three annotated event subscribers, and the only parts of their subsystems that are Forge or
 // NeoForge only: two are a class of @SubscribeEvent methods taking RenderLevelStageEvent, a type
 // that does not exist here, and the third a client tick taking ClientTickEvent.Post. What they do is
@@ -429,6 +447,10 @@ loom {
     mods {
         register(mod_id) {
             sourceSet sourceSets.main
+            if (flywheelVendored) {
+                sourceSet sourceSets.flywheel
+                sourceSet sourceSets.flywheelFabric
+            }
             if (harness_supported.toBoolean()) {
                 sourceSet sourceSets.harness
             }
@@ -474,6 +496,9 @@ if (irisSupported && irisflw_version) {
 if (irisSupported && colorwheel_version) {
     mixinConfigs += 'gemrender.colorwheel.mixins.json'
 }
+if (flywheelVendored) {
+    mixinConfigs += ['flywheel.backend.mixins.json', 'flywheel.impl.mixins.json', 'flywheel.impl.fabric.mixins.json']
+}
 
 fabricMetadata.configure {
     def tokens = [
@@ -483,7 +508,9 @@ fabricMetadata.configure {
             'minecraft_version_range': minecraft_version_range,
             'java_version'           : java_version,
             'flywheel_version_range' : flywheel_fabric_version_range,
-            'mixin_configs'          : mixinConfigs.collect { "\"${it}\"" }.join(', ')
+            'mixin_configs'          : mixinConfigs.collect { "\"${it}\"" }.join(', '),
+            'flywheel_vendored'      : flywheelVendored,
+            'flywheel_vendored_version': flywheel_vendored_version
     ]
 
     // The expanded values have to be declared as an input or Gradle cannot see them change: the
@@ -500,6 +527,9 @@ fabricMetadata.configure {
 tasks.named('processResources', ProcessResources) {
     filesMatching('*.mixins.json') {
         filter { String line -> line.replace('"JAVA_21"', "\"JAVA_${java_version}\"") }
+    }
+    filesMatching('gemrender.direct26.mixins.json') {
+        filter { String line -> line.contains('"EquipmentLayerRendererMixin"') ? null : line }
     }
 }
 
@@ -525,4 +555,25 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testImplementation 'org.assertj:assertj-core:3.26.3'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// The same publication and repository build.gradle registers.
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+            artifactId = "gemrender-${project.name}"
+            version = "${project.version}-SNAPSHOT"
+        }
+    }
+    repositories {
+        maven {
+            name = 'WarfactorySnapshots'
+            url = 'https://repo.warfactory.co/snapshots'
+            credentials {
+                username = project.findProperty('warfactoryUser') ?: System.getenv('WARFACTORY_MAVEN_USER')
+                password = project.findProperty('warfactoryToken') ?: System.getenv('WARFACTORY_MAVEN_TOKEN')
+            }
+        }
+    }
 }
