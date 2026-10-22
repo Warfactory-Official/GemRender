@@ -120,6 +120,8 @@ dependencies {
         // those classes are not in the api artifact.
         modCompileCfg("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
         devRuntime("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
+        // Nested like NeoForge's jarJar: Loader keeps the newest copy, so Create's or one in mods/ wins.
+        include("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
     }
 
     if (project.findProperty('sodium_standalone_version')) {

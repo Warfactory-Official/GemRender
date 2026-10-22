@@ -12,9 +12,9 @@ GemRender ships for six targets, built from one source tree:
 | Minecraft | Loader | Java | Flywheel |
 |---|---|---|---|
 | 1.21.1 | NeoForge 21.1.248 | 21 | 1.0.6, inside the jar |
-| 1.21.1 | Fabric Loader 0.19.3, Fabric API 0.116.15 | 21 | 1.0.x, install separately |
+| 1.21.1 | Fabric Loader 0.19.3, Fabric API 0.116.15 | 21 | 1.0.6, inside the jar |
 | 1.20.1 | MinecraftForge 47.4.23 | 17 | 1.0.6-281, inside the jar |
-| 1.20.1 | Fabric Loader 0.19.3, Fabric API 0.92.2 | 17 | 1.0.x, install separately |
+| 1.20.1 | Fabric Loader 0.19.3, Fabric API 0.92.2 | 17 | 1.0.6-281, inside the jar |
 | 26.1.2 | NeoForge 26.1.2.109 | 25 | 1.0.7 fork, provided by the jar |
 | 26.1.2 | Fabric Loader 0.19.5, Fabric API 0.155.3 | 25 | 1.0.7 fork, provided by the jar |
 

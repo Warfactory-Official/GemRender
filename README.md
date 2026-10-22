@@ -52,7 +52,7 @@ Required client dependency of a mod drawing through it: declare it in `neoforge.
 |---|---|---|---|---|---|---|---|
 | Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.109 | Loader 0.19.5, API 0.155.3 | NeoForge 26.2.0.93 |
 | Java | 21 | 21 | 17 | 17 | 25 | 25 | 25 |
-| Flywheel | 1.0.6, bundled | 1.0.x, **install separately** | 1.0.6, bundled | 1.0.x, **install separately** | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** | CrankShaft 1.6.1, **install separately** |
+| Flywheel | 1.0.6, bundled | 1.0.6, bundled | 1.0.6, bundled | 1.0.6-281, bundled | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** | CrankShaft 1.6.1, **install separately** |
 | Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no | no |
 | Lights | yes | no | no | no | no | no | yes |
 | Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | opt-in split | CrankShaft chunk OIT |
