@@ -19,6 +19,10 @@ base {
     archivesName = mod_id
 }
 
+tasks.withType(Jar).matching { it.name == 'jar' || it.name == 'sourcesJar' }.configureEach {
+    from(rootProject.file('LICENSE'), rootProject.file('LICENSE.LESSER'))
+}
+
 def mcVersion = stonecutter.current.version
 
 if (stonecutter.eval(mcVersion, '<26.2')) {

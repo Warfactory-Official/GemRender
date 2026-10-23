@@ -176,7 +176,7 @@ backend have not been seen to run. See the "what is unverified" section of
 
 ## Licence
 
-Flywheel is MIT-licensed. GemRender is GPL-3, which MIT is compatible with. The original notice, which
+Flywheel is MIT-licensed. GemRender is LGPL-3.0-only. The original notice, which
 must be preserved in any distribution:
 
 ```

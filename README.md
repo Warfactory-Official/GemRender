@@ -100,4 +100,6 @@ secrets `MODRINTH_TOKEN`, `CURSEFORGE_TOKEN`). Locally: `./gradlew publishAllMod
 
 ## Licence
 
-GPL-3. Vendored third-party source keeps its own licence.
+GemRender is licensed under LGPL-3.0-only. See [LICENSE](LICENSE) for the GPLv3 terms
+and [LICENSE.LESSER](LICENSE.LESSER) for the LGPLv3 additional permissions.
+Vendored third-party source keeps its own licence.
