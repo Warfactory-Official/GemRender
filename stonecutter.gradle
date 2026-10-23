@@ -55,10 +55,10 @@ def buildableVersions = stonecutter.versions.findAll { v ->
     Boolean.parseBoolean(props.getProperty('version_buildable', 'true'))
 }
 
-['build', 'check', 'test', 'jar'].each { name ->
+['build', 'check', 'test', 'jar', 'publish'].each { name ->
     tasks.register("${name}All") {
         group = 'gemrender'
-        description = "Runs ${name} on every buildable Minecraft version"
+        description = "Runs ${name} on every buildable Minecraft version through 26.1"
         dependsOn buildableVersions.collect { ":${it.project}:${name}" }
     }
 }
@@ -66,7 +66,7 @@ def buildableVersions = stonecutter.versions.findAll { v ->
 // Uploads every buildable node's jar to Modrinth and CurseForge (gradle/publish.gradle; the Release workflow).
 tasks.register('publishAllMods') {
     group = 'gemrender'
-    description = 'Uploads every buildable version to Modrinth and CurseForge'
+    description = 'Uploads every buildable target through Minecraft 26.1 to Modrinth and CurseForge'
     dependsOn buildableVersions.collect { ":${it.project}:publishMods" }
 }
 

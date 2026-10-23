@@ -135,7 +135,7 @@ public final class LightSpike implements Lights.Provider {
 			benchBlockChanged();
 		}
 		String name = String.format(Locale.ROOT, "lights-%s-%s-%s-n%02d.png", LAYOUT, KIND, SHADOW ? "shadow" : "lit", n);
-		//? if >=26.1 <26.2 {
+		//? if >=26.1 {
 		/*Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), 1, message -> {
 		});
 		*///?} else {

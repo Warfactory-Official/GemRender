@@ -1,6 +1,5 @@
 package com.wf.gemrender.mixin;
 
-//? if <26.2 {
 //? if water {
 import com.wf.gemrender.water.WaterSplit;
 //?}
@@ -36,7 +35,7 @@ abstract class IndirectDrawManagerMixin {
         for (IndirectCullingGroup<?> group : cullingGroups.values()) {
             //? if >=26.1 {
             /*group.submitOrderIndependent(PipelineCompiler.OitMode.EVALUATE);
-             *///?} else {
+            *///?} else {
             group.submitTransparent(PipelineCompiler.OitMode.EVALUATE);
             //?}
         }
@@ -52,11 +51,3 @@ abstract class IndirectDrawManagerMixin {
     }
     //?}
 }
-//?} else {
-/*import dev.engine_room.flywheel.backend.engine.indirect.IndirectDrawManager;
-import org.spongepowered.asm.mixin.Mixin;
-
-@Mixin(value = IndirectDrawManager.class, remap = false)
-abstract class IndirectDrawManagerMixin {
-}
-*///?}

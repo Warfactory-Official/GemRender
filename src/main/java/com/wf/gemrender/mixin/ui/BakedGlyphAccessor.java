@@ -3,17 +3,10 @@ package com.wf.gemrender.mixin.ui;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-//? if >=26.2 {
-/*import net.minecraft.client.gui.font.glyphs.BakedSheetGlyph;
-
-@Mixin(BakedSheetGlyph.class)
-public interface BakedGlyphAccessor {
-*///?} else {
 import net.minecraft.client.gui.font.glyphs.BakedGlyph;
 
 @Mixin(BakedGlyph.class)
 public interface BakedGlyphAccessor {
-//?}
     @Accessor("u0")
     float gemrender$u0();
 
@@ -38,11 +31,4 @@ public interface BakedGlyphAccessor {
     @Accessor("down")
     float gemrender$down();
 
-    //? if >=26.2 {
-    /*@Accessor("textureView")
-    com.mojang.blaze3d.textures.GpuTextureView gemrender$textureView();
-
-    @Accessor("renderTypes")
-    net.minecraft.client.gui.font.GlyphRenderTypes gemrender$renderTypes();
-    *///?}
 }

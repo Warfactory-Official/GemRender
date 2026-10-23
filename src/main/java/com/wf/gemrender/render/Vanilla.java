@@ -12,72 +12,37 @@ public final class Vanilla {
     }
 
     public static RenderTarget mainTarget() {
-        //? if >=26.2 {
-        /*return Minecraft.getInstance().gameRenderer.mainRenderTarget();
-        *///?} else {
         return Minecraft.getInstance().getMainRenderTarget();
-        //?}
     }
 
     public static org.joml.Matrix4fc modelViewMatrix() {
-        //? if >=26.2 {
-        /*return com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrixCopy();
-        *///?} else {
         return com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix();
-        //?}
     }
 
     public static boolean shaderTransparency() {
-        //? if >=26.2 {
-        /*return Minecraft.getInstance().gameRenderer.gameRenderState().useShaderTransparency();
-        *///?} else {
         return Minecraft.useShaderTransparency();
-        //?}
     }
 
     public static int fboOf(RenderTarget target) {
-        //? if >=26.2 {
-        /*com.mojang.blaze3d.opengl.GlDevice device =
-                (com.mojang.blaze3d.opengl.GlDevice) ((com.mojang.blaze3d.systems.GpuDevice) com.mojang.blaze3d.systems.RenderSystem.getDevice()).backend;
-        com.mojang.blaze3d.opengl.FrameBufferAttachment color =
-                (com.mojang.blaze3d.opengl.FrameBufferAttachment) target.getColorTexture();
-        com.mojang.blaze3d.opengl.FrameBufferAttachment depth =
-                (com.mojang.blaze3d.opengl.FrameBufferAttachment) target.getDepthTexture();
-        return device.frameBufferCache().getFbo(device.directStateAccess(),
-                color == null ? java.util.List.of() : java.util.List.of(color), depth);
-        *///?} elif >=26.1 {
+        //? if >=26.1 {
         /*return dev.engine_room.flywheel.backend.util.VanillaState.fboOf(target);
         *///?} else {
         return target.frameBufferId;
         //?}
     }
 
-    //? if >=26.2 {
-    /*public static int fboOf(com.mojang.blaze3d.textures.GpuTexture color) {
-        com.mojang.blaze3d.opengl.GlDevice device =
-                (com.mojang.blaze3d.opengl.GlDevice) ((com.mojang.blaze3d.systems.GpuDevice) com.mojang.blaze3d.systems.RenderSystem.getDevice()).backend;
-        return device.frameBufferCache().getFbo(device.directStateAccess(),
-                java.util.List.of((com.mojang.blaze3d.opengl.FrameBufferAttachment) color), null);
-    }
-    *///?}
 
     //? if >=26.1 {
     /*public static int textureId(com.mojang.blaze3d.textures.GpuTexture texture) {
-        //? if >=26.2 {
-        /^return ((com.mojang.blaze3d.opengl.GlTexture) texture).glId();
-        ^///?} else {
         return dev.engine_room.flywheel.backend.util.VanillaState.glId(texture);
-        //?}
     }
     *///?}
 
     public static void bindWrite(RenderTarget target) {
-        //? if >=26.2 {
-        /*GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, fboOf(target));
-        *///?} elif >=26.1 {
+        //? if >=26.1 {
         /*GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER,
 				dev.engine_room.flywheel.backend.util.VanillaState.fboOf(target));
-*///?} else {
+        *///?} else {
         target.bindWrite(false);
         //?}
     }
@@ -119,21 +84,9 @@ public final class Vanilla {
         int[] previousScissorBox = new int[4];
         org.lwjgl.opengl.GL11C.glGetIntegerv(org.lwjgl.opengl.GL11C.GL_SCISSOR_BOX, previousScissorBox);
 
-        //? if >=26.2 {
-        /^com.mojang.blaze3d.opengl.GlDevice device =
-                (com.mojang.blaze3d.opengl.GlDevice) ((com.mojang.blaze3d.systems.GpuDevice) com.mojang.blaze3d.systems.RenderSystem.getDevice()).backend;
-        com.mojang.blaze3d.opengl.FrameBufferAttachment colorAttachment =
-                (com.mojang.blaze3d.opengl.FrameBufferAttachment) color.texture();
-        com.mojang.blaze3d.opengl.FrameBufferAttachment depthAttachment =
-                depth == null ? null : (com.mojang.blaze3d.opengl.FrameBufferAttachment) depth.texture();
-        GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER,
-                device.frameBufferCache().getFbo(device.directStateAccess(),
-                        java.util.List.of(colorAttachment), depthAttachment));
-        ^///?} else {
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER,
 				dev.engine_room.flywheel.backend.util.VanillaState.fboOf(color.texture(),
 						depth == null ? null : depth.texture()));
-//?}
         GlStateManager._viewport(0, 0, color.getWidth(0), color.getHeight(0));
 
         com.mojang.blaze3d.systems.ScissorState scissor = com.mojang.blaze3d.systems.RenderSystem
@@ -184,7 +137,7 @@ public final class Vanilla {
     public static int lightmapTextureId() {
         //? if >=26.1 {
         /*return 0; // TODO 26.1: lightmap is a GpuTexture view; CameraMedium never draws there yet.
-         *///?} else {
+        *///?} else {
         var light = Minecraft.getInstance().gameRenderer.lightTexture();
         light.turnOnLightLayer();
         int id = com.mojang.blaze3d.systems.RenderSystem.getShaderTexture(2);
@@ -202,9 +155,7 @@ public final class Vanilla {
     }
 
     public static float depthFar() {
-        //? if >=26.2 {
-        /*return Minecraft.getInstance().gameRenderer.gameRenderState().levelRenderState.cameraRenderState.depthFar;
-        *///?} elif >=26.1 {
+        //? if >=26.1 {
         /*return dev.engine_room.flywheel.backend.util.VanillaState.depthFar();
         *///?} else {
         return Minecraft.getInstance().gameRenderer.getDepthFar();
@@ -214,14 +165,14 @@ public final class Vanilla {
     public static float partialTick() {
         //? if >=26.1 {
         /*return Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
-        *///?} else if >=1.21 {
+        *///?} elif >=1.21 {
         return Minecraft.getInstance()
                 .getTimer()
                 .getGameTimeDeltaPartialTick(false);
-        //?} else if fabric {
+        //?} elif fabric {
         /*return Minecraft.getInstance().getFrameTime();
         *///?} else {
         /*return Minecraft.getInstance().getPartialTick();
-         *///?}
+        *///?}
     }
 }

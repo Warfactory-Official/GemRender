@@ -48,16 +48,6 @@ public final class GemRenderRopeTypes {
                         .vector("sway", FloatRepr.FLOAT, 4)
                         .vector("sphere", FloatRepr.FLOAT, 4)
                         .build())
-                //? if >=26.2 {
-                /*.seed(ptr -> {
-                    MemoryUtil.memSet(ptr, 0, 84);
-                    MemoryUtil.memPutInt(ptr, 0xFFFFFFFF);
-                    MemoryUtil.memPutFloat(ptr + 40, 0.05F);
-                    MemoryUtil.memPutFloat(ptr + 44, 1.0F);
-                    MemoryUtil.memPutFloat(ptr + 64, 1.0F);
-                    MemoryUtil.memPutFloat(ptr + 80, 1.0F);
-                })
-                *///?} else {
                 .writer((ptr, instance) -> {
                     MemoryUtil.memPutByte(ptr, instance.red);
                     MemoryUtil.memPutByte(ptr + 1, instance.green);
@@ -84,7 +74,6 @@ public final class GemRenderRopeTypes {
                     MemoryUtil.memPutFloat(ptr + 76, instance.sphere.z);
                     MemoryUtil.memPutFloat(ptr + 80, instance.sphere.w);
                 })
-                //?}
                 .vertexShader(vertexShader)
                 .cullShader(cullShader)
                 .build();

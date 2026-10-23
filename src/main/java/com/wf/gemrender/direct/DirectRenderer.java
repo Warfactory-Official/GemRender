@@ -61,7 +61,7 @@ public final class DirectRenderer {
 
 	private static net.minecraft.world.item.ItemDisplayContext itemContext =
 			net.minecraft.world.item.ItemDisplayContext.NONE;
-*///?}
+    *///?}
 
     @Nullable
     private static DirectGuest guest;
@@ -349,7 +349,7 @@ public final class DirectRenderer {
         //? if >=26.1 {
 
         /*return sink;
-         *///?} else {
+        *///?} else {
         if (pass != DirectPass.LEVEL) {
             return pass;
         }
@@ -408,7 +408,7 @@ public final class DirectRenderer {
 	public static net.minecraft.world.item.ItemDisplayContext itemContext() {
 		return itemContext;
 	}
-*///?}
+    *///?}
 
     public static void flushGui() {
         if (itemFlush && guiQueued) {
@@ -465,11 +465,7 @@ public final class DirectRenderer {
             program.lightDirections(lights[0], lights[1]);
 
             GlStateManager._enableDepthTest();
-            //? if >=26.2 {
-            /*GlStateManager._depthFunc(GL_GEQUAL);
-            *///?} else {
             GlStateManager._depthFunc(GL_LEQUAL);
-            //?}
             // Inherited mask may drop alpha (26.1 GUI pipelines): an atlas slot cleared to alpha 0 stays invisible.
             com.wf.gemrender.render.GlState.colorMask(true, true, true, true);
 

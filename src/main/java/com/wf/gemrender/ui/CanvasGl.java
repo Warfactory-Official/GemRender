@@ -2,9 +2,7 @@ package com.wf.gemrender.ui;
 
 import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
-//? if <26.2 {
 import com.mojang.blaze3d.vertex.BufferUploader;
-//?}
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.render.GlPrograms;
 import org.joml.Matrix4f;
@@ -85,9 +83,7 @@ final class CanvasGl {
         growIndices(1024);
         glBindVertexArray(previousVao);
         glBindBuffer(GL_ARRAY_BUFFER, previousBuffer);
-        //? if <26.2 {
         BufferUploader.invalidate();
-        //?}
         return true;
     }
 
@@ -200,9 +196,7 @@ final class CanvasGl {
         GlStateManager._glUseProgram(savedProgram);
         GlStateManager._glBindVertexArray(0);
         GlStateManager._glBindBuffer(GL_ARRAY_BUFFER, 0);
-        //? if <26.2 {
         BufferUploader.invalidate();
-        //?}
         if (savedDeep) {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, savedFramebuffer);
             GlStateManager._viewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);

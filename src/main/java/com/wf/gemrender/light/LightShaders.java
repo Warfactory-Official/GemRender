@@ -40,7 +40,7 @@ public final class LightShaders {
     //?}
 
     /** Block formats without a Normal attribute: facing from position derivatives, as on Sodium. */
-    //? if >=26.1 <26.2 {
+    //? if >=26.1 {
     /*private static final Set<String> FACE_NORMAL = Set.of("core/terrain", "core/block");
     *///?} else {
     private static final Set<String> FACE_NORMAL = Set.of();
@@ -73,43 +73,11 @@ public final class LightShaders {
             "blocks/block_layer_opaque.fsh");
 
     private static final Pattern FLYWHEEL_LIGHT = Pattern.compile("    vec4 lightColor = vec4\\(1\\.\\);");
-    //? if >=26.2 {
-    /*/^* CrankShaft: non-OIT (indirect + instancing + crumbling) and OIT producer fragment stages. ^/
-    private static final ResourceLocation CRANKSHAFT_FRAGMENT = ResourceLocation.fromNamespaceAndPath("flywheel",
-            "renderpass/flw_indirect.frag");
-    private static final ResourceLocation CRANKSHAFT_OIT = ResourceLocation.fromNamespaceAndPath("flywheel",
-            "renderpass/flw_oit.frag");
-    /^* After the lightmap multiply, before debug views and fog. ^/
-    private static final Pattern CRANKSHAFT_LIT = Pattern.compile("(?m)^    #ifdef _FLW_DEBUG$");
-    private static final Pattern CRANKSHAFT_OUT = Pattern.compile("(?m)^out vec4 fragColor;");
-    /^* CrankShaft's OIT replays of vanilla geometry: own shaders, so the vanilla patch never reaches them. Beam: unlit. ^/
-    private static final Set<String> REPLAY_VERTEX = Set.of("renderpass/chunk_oit.vert",
-            "renderpass/chunk_oit_sodium.vert", "renderpass/block_oit.vert", "renderpass/ber_oit.vert",
-            "renderpass/weather_oit.vert");
-    private static final Set<String> REPLAY_FRAGMENT = Set.of("renderpass/flw_chunk_oit.frag",
-            "renderpass/flw_block_oit.frag", "renderpass/flw_ber_oit.frag", "renderpass/flw_weather_oit.frag");
-    /^* Sodium replay: {@code texture(Sampler2, light / 256)}. ^/
-    private static final Pattern REPLAY_LIGHTMAP = Pattern.compile("\\b(?:sample_lightmap|texture)\\(\\s*Sampler2\\s*,");
-    private static final Pattern REPLAY_CLIP = Pattern.compile("(?m)^    gl_Position = ProjMat \\* viewPos;$");
-    private static final Pattern REPLAY_FOG = Pattern.compile("(?m)^    color = apply_fog\\(color,");
-    /^* OIT producers: no IR target (locations 0-3 belong to the chain). ^/
-    private static final String REPLAY_INPUTS = """
-            in vec3 _grl_pos;
-            in vec3 _grl_normal;
-            in vec4 _grl_lmColor;
-            in float _grl_sky;
-            """;
-    private static final String REPLAY_ADD = """
-            vec3 _grl_albedo = color.rgb / max(_grl_lmColor.rgb, vec3(1.0 / 255.0));
-                color.rgb += _grl_albedo * (%s + gemrender_mergedNight(_grl_sky));
-            """;
-    *///?} else {
     private static final ResourceLocation FLYWHEEL_COMMON = Ids.of("flywheel",
             "internal/common.frag");
     private static final Pattern FLYWHEEL_MAIN = Pattern.compile("void _flw_main\\(\\) \\{");
     private static final Pattern FLYWHEEL_FOG = Pattern.compile("    color = flw_fogFilter\\(color\\);");
     private static final Pattern FLYWHEEL_OUT = Pattern.compile("(?m)^out vec4 _flw_outputColor;");
-    //?}
 
     private static final String VOXY_VERTEX = "voxy:lod/gl46/quads3.vert";
     private static final String VOXY_FRAGMENT = "voxy:lod/gl46/quads.frag";
@@ -280,46 +248,6 @@ public final class LightShaders {
      * Gap: OIT passes (own targets, locations 0-3 taken) => no IR output.
      */
     public static String flywheel(ResourceLocation id, String source) {
-        //? if >=26.2 {
-        /*if (id.getNamespace()
-                .equals("flywheel") && REPLAY_VERTEX.contains(id.getPath())) {
-            return replayVertex(id.toString(), source);
-        }
-        if (id.getNamespace()
-                .equals("flywheel") && REPLAY_FRAGMENT.contains(id.getPath())) {
-            return replayFragment(id.toString(), source, id.getPath()
-                    .equals("renderpass/flw_ber_oit.frag"));
-        }
-        boolean opaque = id.equals(CRANKSHAFT_FRAGMENT);
-        if (!opaque && !id.equals(CRANKSHAFT_OIT)) {
-            return source;
-        }
-        String name = id.toString();
-        // Unlit: Vulkan (shaderc defines VULKAN; GemRender binds GL only), crumbling overlay, OIT depth/coefficient
-        // passes (no material colour; depth range has no prelude or Globals).
-        String gate = opaque
-                ? "#if !defined(VULKAN) && !defined(_FLW_CRUMBLING)\n#define _GRL_LIT\n#define _GRL_IR\n#endif\n"
-                : "#if !defined(VULKAN) && !defined(_FLW_DEPTH_RANGE) && !defined(_FLW_COLLECT_COEFFS)\n"
-                + "#define _GRL_LIT\n#endif\n";
-        // flw_vertexPos is render-origin relative; Globals camera terms make it camera relative.
-        String patched = replaceOne(name, source, MAIN, "$0\n#ifdef _GRL_LIT\n"
-                + "    vec3 _grl_pos = flw_vertexPos.xyz + vec3(flw_renderOrigin - CameraBlockPos) + CameraOffset;\n"
-                + "    gemrender_lightPrepare(_grl_pos);\n#endif");
-        patched = replaceOne(name, patched, FLYWHEEL_LIGHT, "#ifdef _GRL_LIT\n    vec3 _grl_albedo = flw_fragColor.rgb;\n#endif\n$0");
-        patched = replaceOne(name, patched, CRANKSHAFT_LIT, "#ifdef _GRL_IR\n    _grl_irOut = vec4(0.0);\n#endif\n"
-                + "#ifdef _GRL_LIT\n    if (flw_material.useLight) {\n"
-                + "        flw_fragColor.rgb += _grl_albedo * (gemrender_lights(_grl_pos, gemrender_lightNormal(flw_vertexNormal))\n"
-                + "                + gemrender_mergedNight(flw_fragLight.y));\n"
-                + "#ifdef _GRL_IR\n        _grl_irOut = vec4(_grl_albedo * (_grl_irSum + gemrender_nightSky(flw_fragLight.y)),"
-                + " flw_fragColor.a);\n#endif\n"
-                + "    }\n#endif\n$0");
-        if (opaque) {
-            // IrTarget enables COLOR1 on the main target for programs declaring this IR output.
-            patched = replaceOne(name, patched, CRANKSHAFT_OUT, "#ifdef _GRL_IR\nlayout(location = 0) out vec4 fragColor;\n"
-                    + "layout(location = 1) out vec4 _grl_irOut;\n#else\n$0\n#endif");
-        }
-        return "#ifndef VULKAN\n" + include() + "#endif\n" + gate + patched;
-        *///?} else {
         if (!id.equals(FLYWHEEL_COMMON)) {
             return source;
         }
@@ -336,32 +264,8 @@ public final class LightShaders {
                 + "#ifndef _FLW_OIT\n        _grl_irOut = vec4(_grl_albedo * (_grl_irSum + gemrender_nightSky(flw_fragLight.y)), color.a);\n#endif\n"
                 + "    }\n$0");
         return include() + patched;
-        //?}
     }
 
-    //? if >=26.2 {
-    /*/^* Camera-relative position at the clip write: {@code pos} where the shader builds one, else {@code Position}. ^/
-    private static String replayVertex(String name, String source) {
-        String patched = wrapLightmap(name, source, REPLAY_LIGHTMAP, (head, coord) -> head.startsWith("texture")
-                ? "clamp(((" + coord + ").y * 16.0 - 0.5) / 15.0, 0.0, 1.0)" : vanillaSky(head, coord));
-        patched = replaceOne(name, patched, MAIN, "$0\n#ifndef VULKAN\n    _grl_lmColor = vec4(1.0);\n    _grl_sky = 0.0;\n#endif");
-        patched = replaceOne(name, patched, REPLAY_CLIP, "$0\n#ifndef VULKAN\n    _grl_pos = "
-                + (source.contains("vec3 pos =") ? "pos" : "Position") + ";\n    _grl_normal = "
-                + (source.contains("in vec3 Normal;") ? "Normal" : "vec3(0.0)") + ";\n#endif");
-        return "#ifndef VULKAN\n" + VERTEX_DECLARATIONS + "#else\n#define _grl_lm(c, sky) (c)\n#endif\n" + patched;
-    }
-
-    private static String replayFragment(String name, String source, boolean normals) {
-        String light = "gemrender_lights(_grl_pos, " + (normals ? "gemrender_lightNormal(_grl_normal)"
-                : "gemrender_lightFaceNormal(_grl_pos)") + ")";
-        String patched = replaceOne(name, source, MAIN, "$0\n#ifdef _GRL_LIT\n    gemrender_lightPrepare(_grl_pos);\n#endif");
-        patched = replaceOne(name, patched, REPLAY_FOG, "#ifdef _GRL_LIT\n    " + REPLAY_ADD.formatted(light)
-                + "#endif\n$0");
-        return "#ifndef VULKAN\n" + include() + REPLAY_INPUTS + "#endif\n"
-                + "#if !defined(VULKAN) && !defined(_FLW_DEPTH_RANGE) && !defined(_FLW_COLLECT_COEFFS)"
-                + " && !defined(_FLW_BER_EMISSIVE)\n#define _GRL_LIT\n#endif\n" + patched;
-    }
-    *///?}
 
     /** After link: block -> {@link LightFrame#UBO_BINDING}, samplers -> units. No block => untouched. */
     public static void bindProgram(int program) {

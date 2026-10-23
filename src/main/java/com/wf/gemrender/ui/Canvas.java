@@ -7,22 +7,9 @@ import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.Vanilla;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-//? if >=26.2 {
-/*import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.render.TextureSetup;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.state.gui.BlitRenderState;
-import org.joml.Matrix3x2f;
-*///?} else {
 import com.wf.gemrender.mixin.ui.BufferSourceAccessor;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.font.FontSet;
-//?}
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
@@ -102,19 +89,6 @@ public final class Canvas {
     private float unitsH;
     private int lastWindowW;
     private int lastWindowH;
-    //? if >=26.2 {
-    /*private static int guiFrame;
-    private final java.util.ArrayList<GuiLayer> guiLayers = new java.util.ArrayList<>();
-    private int guiLayersUsed;
-    private int guiLayerFrame = -1;
-    private GuiLayer guiLayer;
-    private GuiGraphicsExtractor guiGraphics;
-
-    private static final class GuiLayer {
-        GpuTexture texture;
-        GpuTextureView view;
-    }
-    *///?}
 
     public static Canvas shared() {
         RenderSystem.assertOnRenderThread();
@@ -134,73 +108,6 @@ public final class Canvas {
         return active;
     }
 
-    //? if >=26.2 {
-    /*/^*
-     * Draws over the GUI in the {@code graphics} pose. Extraction precedes the GUI pass (which clears the
-     * main target), so recording goes to a transparent window-sized layer; {@link #end()} and
-     * {@link #suspend()} submit it as one premultiplied blit placed above everything extracted so far.
-     * Anything vanilla extracts afterwards lands on top. The enclosing vanilla scissor clips the blit.
-     ^/
-    public Canvas begin(GuiGraphicsExtractor graphics) {
-        int scale = Minecraft.getInstance().getWindow().getGuiScale();
-        int guiW = graphics.guiWidth();
-        int guiH = graphics.guiHeight();
-        guiGraphics = graphics;
-        beginFramebuffer(acquireGuiLayer(guiW * scale, guiH * scale), guiW * scale, guiH * scale, guiW, guiH,
-                true, true, 0);
-        base.mul(graphics.pose());
-        computePixelsPerUnit();
-        return this;
-    }
-
-    /^* Layers are reused once the frame's GUI pass has drawn them. ^/
-    static void endFrame() {
-        guiFrame++;
-    }
-
-    /^*
-     * Vanilla filters through sampler objects and leaves texture magnification at the GL default (LINEAR);
-     * Canvas binds sampler 0 => NEAREST on the texture itself, as 1.21 textures carried. Vanilla never reads it.
-     ^/
-    static int magNearest(int glTexture) {
-        int previous = glGetInteger(GL_TEXTURE_BINDING_2D);
-        glBindTexture(GL_TEXTURE_2D, glTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glBindTexture(GL_TEXTURE_2D, previous);
-        return glTexture;
-    }
-
-    private int acquireGuiLayer(int width, int height) {
-        if (guiLayerFrame != guiFrame) {
-            guiLayerFrame = guiFrame;
-            guiLayersUsed = 0;
-        }
-        if (guiLayersUsed == guiLayers.size()) {
-            guiLayers.add(new GuiLayer());
-        }
-        GuiLayer layer = guiLayers.get(guiLayersUsed++);
-        if (layer.texture == null || layer.texture.getWidth(0) != width || layer.texture.getHeight(0) != height) {
-            if (layer.texture != null) {
-                layer.view.close();
-                layer.texture.close();
-            }
-            GpuDevice device = RenderSystem.getDevice();
-            layer.texture = device.createTexture(() -> "gemrender:canvas_gui",
-                    GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_RENDER_ATTACHMENT, GpuFormat.RGBA8_UNORM,
-                    width, height, 1, 1);
-            layer.view = device.createTextureView(layer.texture);
-        }
-        guiLayer = layer;
-        return Vanilla.fboOf(layer.texture);
-    }
-
-    private void submitGuiLayer() {
-        guiGraphics.guiRenderState.addGuiElement(new BlitRenderState(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
-                TextureSetup.singleTexture(guiLayer.view, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST)),
-                new Matrix3x2f(), 0, 0, (int) unitsW, (int) unitsH, 0.0f, 1.0f, 1.0f, 0.0f, -1,
-                guiGraphics.peekScissorStack()));
-    }
-    *///?} else {
     /**
      * Draws over the GUI in the {@code graphics} pose. Flushes the vanilla batch first so ordering
      * holds; anything vanilla draws after {@link #end()} lands on top. An enclosing vanilla scissor is
@@ -230,7 +137,6 @@ public final class Canvas {
         unitsH = graphics.guiHeight();
         return this;
     }
-    //?}
 
     /**
      * Draws into {@code target} with ({@code 0,0}) top-left and ({@code width,height}) bottom-right in
@@ -327,18 +233,10 @@ public final class Canvas {
         if (!suspended) {
             flush();
             gl.restore();
-            //? if >=26.2 {
-            /*if (guiGraphics != null) {
-                submitGuiLayer();
-            }
-            *///?}
         }
         active = false;
         suspended = false;
         framebuffer = 0;
-        //? if >=26.2 {
-        /*guiGraphics = null;
-        *///?}
     }
 
     /**
@@ -352,11 +250,6 @@ public final class Canvas {
         }
         flush();
         gl.restore();
-        //? if >=26.2 {
-        /*if (guiGraphics != null) {
-            submitGuiLayer();
-        }
-        *///?}
         suspended = true;
     }
 
@@ -365,23 +258,10 @@ public final class Canvas {
         if (!suspended) {
             return;
         }
-        //? if >=26.2 {
-        /*if (guiGraphics != null) {
-            framebuffer = acquireGuiLayer(viewportW, viewportH);
-        }
-        *///?}
         gl.save(framebuffer != 0);
         if (framebuffer != 0) {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
             GlStateManager._viewport(0, 0, viewportW, viewportH);
-            //? if >=26.2 {
-            /*if (guiGraphics != null) {
-                GlStateManager._disableScissorTest();
-                GlState.colorMask(true, true, true, true);
-                GlState.clearColor(0, 0, 0, 0);
-                GlState.clear(GL_COLOR_BUFFER_BIT);
-            }
-            *///?}
         }
         suspended = false;
         clipDirty = true;
@@ -772,17 +652,10 @@ public final class Canvas {
     }
 
     public static int textureId(ResourceLocation texture) {
-        //? if >=26.2 {
-        /*return magNearest(Vanilla.textureId(Minecraft.getInstance()
-                .getTextureManager()
-                .getTexture(texture)
-                .getTexture()));
-        *///?} else {
         return Minecraft.getInstance()
                 .getTextureManager()
                 .getTexture(texture)
                 .getId();
-        //?}
     }
 
     // ---------------------------------------------------------------- text
@@ -858,11 +731,7 @@ public final class Canvas {
     }
 
     private float runChars(
-            //? if >=26.2 {
-            /*net.minecraft.client.gui.GlyphSource set,
-            *///?} else {
             FontSet set,
-            //?}
             boolean fishy, CharSequence text, int start, int end, float x, float y,
                            int argb, boolean shadowPass) {
         for (int i = start; i < end; ) {

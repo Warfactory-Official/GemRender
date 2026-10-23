@@ -142,11 +142,7 @@ public final class Absorbance {
      * other Fabulous layers by its nearest depth.
      */
     public boolean skips(
-            //? if >=26.2 {
-            /*dev.engine_room.flywheel.backend.compile.OitMode mode
-            *///?} else {
             dev.engine_room.flywheel.backend.compile.PipelineCompiler.OitMode mode
-            //?}
     ) {
         return exclusive && switch (mode) {
             case EVALUATE, OFF -> false;
@@ -339,7 +335,6 @@ public final class Absorbance {
     /**
      * Smoke / gas draw at 1/{@code factor} of the screen per axis (1 = full).
      * Ignored under {@code -Dgemrender.absorbanceFactor}.
-     * Applies to targets before 26.2; 26.2 uses CrankShaft's OIT scene without this reduced pass.
      */
     public void resolutionFactor(int factor) {
         if (factor < 1) {

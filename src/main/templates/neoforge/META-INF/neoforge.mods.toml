@@ -29,9 +29,6 @@ description = '''Engine-Room Flywheel, vendored into GemRender and ported to thi
 <% } %>
 
 
-<% if (access_transformer) { %>[[accessTransformers]]
-file = "META-INF/accesstransformer.cfg"
-<% } %>
 # Mixin configs are declared to FML here on NeoForge (no MANIFEST MixinConfigs attribute).
 # Client-only: every mixin GemRender applies targets Flywheel's rendering internals.
 [[mixins]]

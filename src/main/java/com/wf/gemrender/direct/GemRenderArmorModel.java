@@ -21,7 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 //? if >=26.1 {
 /*import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
- *///?}
+*///?}
 
 /**
  * Draws a GemRender model as worn armour, following the entity's own animation.
@@ -70,12 +70,11 @@ import java.util.Map;
  *     });
  * }
  * }</pre>
- * <p>The equipment submit resolves the slot from the stack's equippable component. On 26.2, it also
- * resolves the wearer from {@code WEARER} render data installed by {@code registerWearer}.
+ * <p>The equipment submit resolves the slot from the stack's equippable component.
  */
 //? if >=26.1 {
 /*public class GemRenderArmorModel extends HumanoidModel<HumanoidRenderState> {
- *///?} else {
+*///?} else {
 public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 //?}
     /**
@@ -162,7 +161,7 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 		/*this(Minecraft.getInstance()
 				.getEntityModels()
 				.bakeLayer(ModelLayers.PLAYER_ARMOR.chest()), appearance, bones);
-		*///?} else {
+        *///?} else {
         this(Minecraft.getInstance()
                 .getEntityModels()
                 .bakeLayer(ModelLayers.PLAYER_INNER_ARMOR), appearance, bones);
@@ -194,7 +193,7 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
     // 1.21 replaced the four float colour components with one packed int. GemRender ignores the
     // vertex colour on both -- it tints through ItemAppearance.tint -- so the two overrides differ
     // only in the parameters they discard, and both delegate to one body.
-    //? if >=1.21 <26.1 {
+    //? if >=1.21 && <26.1 {
     @Override
     public void renderToBuffer(PoseStack pose, VertexConsumer buffer, int light, int overlay, int colour) {
         render(pose, light, overlay);
@@ -207,25 +206,11 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 			float red, float green, float blue, float alpha) {
 		render(pose, light, overlay);
 	}
-	*///?}
+    *///?}
 
     //? if >=26.1 {
-	/*//? if >=26.2 {
-	/^// The wearer, on every living render state: the submit phase gets the state, not the entity.
-	public static final net.minecraft.util.context.ContextKey<LivingEntity> WEARER =
-			new net.minecraft.util.context.ContextKey<>(
-					net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(GemRender.MOD_ID, "armour_wearer"));
 
-	public static void registerWearer(
-			net.neoforged.neoforge.client.renderstate.RegisterRenderStateModifiersEvent event) {
-		event.registerEntityModifier(new com.google.common.reflect.TypeToken<
-				net.minecraft.client.renderer.entity.LivingEntityRenderer<? extends LivingEntity,
-						net.minecraft.client.renderer.entity.state.LivingEntityRenderState, ?>>() {
-		}, (wearer, state) -> state.setRenderData(WEARER, wearer));
-	}
-	^///?}
-
-	// 26.1 made Model#renderToBuffer final and moved the draw behind a submit node, so this piece is
+	/*// 26.1 made Model#renderToBuffer final and moved the draw behind a submit node, so this piece is
 	// queued from EquipmentLayerRendererMixin instead of from an override. That mixin is the better
 	// seam anyway: renderLayers is handed the PoseStack, the light and the wearer's render state in
 	// one call and then submits the same model up to four times over -- once per material layer, again
@@ -245,11 +230,6 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 		if (!pending) {
 			return true;
 		}
-		//? if >=26.2 {
-		/^if (entity == null && state instanceof net.minecraft.client.renderer.entity.state.EntityRenderState rendered) {
-			entity = rendered.getRenderData(WEARER);
-		}
-		^///?}
 		render(pose, light, overlay);
 		return true;
 	}
@@ -264,7 +244,7 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
 		}
 		return gemrender$submitArmour(pose, state, light, overlay);
 	}
-	*///?}
+    *///?}
 
     private void render(PoseStack pose, int light, int overlay) {
         if (

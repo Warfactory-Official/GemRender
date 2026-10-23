@@ -52,10 +52,6 @@ public final class CanvasTarget implements AutoCloseable {
         filter();
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // 26.2 samplers always filter MIPMAP_*: default max level 1000 => incomplete => samples black.
-        //? if >=26.2 {
-        /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-        *///?}
         int previousFramebuffer = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
         framebuffer = glGenFramebuffers();
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);

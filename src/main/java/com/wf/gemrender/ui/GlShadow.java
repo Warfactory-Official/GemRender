@@ -22,9 +22,7 @@ final class GlShadow {
     private static final VarHandle SRC_ALPHA;
     private static final VarHandle DST_ALPHA;
     private static final VarHandle DEPTH_MASK;
-    //? if <26.2 {
     private static final VarHandle LAST_PROGRAM;
-    //?}
 
     static {
         try {
@@ -34,12 +32,7 @@ final class GlShadow {
             Class<?> cullClass = Class.forName("com.mojang.blaze3d.platform.GlStateManager$CullState");
             Class<?> scissorClass = Class.forName("com.mojang.blaze3d.platform.GlStateManager$ScissorState");
             Class<?> boolClass = Class.forName("com.mojang.blaze3d.platform.GlStateManager$BooleanState");
-            //? if >=26.2 {
-            /*// Per-draw-buffer array; _blendFuncSeparate/_enableBlend(0) track [0].
-            BLEND = ((Object[]) gsm.findStaticVarHandle(GlStateManager.class, "BLEND", blendClass.arrayType()).get())[0];
-            *///?} else {
             BLEND = gsm.findStaticVarHandle(GlStateManager.class, "BLEND", blendClass).get();
-            //?}
             DEPTH = gsm.findStaticVarHandle(GlStateManager.class, "DEPTH", depthClass).get();
             Object cull = gsm.findStaticVarHandle(GlStateManager.class, "CULL", cullClass).get();
             Object scissor = gsm.findStaticVarHandle(GlStateManager.class, "SCISSOR", scissorClass).get();
@@ -58,11 +51,9 @@ final class GlShadow {
             SRC_ALPHA = blend.findVarHandle(blendClass, "srcAlpha", int.class);
             DST_ALPHA = blend.findVarHandle(blendClass, "dstAlpha", int.class);
             DEPTH_MASK = depth.findVarHandle(depthClass, "mask", boolean.class);
-            //? if <26.2 {
             LAST_PROGRAM = MethodHandles.privateLookupIn(net.minecraft.client.renderer.ShaderInstance.class,
                             MethodHandles.lookup())
                     .findStaticVarHandle(net.minecraft.client.renderer.ShaderInstance.class, "lastProgramId", int.class);
-            //?}
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -109,10 +100,6 @@ final class GlShadow {
 
     /** Program vanilla believes is bound; -1 => none (it rebinds before its next draw). */
     static int program() {
-        //? if >=26.2 {
-        /*return org.lwjgl.opengl.GL11C.glGetInteger(org.lwjgl.opengl.GL20C.GL_CURRENT_PROGRAM);
-        *///?} else {
         return (int) LAST_PROGRAM.get();
-        //?}
     }
 }

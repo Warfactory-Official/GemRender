@@ -26,6 +26,7 @@ def setting = { String name -> (project.findProperty("publish_${name}") ?: '').t
 def list = { String name -> setting(name).split(',').collect { it.trim() }.findAll { it } }
 
 def gameVersions = list('minecraft_versions') ?: [minecraft_version.toString()]
+gameVersions.each { rootProject.assertMainMinecraftVersion(it) }
 def skipped = setting('skip').toBoolean() || !version_buildable.toBoolean()
 
 // The jar a player installs: Loom's remapped jar on obfuscated Fabric, ModDevGradle Legacy's reobfuscated jar on

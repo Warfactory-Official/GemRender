@@ -19,8 +19,7 @@ public interface ArmorAppearance {
     /**
      * The model this piece draws, or {@code null} for none.
      *
-     * <p>{@code entity} is the wearer. The 26.1 hook has no wearer; 26.2 reads it from the render state
-     * ({@code GemRenderArmorModel.WEARER}), or supplies {@code null} for non-living renderers.
+     * <p>{@code entity} is the wearer on the entity-based hook and is {@code null} on the 26.1 state-based hook.
      */
     @Nullable
     GemRenderGltfModel model(@Nullable LivingEntity entity, ItemStack stack, EquipmentSlot slot);

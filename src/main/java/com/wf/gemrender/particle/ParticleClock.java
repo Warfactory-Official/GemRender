@@ -19,12 +19,7 @@ public final class ParticleClock {
             return 0.0f;
         }
 
-        //? if <26.2 {
         int ticks = ((LevelRendererAccessor) minecraft.levelRenderer).gemrender$getTicks();
-        //?} else {
-        /*// getGameTime(): world age => float loses partial ticks. Hud ticks: unpaused, monotonic, small.
-        int ticks = minecraft.gui.hud.getGuiTicks();
-        *///?}
         float now = (ticks + Vanilla.partialTick()) / 20.0f;
         // Particles are timed against this clock: after it rewinds, older ones would reappear as it catches up
         // (a replay's shots drawn twice, once from the first pass and once from the replayed one).

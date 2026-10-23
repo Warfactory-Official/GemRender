@@ -537,12 +537,6 @@ tasks.named('processResources', ProcessResources) {
     filesMatching('gemrender.direct26.mixins.json') {
         filter { String line -> line.contains('"EquipmentLayerRendererMixin"') ? null : line }
     }
-    // As in build.gradle: the draw-buffer reset it follows is 26.2's.
-    if (!stonecutter.eval(mcVersion, '>=26.2')) {
-        filesMatching('gemrender.light.mixins.json') {
-            filter { String line -> line.contains('"GlCommandEncoderMixin"') ? null : line }
-        }
-    }
 }
 
 // Loom's runClient takes the harness for free -- sourceSets.harness.output carries its own
