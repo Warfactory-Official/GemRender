@@ -63,7 +63,9 @@ public final class LightShaders {
     private static final Pattern MAIN = Pattern.compile("void main\\(\\) \\{");
     private static final Pattern VANILLA_OUT = Pattern.compile("(?m)^\\s*out\\s+vec4\\s+fragColor\\s*;");
 
-    private static final Pattern SODIUM_LIGHTMAP = Pattern.compile("\\btexture\\(\\s*u_LightTex\\s*,");
+    /** Sodium {@code texture(u_LightTex, uv)} (uv 0..1); Embeddium 0.3 {@code _sample_lightmap(u_LightTex, uv)} (uv 0..256). */
+    private static final Pattern SODIUM_LIGHTMAP =
+            Pattern.compile("\\b(?:_sample_lightmap|texture)\\(\\s*u_LightTex\\s*,");
     private static final Pattern SODIUM_POSITION = Pattern.compile(
             "vec3 position = _vert_position \\+ translation;");
     private static final Pattern SODIUM_FOG = Pattern.compile("fragColor = _linearFog\\((\\w+),");
@@ -216,7 +218,10 @@ public final class LightShaders {
 *///?} else {
             String position = source.contains("uniform vec3 ChunkOffset;") ? "Position + ChunkOffset" : "Position";
 //?}
-            String normal = source.contains("in vec3 Normal;") ? "Normal" : "vec3(0.0)";
+            // 1.20.1 entity shaders receive view-rotated vertices; IViewRotMat turns them back to world orientation.
+            String unrotate = source.contains("uniform mat3 IViewRotMat;") ? "IViewRotMat * " : "";
+            position = unrotate + "(" + position + ")";
+            String normal = source.contains("in vec3 Normal;") ? unrotate + "Normal" : "vec3(0.0)";
             String patched = wrapLightmap(name, source, VANILLA_LIGHTMAP, LightShaders::vanillaSky);
             patched = replaceOne(name, patched, MAIN, "void _grl_main() {");
             return afterVersion(name, patched, VERTEX_DECLARATIONS) + "\nvoid main() {\n    _grl_lmColor = vec4(1.0);\n    _grl_sky = 0.0;\n"
@@ -234,7 +239,9 @@ public final class LightShaders {
         String name = id.toString();
         if (id.equals(SODIUM_VERTEX)) {
             String patched = wrapLightmap(name, source, SODIUM_LIGHTMAP,
-                    (head, coord) -> "clamp(((" + coord + ").y * 16.0 - 0.5) / 15.0, 0.0, 1.0)");
+                    (head, coord) -> head.startsWith("_sample_lightmap")
+                            ? "clamp((float((" + coord + ").y) / 16.0 - 0.5) / 15.0, 0.0, 1.0)"
+                            : "clamp(((" + coord + ").y * 16.0 - 0.5) / 15.0, 0.0, 1.0)");
             patched = replaceOne(name, patched, SODIUM_POSITION, "$0\n    _grl_pos = position;");
             return afterVersion(name, patched, VERTEX_DECLARATIONS);
         }
