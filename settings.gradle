@@ -36,6 +36,15 @@ plugins {
 
 rootProject.name = 'gemrender'
 
+// Settings run before the controller and version projects, so every build entry point shares this guard.
+gradle.ext.assertMainMinecraftVersion = { String version ->
+    def parts = version =~ /^(\d+)\.(\d+)(?:\.\d+)*(?:[-+].*)?$/
+    if (!parts.matches() || parts.group(1).toInteger() > 26 ||
+            (parts.group(1).toInteger() == 26 && parts.group(2).toInteger() >= 2)) {
+        throw new GradleException("Minecraft ${version} belongs to the vulkan branch (26.2+), not main.")
+    }
+}
+
 stonecutter {
     // The whole build is Groovy and stays Groovy: a KTS controller beside a 1200-line Groovy
     // buildscript would mean two languages for one build. Stonecutter only warns about this.

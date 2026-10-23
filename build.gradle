@@ -24,7 +24,7 @@ tasks.withType(Jar).matching { it.name == 'jar' || it.name == 'sourcesJar' }.con
 }
 
 def mcVersion = stonecutter.current.version
-rootProject.assertMainMinecraftVersion(mcVersion)
+gradle.ext.assertMainMinecraftVersion(mcVersion)
 
 // Fabric is built by Loom, whose DSL has nothing in common with ModDevGradle's -- no `mods {}`, no
 // `runs {}`, no `addModdingDependenciesTo`. Rather than thread a third branch through every one of
