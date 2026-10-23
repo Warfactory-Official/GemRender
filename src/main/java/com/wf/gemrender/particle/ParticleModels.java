@@ -26,15 +26,9 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParticleModels {
-    //? if >=26.2 {
-    /*public static final MaterialShaders ABSORBANCE_SHADERS = new SimpleMaterialShaders(
-            Ids.of(GemRender.MOD_ID, "material/varyings26.vert"),
-            Ids.of("flywheel", "material/default.frag"));
-    *///?} else {
     public static final MaterialShaders ABSORBANCE_SHADERS = new SimpleMaterialShaders(
             Ids.of(GemRender.MOD_ID, "material/absorbance.vert"),
             Ids.of(GemRender.MOD_ID, "material/absorbance.frag"));
-    //?}
 
     private static final Map<Key, Model> BILLBOARDS = new ConcurrentHashMap<>();
 
@@ -43,27 +37,16 @@ public final class ParticleModels {
     private static final Map<GemRenderGltfModel, Map<Matrix4fc, Model>> RIGID =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    //? if >=26.2 {
-    /*public static final MaterialShaders GLOW_SHADERS = new SimpleMaterialShaders(
-            Ids.of(GemRender.MOD_ID, "material/varyings26.vert"),
-            Ids.of(GemRender.MOD_ID, "material/glowing26.frag"));
-    private static final MaterialShaders COOLING_SHADERS = new SimpleMaterialShaders(
-            Ids.of(GemRender.MOD_ID, "material/varyings26.vert"),
-            Ids.of(GemRender.MOD_ID, "material/cooling26.frag"));
-    *///?} else {
     public static final MaterialShaders GLOW_SHADERS = new SimpleMaterialShaders(
             Ids.of(GemRender.MOD_ID, "material/absorbance.vert"),
             Ids.of(GemRender.MOD_ID, "material/absorbance_glow.frag"));
-    //?}
 
-    //? if <26.2 {
     static {
         Absorbance.getInstance()
                 .register(ABSORBANCE_SHADERS);
         Absorbance.getInstance()
                 .register(GLOW_SHADERS, true);
     }
-    //?}
 
     private ParticleModels() {
     }
@@ -81,15 +64,14 @@ public final class ParticleModels {
      * Smoke, steam, dust: alpha-composited, and order-independent so the backend resolves the stack per
      * pixel rather than in submission order.
      *
-     * <p>On 26.2, CrankShaft's chunk OIT orders these with terrain. Earlier targets split this blend around
-     * translucent terrain; their {@code ADDITIVE} particles are drawn before the water.
+     * <p>The water split orders this blend around translucent terrain. {@code ADDITIVE} particles are drawn before water.
      */
     public static Model translucent(ResourceLocation texture) {
         return billboard(texture, Transparency.ORDER_INDEPENDENT);
     }
 
     /**
-     * Smoke, steam, dust, foam. On 26.2 this uses CrankShaft's ordinary OIT. Earlier targets sum
+     * Smoke, steam, dust, foam. Sums
      * {@code tau = -ln(1 - a)} per pixel: colour is the tau-weighted mean rather than layer-ordered.
      */
     public static Model absorbance(ResourceLocation texture) {
@@ -98,29 +80,14 @@ public final class ParticleModels {
 
     /**
      * {@link #absorbance} plus emission (fire, flash, sparks, exhaust): {@code tau = -ln(1 - a (1 - heat))},
-     * emission {@code rgb a heat}, heat from {@link ParticleStyle.Builder#glow}; not lightmapped. On 26.2 the
-     * absorbing and emitting shares are ordinary OIT and ordered additive materials in CrankShaft's scene.
-     * Earlier targets use a separate RGBA16F emission target.
+     * emission {@code rgb a heat}, heat from {@link ParticleStyle.Builder#glow}; not lightmapped.
+     * Uses a separate RGBA16F emission target.
      */
     public static Model glowing(ResourceLocation texture) {
         return absorbance(texture, GLOW_SHADERS);
     }
 
     /** A cooling glow on an arbitrary mesh, with the supplied material's texture and raster settings. */
-    //? if >=26.2 {
-    /*public static Model glowing(Mesh mesh, Material material) {
-        var smoke = SimpleMaterial.builderOf(material)
-                .shaders(COOLING_SHADERS)
-                .transparency(Transparency.ORDER_INDEPENDENT)
-                .build();
-        var emission = SimpleMaterial.builderOf(material)
-                .transparency(Transparency.ORDER_INDEPENDENT_ADDITIVE)
-                .useLight(false)
-                .build();
-        return new SimpleModel(List.of(new Model.ConfiguredMesh(smoke, mesh),
-                new Model.ConfiguredMesh(emission, mesh)));
-    }
-    *///?}
 
     private static Model absorbance(ResourceLocation texture, MaterialShaders shaders) {
         return BILLBOARDS.computeIfAbsent(
@@ -140,12 +107,7 @@ public final class ParticleModels {
                         .cardinalLightingMode(CardinalLightingMode.OFF)
                         .mipmap(false)
                         .build();
-                    //? if >=26.2 {
-                    /*return shaders == GLOW_SHADERS ? glowing(key.mesh(), material)
-                            : new SingleMeshModel(key.mesh(), material);
-                    *///?} else {
                     return new SingleMeshModel(key.mesh(), material);
-                    //?}
                 });
     }
 

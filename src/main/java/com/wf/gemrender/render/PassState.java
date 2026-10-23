@@ -10,9 +10,6 @@ public final class PassState {
     private final int[] unitTexture = new int[DEEP_UNITS.length];
     private final int[] unitSampler = new int[DEEP_UNITS.length];
     private int drawFramebuffer;
-    //? if >=26.2 {
-    /*private int readFramebuffer;
-    *///?}
     private int program;
     private boolean blend;
     private int blendSrcRgb;
@@ -54,9 +51,6 @@ public final class PassState {
 
     private void saveCore() {
         drawFramebuffer = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
-        //? if >=26.2 {
-        /*readFramebuffer = glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
-        *///?}
         program = glGetInteger(GL_CURRENT_PROGRAM);
 
         blend = glGetInteger(GL_BLEND) != 0;
@@ -74,21 +68,12 @@ public final class PassState {
     }
 
     public void restore() {
-        //? if >=26.2 {
-        /*GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
-        GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
-        *///?} else {
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, drawFramebuffer);
-        //?}
         GlStateManager._glUseProgram(program);
 
         GlStateManager._blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
         if (blendEquationRgb == blendEquationAlpha) {
             GlState.blendEquation(blendEquationRgb);
-        //? if >=26.2 {
-        /*} else {
-            glBlendEquationSeparate(blendEquationRgb, blendEquationAlpha);
-        *///?}
         }
         if (blend) {
             GlState.enableBlend();

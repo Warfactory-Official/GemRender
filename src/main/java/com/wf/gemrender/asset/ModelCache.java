@@ -88,18 +88,10 @@ public final class ModelCache<T> {
     }
 
     /**
-     * Production form: loads on the pool, visible behind the import's render-thread calls. On 26.2, quiesced until
-     * the first {@link #reload()}: client setup precedes the first resource load.
+     * Production form: loads on the pool, visible behind the import's render-thread calls.
      */
     public static <T> ModelCache<T> rendered(String name, Loader<T> loader, Disposer<T> disposer) {
-        //? if >=26.2 {
-        /*ModelCache<T> cache = new ModelCache<>(name, loader, disposer, Pool.LOADERS,
-                com.wf.gemrender.render.RenderThread::later);
-        cache.quiesced = true;
-        return cache;
-        *///?} else {
         return new ModelCache<>(name, loader, disposer, Pool.LOADERS, com.wf.gemrender.render.RenderThread::later);
-        //?}
     }
 
     public Handle<T> handle(ResourceLocation id) {

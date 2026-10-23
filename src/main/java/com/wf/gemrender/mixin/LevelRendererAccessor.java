@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 @Mixin(LevelRenderer.class)
 public interface LevelRendererAccessor {
 
-    //? if >=1.21 <26.1 {
+    //? if >=1.21 && <26.1 {
     @Invoker("renderSectionLayer")
     void gemrender$renderSectionLayer(RenderType renderType, double camX, double camY, double camZ,
                                       Matrix4f frustumMatrix, Matrix4f projectionMatrix);
@@ -20,15 +20,13 @@ public interface LevelRendererAccessor {
 	/*@Invoker("renderChunkLayer")
 	void gemrender$renderSectionLayer(RenderType renderType, com.mojang.blaze3d.vertex.PoseStack pose,
 			double camX, double camY, double camZ, Matrix4f projectionMatrix);
-*///?}
+    *///?}
 
-    //? if >=1.21 <26.1 {
+    //? if >=1.21 && <26.1 {
     @Accessor("visibleSections")
     it.unimi.dsi.fastutil.objects.ObjectArrayList<net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection> gemrender$visibleSections();
     //?}
 
-    //? if <26.2 {
     @Accessor("ticks")
     int gemrender$getTicks();
-    //?}
 }

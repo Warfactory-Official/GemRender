@@ -24,19 +24,7 @@ tasks.withType(Jar).matching { it.name == 'jar' || it.name == 'sourcesJar' }.con
 }
 
 def mcVersion = stonecutter.current.version
-
-if (stonecutter.eval(mcVersion, '<26.2')) {
-    tasks.named('processResources', ProcessResources) {
-        filesMatching('gemrender.mixins.json') {
-            filter { String line ->
-                line.contains('"BlazeProgramMixin"') || line.contains('"SourceFileMixin"') ? null : line
-            }
-        }
-        filesMatching('gemrender.light.mixins.json') {
-            filter { String line -> line.contains('"GlCommandEncoderMixin"') ? null : line }
-        }
-    }
-}
+gradle.ext.assertMainMinecraftVersion(mcVersion)
 
 // Fabric is built by Loom, whose DSL has nothing in common with ModDevGradle's -- no `mods {}`, no
 // `runs {}`, no `addModdingDependenciesTo`. Rather than thread a third branch through every one of
@@ -109,11 +97,6 @@ repositories {
         url = 'https://maven.neoforged.net/releases'
     }
     maven {
-        name = 'Warfactory Releases'
-        url = 'https://repo.warfactory.co/releases'
-        content { includeGroup 'dev.engine_room' }
-    }
-    maven {
         name = 'createmod maven'
         url = 'https://maven.createmod.net'
         content { includeGroupAndSubgroups 'dev.engine-room' }
@@ -183,30 +166,10 @@ if (!flywheel_vendored.toBoolean()) {
     sourceSets.flywheel.resources.setSrcDirs([])
 }
 
-// 26.2 uses CrankShaft's TRANSLUCENT_OIT terrain mode for shared transparency ordering.
-// Older versions retain GemRender's water/cloud split.
-if (stonecutter.eval(mcVersion, '>=26.2')) {
-    sourceSets.main.java.exclude(
-            'com/wf/gemrender/water/WaterSplit.java',
-            'com/wf/gemrender/water/WaterSplitPrograms.java',
-            'com/wf/gemrender/water/WaterSplitEvents.java',
-            'com/wf/gemrender/water/WaterDepthPrepass.java')
-
-    tasks.named('processResources', ProcessResources) {
-        from(project.file('accesstransformer.cfg')) { into 'META-INF' }
-        filesMatching('*.mixins.json') {
-            filter { line -> line.replace('"JAVA_21"', '"JAVA_25"') }
-        }
-    }
-}
-
 if (isLegacy) {
     legacyForge.version = forge_version
 } else {
     neoForge.version = project.neo_version
-    if (stonecutter.eval(mcVersion, '>=26.2')) {
-        neoForge.accessTransformers.from(project.file('accesstransformer.cfg'))
-    }
 }
 
 ext.harnessRunDir = runDir
@@ -516,11 +479,8 @@ abstract class KtxAutomaticModule implements TransformAction<org.gradle.api.arti
 
 configurations.named('jarJar') { attributes.attribute(ktxAutomatic, true) }
 
-// 26.2 has no Engine-Room Flywheel build: CrankShaft provides the same dev.engine_room.flywheel API.
-def flywheelGroup = project.findProperty('flywheel_group') ?: 'dev.engine-room.flywheel'
-def flywheelModId = project.findProperty('flywheel_mod_id') ?: 'flywheel'
-def flywheelJarJar = project.hasProperty('flywheel_jarjar') ? flywheel_jarjar.toBoolean() : true
-def flywheelDep = flywheelVendored ? null : "${flywheelGroup}:${flywheel_artifact}:${flywheel_version}"
+def flywheelDep = flywheelVendored ? null : "dev.engine-room.flywheel:${flywheel_artifact}:${flywheel_version}"
+
 def modConf = { String name -> isLegacy ? "mod${name.capitalize()}" : name }
 
 if (isLegacy) {
@@ -542,14 +502,12 @@ dependencies {
 
         add(modConf('localRuntime'), flywheelDep)
 
-        if (flywheelJarJar) {
-            jarJar("dev.engine-room.flywheel:${flywheel_artifact}") {
-                version {
-                    strictly flywheel_version_range
-                    prefer flywheel_version
-                }
-                transitive = false
+        jarJar("dev.engine-room.flywheel:${flywheel_artifact}") {
+            version {
+                strictly flywheel_version_range
+                prefer flywheel_version
             }
+            transitive = false
         }
     }
 
@@ -845,8 +803,7 @@ var generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             flywheel_version_range : flywheel_version_range,
 
             flywheel_dependency    : !flywheelVendored,
-            flywheel_mod_id        : flywheelModId,
-            access_transformer     : stonecutter.eval(mcVersion, '>=26.2'),
+            flywheel_mod_id        : 'flywheel',
 
             direct_path            : directSupported,
             direct_config          : directMixinConfig,

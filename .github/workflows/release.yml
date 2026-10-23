@@ -1,4 +1,4 @@
-# Publishes a GemRender release: builds every buildable version and uploads its jar to Modrinth and CurseForge
+# Publishes main releases through Minecraft 26.1; 26.2+ releases belong to the vulkan branch.
 # (gradle/publish.gradle), then attaches them to a GitHub release.
 #
 # Trigger it by pushing a tag that matches mod_version in gradle.properties:
@@ -9,7 +9,7 @@
 # Actions tab (workflow_dispatch).
 #
 # Repository secrets: MODRINTH_TOKEN, CURSEFORGE_TOKEN.
-name: Release
+name: Release (26.1 and earlier)
 
 on:
   push:
@@ -66,7 +66,7 @@ jobs:
           INPUT_CHANGELOG: ${{ inputs.changelog }}
           INPUT_DRY: ${{ inputs.dry_run }}
         run: |
-          version=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
+          version=$(rg '^mod_version=' gradle.properties | cut -d= -f2- | tr -d '[:space:]')
           changelog="$RUNNER_TEMP/changelog.md"
           : > "$changelog"
 
@@ -117,18 +117,41 @@ jobs:
 
       - name: Collect release jars
         if: steps.cfg.outputs.dry != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.cfg.outputs.version }}
         run: |
-          mkdir -p dist
-          # Several NeoForge/Forge nodes name their jar gemrender-<version>.jar; rename each to the uploaded version.
-          for dir in versions/*/; do
-            props="$dir/gradle.properties"
-            grep -q '^version_buildable=false' "$props" && continue
-            mc=$(grep -E '^minecraft_version=' "$props" | cut -d= -f2- | tr -d '[:space:]')
-            loader=$(grep -E '^loader=' "$props" | cut -d= -f2- | tr -d '[:space:]')
-            jar=$(find "$dir/build/libs" -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev*.jar' | head -1)
-            [ -n "$jar" ] && cp "$jar" "dist/gemrender-${{ steps.cfg.outputs.version }}+$mc-$loader.jar"
-          done
-          ls -l dist
+          python3 - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+
+          version = os.environ['RELEASE_VERSION']
+          destination = Path('dist')
+          destination.mkdir(exist_ok=True)
+          collected = 0
+          for properties in sorted(Path('versions').glob('*/gradle.properties')):
+              values = dict(line.split('=', 1) for line in properties.read_text().splitlines()
+                            if line.strip() and not line.lstrip().startswith(('#', '!')) and '=' in line)
+              if values.get('version_buildable', 'true').lower() == 'false':
+                  continue
+              minecraft = values['minecraft_version'].strip()
+              if tuple(map(int, minecraft.split('.'))) >= (26, 2):
+                  raise SystemExit(f'{properties}: Minecraft {minecraft} belongs to the vulkan branch')
+              loader = values['loader'].strip()
+              if loader not in ('forge', 'neoforge', 'fabric'):
+                  raise SystemExit(f'{properties}: unsupported loader {loader}')
+              archive = (f'gemrender-fabric-{minecraft}-{version}.jar' if loader == 'fabric'
+                         else f'gemrender-{version}.jar')
+              source = properties.parent / 'build' / 'libs' / archive
+              if not source.is_file():
+                  raise SystemExit(f'Missing release JAR: {source}')
+              target = destination / f'gemrender-{version}+{minecraft}-{loader}.jar'
+              shutil.copy2(source, target)
+              print(target)
+              collected += 1
+          if collected == 0:
+              raise SystemExit('No configured main release artifacts')
+          PY
 
       - name: GitHub release
         if: steps.cfg.outputs.dry != 'true'
@@ -136,7 +159,7 @@ jobs:
         with:
           tag_name: ${{ steps.cfg.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: GemRender ${{ steps.cfg.outputs.version }}
+          name: GemRender ${{ steps.cfg.outputs.version }} (26.1 and earlier)
           prerelease: ${{ steps.cfg.outputs.type != 'release' }}
           body_path: ${{ steps.cfg.outputs.changelog || '' }}
           generate_release_notes: ${{ steps.cfg.outputs.changelog == '' }}

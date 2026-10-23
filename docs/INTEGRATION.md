@@ -7,7 +7,10 @@ This is the consumer-facing guide, and it is self-contained: everything you need
 here. Where a rule below looks arbitrary, the reasoning is in the maintainers' notes
 (`gemrender-internal/docs/`), which are kept outside this repository.
 
-GemRender ships for six targets, built from one source tree:
+This `main` guide covers Minecraft 26.1 and earlier. Minecraft 26.2+ builds, OpenGL/Vulkan rendering,
+and publishing live on the `vulkan` branch in the sibling `GemRender-Vulkan` worktree.
+
+GemRender ships for six targets here, built from one source tree:
 
 | Minecraft | Loader | Java | Flywheel |
 |---|---|---|---|
@@ -1846,7 +1849,7 @@ the reason to turn the tessellation *down* for something thin and short rather t
 ## 9. Lights
 
 Point and spot lights, forward-shaded: every surface shader adds `albedo x E` before fog. Every target:
-1.20.1, 1.21.1 and 26.1.2 on every loader, and 26.2. Shadows opt-in per light.
+1.20.1, 1.21.1 and 26.1.2 on every supported loader. Shadows opt-in per light.
 
 | lit | not lit |
 |---|---|

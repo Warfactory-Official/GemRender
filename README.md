@@ -48,28 +48,27 @@ Required client dependency of a mod drawing through it: declare it in `neoforge.
 
 ## Targets
 
-| | 1.21.1 NeoForge | 1.21.1 Fabric | 1.20.1 Forge | 1.20.1 Fabric | 26.1.2 NeoForge | 26.1.2 Fabric | 26.2 NeoForge |
-|---|---|---|---|---|---|---|---|
-| Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.109 | Loader 0.19.5, API 0.155.3 | NeoForge 26.2.0.93 |
-| Java | 21 | 21 | 17 | 17 | 25 | 25 | 25 |
-| Flywheel | 1.0.6, bundled | 1.0.6, bundled | 1.0.6, bundled | 1.0.6-281, bundled | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** | CrankShaft 1.6.1, **install separately** |
-| Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no | no |
-| Lights | yes | yes | yes | yes | yes | yes | yes |
-| Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | opt-in split | CrankShaft chunk OIT |
+`main` builds and publishes Minecraft **26.1 and earlier** with Stonecutter. The `vulkan` branch and
+sibling `GemRender-Vulkan` worktree own **26.2+**, with Tenon and OpenGL/Vulkan rendering.
+
+| | 1.21.1 NeoForge | 1.21.1 Fabric | 1.20.1 Forge | 1.20.1 Fabric | 26.1.2 NeoForge | 26.1.2 Fabric |
+|---|---|---|---|---|---|---|
+| Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.109 | Loader 0.19.5, API 0.155.3 |
+| Java | 21 | 21 | 17 | 17 | 25 | 25 |
+| Flywheel | 1.0.6, bundled | 1.0.6, bundled | 1.0.6, bundled | 1.0.6-281, bundled | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** |
+| Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no |
+| Lights | yes | yes | yes | yes | yes | yes |
+| Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | opt-in split |
 
 - Bundled Flywheel: Create nests the same coordinate => one copy; a Flywheel in `mods/` displaces it.
 - 26.1: Flywheel vendored + ported (`src/flywheel`, MIT; Fabric platform layer in `src/flywheelFabric`); a Flywheel
   in `mods/` = duplicate mod id, load failure.
 - 26.1 water split: on => OIT composited on the wrong side of water. `-Dgemrender.watersplit=force` /
   `-Dgemrender.cloudsplit=force` to enable.
-- 26.2: CrankShaft's `TRANSLUCENT_OIT` terrain mode orders translucent models, particles, ropes and volumes
-  with terrain. `absorbance` factories use ordinary OIT; cooling glows use absorbing and ordered additive
-  materials in that same scene. GemRender's water split, reduced absorbance passes and camera-fog replacement
-  are inactive on this target. Older targets retain their existing rendering paths.
-- 26.2 requires CrankShaft's OpenGL backend; GemRender's Vulkan support is not implemented.
 - OpenGL: Flywheel's 3.3 floor; 4.2 for BC7 only.
 - Iris optional; its package is entered only after a `ModList` check.
 - `org.lwjgl:lwjgl-ktx` jar-in-jar'd (struct classes + natives), called through LWJGL's libffi: works on 1.20.1's LWJGL 3.3.1.
+
 
 ## Building
 
@@ -84,8 +83,10 @@ Required client dependency of a mod drawing through it: declare it in `neoforge.
 Root `runClient` launches every target; use `client` or the `:<target>:` form.
 
 Releasing: push a tag matching `mod_version` (`git tag -a v0.1.18 -m "notes"`, `-beta.1` / `-alpha.1` for those types).
-`.github/workflows/release.yml` builds every target and uploads to Modrinth and CurseForge (`gradle/publish.gradle`,
+`main` releases build only the six targets below 26.2 and upload to Modrinth and CurseForge (`gradle/publish.gradle`,
 secrets `MODRINTH_TOKEN`, `CURSEFORGE_TOKEN`). Locally: `./gradlew publishAllMods -Ppublish.dryRun=true`.
+Create the release tag on the branch owning its Minecraft targets; each tagged commit uses that branch's release workflow.
+`publishAll` publishes Maven snapshots for every configured main target.
 
 ## Layout
 

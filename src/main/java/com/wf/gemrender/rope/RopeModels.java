@@ -53,8 +53,7 @@ public final class RopeModels {
 
     /**
      * A rope that takes on the colour of the water it hangs in, for anything moored below a surface.
-     * Shares {@link ParticleModels#absorbance}: CrankShaft's ordinary OIT on 26.2, and GemRender's water-split
-     * absorbance pass on earlier targets.
+     * Shares {@link ParticleModels#absorbance} and the water-split absorbance pass.
      */
     public static Model absorbance(ResourceLocation texture) {
         return absorbance(texture, RopeMesh.DEFAULT_RINGS, RopeMesh.DEFAULT_SIDES);
@@ -71,12 +70,7 @@ public final class RopeModels {
                 key -> {
                     var mesh = mesh(key.rings(), key.sides());
                     var material = material(key.texture(), key.transparency(), key.cutout(), key.shaders());
-                    //? if >=26.2 {
-                    /*return key.shaders() == ParticleModels.GLOW_SHADERS ? ParticleModels.glowing(mesh, material)
-                            : new SingleMeshModel(mesh, material);
-                    *///?} else {
                     return new SingleMeshModel(mesh, material);
-                    //?}
                 });
     }
 

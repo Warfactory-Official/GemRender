@@ -32,12 +32,8 @@ public final class LightEvents {
 
     @SubscribeEvent
     public static void onAfterLevel(RenderLevelStageEvent.AfterLevel event) {
-        //? if >=26.2 {
-        /^LightGlare.draw(event.getModelViewMatrix(), event.getLevelRenderState().cameraRenderState.projectionMatrix);
-        ^///?} else {
         com.wf.gemrender.render.Vanilla.intoMainTarget(() -> LightGlare.draw(event.getModelViewMatrix(),
                 event.getLevelRenderState().cameraRenderState.projectionMatrix));
-        //?}
     }
     *///?} else {
     @SubscribeEvent

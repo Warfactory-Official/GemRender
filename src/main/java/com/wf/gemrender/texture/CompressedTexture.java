@@ -11,12 +11,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 
-//? if >=26.2 {
-/*import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTexture;
-*///?} elif >=26.1 {
+//? if >=26.1 {
 /*import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
@@ -54,17 +49,7 @@ public final class CompressedTexture extends AbstractTexture {
             return;
         }
 
-        //? if >=26.2 {
-        /*// Declared RGBA8, stored BC7: GlDevice allocates with glTexImage2D (mutable) => level 0 respecified.
-        // Sampling is format-agnostic; nothing copies into or out of this texture.
-        texture = RenderSystem.getDevice().createTexture(() -> "gemrender:bc7_atlas", GpuTexture.USAGE_TEXTURE_BINDING,
-                GpuFormat.RGBA8_UNORM, width, height, 1, 1);
-        GlStateManager._bindTexture(((GlTexture) texture).glId());
-        compressedImage();
-        sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
-        textureView = RenderSystem.getDevice().createTextureView(texture);
-        blocks = null;
-        *///?} elif >=26.1 {
+        //? if >=26.1 {
         /*// Declared RGBA8, stored BC7: GlDevice allocates with glTexImage2D (mutable) => level 0 respecified.
         // Sampling is format-agnostic; nothing copies into or out of this texture.
         texture = RenderSystem.getDevice().createTexture(() -> "gemrender:bc7_atlas", GpuTexture.USAGE_TEXTURE_BINDING,

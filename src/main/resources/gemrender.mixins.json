@@ -7,7 +7,6 @@
     "defaultRequire": 1
   },
   "client": [
-    "BlazeProgramMixin",
     "DrawManagerMixin",
     "GlProgramMixin",
     "IndirectCullingGroupMixin",
@@ -16,7 +15,6 @@
     "LevelRendererAccessor",
     "MaterialRenderStateMixin",
     "OitFramebufferMixin",
-    "SourceFileMixin",
     "texture.NativeImageAccessor"
   ]
 }

@@ -22,20 +22,11 @@ public class ParticleInstance extends AbstractInstance {
         originX = x;
         originY = y;
         originZ = z;
-        //? if >=26.2 {
-        /*long p = slabPtr();
-        MemoryUtil.memPutFloat(p, x);
-        MemoryUtil.memPutFloat(p + 4, y);
-        MemoryUtil.memPutFloat(p + 8, z);
-        *///?}
         return this;
     }
 
     public ParticleInstance particle(int particle) {
         this.particle = particle;
-        //? if >=26.2 {
-        /*MemoryUtil.memPutInt(slabPtr() + 12, particle);
-        *///?}
         return this;
     }
 }

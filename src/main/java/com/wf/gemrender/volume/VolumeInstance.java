@@ -22,20 +22,11 @@ public class VolumeInstance extends AbstractInstance {
         centerX = x;
         centerY = y;
         centerZ = z;
-        //? if >=26.2 {
-        /*long p = slabPtr();
-        MemoryUtil.memPutFloat(p, x);
-        MemoryUtil.memPutFloat(p + 4, y);
-        MemoryUtil.memPutFloat(p + 8, z);
-        *///?}
         return this;
     }
 
     public VolumeInstance volume(int volume) {
         this.volume = volume;
-        //? if >=26.2 {
-        /*MemoryUtil.memPutInt(slabPtr() + 12, volume);
-        *///?}
         return this;
     }
 }

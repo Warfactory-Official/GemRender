@@ -7,21 +7,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-//? if >=26.2 {
-/*import com.mojang.blaze3d.opengl.GlProgram;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-
-import java.util.List;
-
-/^* GlDevice.compileProgram and pipelines linked outside it (CrankShaft's RenderPipelineCompiler) both end here. ^/
-@Mixin(value = GlProgram.class, remap = false)
-abstract class ShaderInstanceMixin {
-    @Inject(method = "setupBindGroupLayouts", at = @At("RETURN"))
-    private void gemrender$bindLights(List<BindGroupLayout> bindGroupLayouts, CallbackInfo ci) {
-        LightShaders.bindProgram(((GlProgram) (Object) this).getProgramId());
-    }
-}
-*///?} elif >=26.1 {
+//? if >=26.1 {
 /*import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 

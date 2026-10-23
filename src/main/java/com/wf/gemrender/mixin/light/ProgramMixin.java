@@ -17,7 +17,6 @@ abstract class ProgramMixin {
     private String gemrender$patch(ShaderSource source, ResourceLocation id, ShaderType type) {
         String text = source.get(id, type);
         if (text != null && "sodium".equals(id.getNamespace())) {
-            // 26.2 Sodium terrain = vanilla RenderPipeline; ids extensionless. 26.1 Sodium keeps its ShaderLoader.
             return LightShaders.sodium(id.withSuffix(type == ShaderType.VERTEX ? ".vsh" : ".fsh"), text);
         }
         return LightShaders.vanilla(id.getPath(), type == ShaderType.VERTEX, text);

@@ -31,20 +31,6 @@ public final class GemRenderInstanceTypes {
                     .scalar("paintReference", UnsignedIntegerRepr.UNSIGNED_INT)
                     .scalar("paintRestBase", UnsignedIntegerRepr.UNSIGNED_INT)
                     .build())
-            //? if >=26.2 {
-            /*.seed(ptr -> {
-                MemoryUtil.memSet(ptr, 0, 124);
-                MemoryUtil.memPutInt(ptr, 0xFFFFFFFF);
-                MemoryUtil.memPutFloat(ptr + 28, 1.0F);
-                // Identity pose: column-major diagonal at 32 + {0,20,40,60}.
-                MemoryUtil.memPutFloat(ptr + 32, 1.0F);
-                MemoryUtil.memPutFloat(ptr + 52, 1.0F);
-                MemoryUtil.memPutFloat(ptr + 72, 1.0F);
-                MemoryUtil.memPutFloat(ptr + 92, 1.0F);
-                MemoryUtil.memPutInt(ptr + 104, GemRenderInstance.NO_JOINT_VARIANTS);
-                MemoryUtil.memPutInt(ptr + 108, -1);
-            })
-            *///?} else {
             .writer((ptr, instance) -> {
                 MemoryUtil.memPutByte(ptr, instance.red);
                 MemoryUtil.memPutByte(ptr + 1, instance.green);
@@ -66,7 +52,6 @@ public final class GemRenderInstanceTypes {
                 MemoryUtil.memPutInt(ptr + 116, instance.paintReference);
                 MemoryUtil.memPutInt(ptr + 120, instance.paintRestBase);
             })
-            //?}
 
             .vertexShader(shader("instance/skinned.vert"))
             .cullShader(shader("instance/cull/skinned.glsl"))

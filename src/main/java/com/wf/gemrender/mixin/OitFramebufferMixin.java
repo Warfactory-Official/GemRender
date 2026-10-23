@@ -1,6 +1,5 @@
 package com.wf.gemrender.mixin;
 
-//? if <26.2 {
 import com.wf.gemrender.volume.Volumetrics;
 import com.wf.gemrender.water.Absorbance;
 //? if water {
@@ -61,21 +60,3 @@ abstract class OitFramebufferMixin {
         //?}
     }
 }
-//?} else {
-/*import com.wf.gemrender.volume.Volumetrics;
-import dev.engine_room.flywheel.backend.engine.indirect.OitFramebuffer;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-@Mixin(value = OitFramebuffer.class, remap = false)
-abstract class OitFramebufferMixin {
-    /^* Scene depth for volume ray marching, shared by CrankShaft's wavelet and insert chains. ^/
-    @Inject(method = {"prepare", "prepareSize"}, at = @At("TAIL"))
-    private void gemrender$beginFrame(CallbackInfo ci) {
-        Volumetrics.getInstance()
-                .beginFrame();
-    }
-}
-*///?}

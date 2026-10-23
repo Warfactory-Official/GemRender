@@ -90,56 +90,18 @@ public class RopeInstance extends ColoredLitInstance {
 
     public RopeInstance lightB(int light) {
         this.lightB = light;
-        //? if >=26.2 {
-        /*ExtraMemoryOps.put2x16(slabPtr() + 8, light);
-        *///?}
         return this;
     }
 
     /** Both ends lit the same. */
     public RopeInstance litUniformly(int light) {
-        //? if >=26.2 {
-        /*light(light);
-        return lightB(light);
-        *///?} else {
         this.light = light;
         this.lightB = light;
         return this;
-        //?}
     }
 
-    //? if >=26.2 {
-    /*/^* Layout puts lightA at 4; CrankShaft's {@code ColoredLitInstance} writes 8. ^/
-    @Override
-    public RopeInstance light(int light) {
-        ExtraMemoryOps.put2x16(slabPtr() + 4, light);
-        return this;
-    }
-    *///?}
 
     private RopeInstance write() {
-        //? if >=26.2 {
-        /*long p = slabPtr();
-        ExtraMemoryOps.put2x16(p + 8, lightB);
-        MemoryUtil.memPutFloat(p + 12, a.x);
-        MemoryUtil.memPutFloat(p + 16, a.y);
-        MemoryUtil.memPutFloat(p + 20, a.z);
-        MemoryUtil.memPutFloat(p + 24, b.x);
-        MemoryUtil.memPutFloat(p + 28, b.y);
-        MemoryUtil.memPutFloat(p + 32, b.z);
-        MemoryUtil.memPutFloat(p + 36, shape.x);
-        MemoryUtil.memPutFloat(p + 40, shape.y);
-        MemoryUtil.memPutFloat(p + 44, shape.z);
-        MemoryUtil.memPutFloat(p + 48, shape.w);
-        MemoryUtil.memPutFloat(p + 52, sway.x);
-        MemoryUtil.memPutFloat(p + 56, sway.y);
-        MemoryUtil.memPutFloat(p + 60, sway.z);
-        MemoryUtil.memPutFloat(p + 64, sway.w);
-        MemoryUtil.memPutFloat(p + 68, sphere.x);
-        MemoryUtil.memPutFloat(p + 72, sphere.y);
-        MemoryUtil.memPutFloat(p + 76, sphere.z);
-        MemoryUtil.memPutFloat(p + 80, sphere.w);
-        *///?}
         return this;
     }
 

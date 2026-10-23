@@ -67,38 +67,9 @@ public class GemRenderInstance extends ColoredLitInstance {
         return write();
     }
 
-    //? if >=26.2 {
-    /*/^* Layout puts light at 4; CrankShaft's {@code ColoredLitInstance} writes 8. ^/
-    @Override
-    public GemRenderInstance light(int light) {
-        ExtraMemoryOps.put2x16(slabPtr() + 4, light);
-        return this;
-    }
-    *///?}
 
     /** Serializes every field to the slab; call after mutating a field directly, before {@code setChanged()}. */
-    //? if >=26.2 {
-    /*public GemRenderInstance write() {
-    *///?} else {
     private GemRenderInstance write() {
-    //?}
-        //? if >=26.2 {
-        /*long p = slabPtr();
-        MemoryUtil.memPutInt(p + 8, boneBase);
-        MemoryUtil.memPutInt(p + 12, morphBase);
-        MemoryUtil.memPutFloat(p + 16, boneSphere.x);
-        MemoryUtil.memPutFloat(p + 20, boneSphere.y);
-        MemoryUtil.memPutFloat(p + 24, boneSphere.z);
-        MemoryUtil.memPutFloat(p + 28, boneSphere.w);
-        ExtraMemoryOps.putMatrix4f(p + 32, pose);
-        MemoryUtil.memPutFloat(p + 96, uvOffset.x);
-        MemoryUtil.memPutFloat(p + 100, uvOffset.y);
-        MemoryUtil.memPutInt(p + 104, jointUvBase);
-        MemoryUtil.memPutInt(p + 108, paint);
-        MemoryUtil.memPutFloat(p + 112, paintScale);
-        MemoryUtil.memPutInt(p + 116, paintReference);
-        MemoryUtil.memPutInt(p + 120, paintRestBase);
-        *///?}
         return this;
     }
 
