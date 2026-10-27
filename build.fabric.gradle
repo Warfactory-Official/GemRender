@@ -391,6 +391,7 @@ if (direct_supported.toBoolean() && directMixinSet == 'direct26') {
 sourceSets.main.java.exclude 'com/wf/gemrender/water/WaterSplitEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/direct/DirectEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/medium/CameraMediumEvents.java'
+sourceSets.main.java.exclude 'com/wf/gemrender/lens/LensEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/iris/IrisPbrEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/light/LightEvents.java'
 
