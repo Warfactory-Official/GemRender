@@ -128,6 +128,8 @@ public final class GltfImporter {
         Map<ResourceLocation, ResourceLocation> resolved = new LinkedHashMap<>();
 
         ModelAtlas atlas = atlas(source, id, primitives, variants);
+        // Off the sheet there is one variant at most: its swaps name the texture drawn directly.
+        Map<ResourceLocation, ResourceLocation> swaps = variants.isEmpty() ? Map.of() : variants.get(0);
         if (atlas != null) {
             ownedTextures.add(atlas.texture());
         }
@@ -166,7 +168,7 @@ public final class GltfImporter {
 
             ResourceLocation texture = atlased ? atlas.texture()
                     : primitive.texture() == null ? UNTEXTURED
-                    : resolved.computeIfAbsent(primitive.texture(),
+                    : resolved.computeIfAbsent(swaps.getOrDefault(primitive.texture(), primitive.texture()),
                     key -> ModelTextures.materialTexture(key, ownedTextures));
 
             boolean banded = atlased && atlas.bands() > 1;
