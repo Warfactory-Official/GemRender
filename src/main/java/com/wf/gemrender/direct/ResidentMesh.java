@@ -2,6 +2,8 @@ package com.wf.gemrender.direct;
 
 import com.wf.gemrender.gltf.MeshGeometry;
 import com.wf.gemrender.gltf.skin.BoneAttributeCodec;
+import org.lwjgl.opengl.ARBInstancedArrays;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
@@ -121,22 +123,34 @@ final class ResidentMesh {
 
         for (int column = 0; column < 4; column++) {
             attribute(6 + column, 4, GL_FLOAT, false, INSTANCE_STRIDE, column * 16);
-            glVertexAttribDivisor(6 + column, 1);
+            perInstance(6 + column);
         }
         integerAttribute(10, 1, INSTANCE_STRIDE, 64);
-        glVertexAttribDivisor(10, 1);
+        perInstance(10);
         integerAttribute(11, 1, INSTANCE_STRIDE, 68);
-        glVertexAttribDivisor(11, 1);
+        perInstance(11);
         attribute(12, 2, GL_FLOAT, false, INSTANCE_STRIDE, 72);
-        glVertexAttribDivisor(12, 1);
+        perInstance(12);
         attribute(13, 4, GL_UNSIGNED_BYTE, true, INSTANCE_STRIDE, 80);
-        glVertexAttribDivisor(13, 1);
+        perInstance(13);
         // 14 = (overlay, uvOffset), 15 = paint: 16 attributes is the GL minimum.
         attribute(14, 4, GL_FLOAT, false, INSTANCE_STRIDE, 84);
-        glVertexAttribDivisor(14, 1);
+        perInstance(14);
         if (paint) {
             attribute(15, 4, GL_FLOAT, false, INSTANCE_STRIDE, 100);
-            glVertexAttribDivisor(15, 1);
+            perInstance(15);
+        }
+    }
+
+    /**
+     * Divisor 1. Core 3.3, else ARB_instanced_arrays: Minecraft asks for 3.2 core, and without FML's early window
+     * (Fabric, earlyWindowControl=false) NVIDIA returns exactly 3.2, where LWJGL never loads the core entry point.
+     */
+    private static void perInstance(int index) {
+        if (GL.getCapabilities().OpenGL33) {
+            glVertexAttribDivisor(index, 1);
+        } else {
+            ARBInstancedArrays.glVertexAttribDivisorARB(index, 1);
         }
     }
 
