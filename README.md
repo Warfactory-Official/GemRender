@@ -40,7 +40,9 @@ dependencies {
 ```
 
 Required client dependency of a mod drawing through it: declare it in `neoforge.mods.toml` / `mods.toml` /
-`fabric.mod.json`. Same public API on every target except two 26.1 seams:
+`fabric.mod.json`. Server-side posing (no meshes, any side): `GltfSkeletonReader.read` -> `GltfSkeleton` (layout +
+clips, same binding as the import); `GltfPose` / `AnimationBlend` on it. `extras.resourceLocation` buffers there need
+its resolver (no client resource manager). Same public API on every target except two 26.1 seams:
 
 - Item renderer claimed in **model JSON** (`"type": "minecraft:special"` naming `gemrender:model`), not
   `IClientItemExtensions`. `GemRenderItemRenderer.register(id, renderer)` unchanged.

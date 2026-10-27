@@ -18,8 +18,6 @@ import com.wf.gemrender.vendor.jgltf.GltfResourceHook;
 import com.wf.gemrender.vendor.jgltf.model.*;
 import com.wf.gemrender.vendor.jgltf.model.io.GltfModelReader;
 import com.wf.gemrender.vendor.jgltf.model.v2.MaterialModelV2;
-import com.wf.gemrender.vendor.mcgltf.animation.GltfAnimationCreator;
-import com.wf.gemrender.vendor.mcgltf.animation.GltfAnimationCreator.ChannelBinding;
 import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.model.Model;
 import dev.engine_room.flywheel.lib.model.SimpleModel;
@@ -231,20 +229,7 @@ public final class GltfImporter {
             slotMeshes.add(new GemRenderGltfModel.SlotMesh(group.getKey().getKey(), group.getKey().getValue(), mesh));
         }
 
-        Map<String, GltfAnimation> animations = new LinkedHashMap<>();
-        for (AnimationModel animationModel : gltf.getAnimationModels()) {
-            List<ChannelBinding> bindings = GltfAnimationCreator.createGltfAnimation(animationModel);
-            if (bindings.isEmpty()) {
-                continue;
-            }
-
-            String name = animationModel.getName();
-            if (name == null || name.isBlank()) {
-                name = "animation" + animations.size();
-            }
-
-            animations.put(name, GltfAnimation.of(name, bindings, layout.nodeTable()));
-        }
+        Map<String, GltfAnimation> animations = GltfSkeletonReader.animations(gltf, layout.nodeTable());
 
         GltfMorphLayout morphLayout = morphs.build();
         GemRenderGltfModel converted = new GemRenderGltfModel(new SimpleModel(meshes), layout, bounds.build(),

@@ -24,9 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Keeping it behind this class is what allows the vendored parser to stay otherwise unmodified, so it
  * can be re-synced against upstream jgltf without replaying the patch by hand.
  *
- * <p>Client only: resolution goes through {@link Minecraft#getResourceManager()}. Parsing a glTF that
- * uses the hook on a dedicated server will fail, which is intended -- GemRender is a renderer, and no
- * server-side code has any business loading mesh data.
+ * <p>Resolution goes through {@link Minecraft#getResourceManager()}, else the reading thread's
+ * {@link #resolving} resolver (dedicated server: {@link com.wf.gemrender.gltf.GltfSkeletonReader}).
  */
 public final class GltfResourceHook {
     /**
@@ -35,6 +34,28 @@ public final class GltfResourceHook {
     public static final String RESOURCE_LOCATION = "resourceLocation";
 
     private static final Map<ResourceLocation, ByteBuffer> CACHE = new ConcurrentHashMap<>();
+    /** Set => buffers read through it, uncached (not the client's resources). */
+    private static final ThreadLocal<Resolver> RESOLVER = new ThreadLocal<>();
+
+    @FunctionalInterface
+    public interface Resolver {
+        byte[] read(ResourceLocation location) throws IOException;
+    }
+
+    @FunctionalInterface
+    public interface Read<T> {
+        T read() throws IOException;
+    }
+
+    /** {@code read} with hook resources from {@code resolver} on this thread. */
+    public static <T> T resolving(Resolver resolver, Read<T> read) throws IOException {
+        RESOLVER.set(resolver);
+        try {
+            return read.read();
+        } finally {
+            RESOLVER.remove();
+        }
+    }
 
     private GltfResourceHook() {
     }
@@ -57,6 +78,14 @@ public final class GltfResourceHook {
      * <p>The returned buffer is shared and cached: callers must slice rather than consume it.
      */
     public static ByteBuffer getBufferResource(ResourceLocation location) {
+        Resolver resolver = RESOLVER.get();
+        if (resolver != null) {
+            try {
+                return Buffers.create(resolver.read(location));
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to read glTF resource " + location, e);
+            }
+        }
         return CACHE.computeIfAbsent(location, loc -> {
             try (InputStream in = Minecraft.getInstance()
                     .getResourceManager()

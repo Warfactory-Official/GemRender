@@ -84,6 +84,11 @@ public record GemRenderGltfModel(Model model, GltfPaletteLayout layout, SkinnedB
         return layout.size();
     }
 
+    /** Pose data alone: what a server evaluating the same file sees. */
+    public GltfSkeleton skeleton() {
+        return new GltfSkeleton(layout, animations);
+    }
+
     /**
      * Palette at rest: pins paint to each part. New array per call; cache it.
      */
