@@ -46,6 +46,59 @@ public record GemRenderGltfModel(Model model, GltfPaletteLayout layout, SkinnedB
     public record SlotMesh(String slot, GltfMaterial material, GltfMesh mesh) {
     }
 
+    /**
+     * Physical frame of a slot quad, from its authored UVs: {@code width} / {@code height} = model length of one
+     * U / V unit (first triangle), {@code centre} = mesh bounds centre in the owner node's space, {@code node} =
+     * that node's palette slot. Null: no such slot, or a degenerate first triangle.
+     */
+    @Nullable
+    public SlotFrame slotFrame(String slot) {
+        for (SlotMesh slotMesh : slotMeshes) {
+            if (!slotMesh.slot().equals(slot)) {
+                continue;
+            }
+            MeshGeometry g = slotMesh.mesh().geometry();
+            if (g.indexCount() < 3) {
+                return null;
+            }
+            int a = g.index(0);
+            int b = g.index(1);
+            int c = g.index(2);
+            float[] ab = delta(g, a, b);
+            float[] ac = delta(g, a, c);
+            float du1 = g.texCoord(b, 0) - g.texCoord(a, 0);
+            float dv1 = g.texCoord(b, 1) - g.texCoord(a, 1);
+            float du2 = g.texCoord(c, 0) - g.texCoord(a, 0);
+            float dv2 = g.texCoord(c, 1) - g.texCoord(a, 1);
+            float det = du1 * dv2 - du2 * dv1;
+            if (Math.abs(det) < 1.0E-9f) {
+                return null;
+            }
+            double du = 0;
+            double dv = 0;
+            for (int k = 0; k < 3; k++) {
+                float pu = (ab[k] * dv2 - ac[k] * dv1) / det;
+                float pv = (ac[k] * du1 - ab[k] * du2) / det;
+                du += pu * pu;
+                dv += pv * pv;
+            }
+            org.joml.Vector4fc sphere = g.boundingSphere();
+            return new SlotFrame((float) Math.sqrt(du), (float) Math.sqrt(dv),
+                    new org.joml.Vector3f(sphere.x(), sphere.y(), sphere.z()),
+                    com.wf.gemrender.gltf.skin.BoneAttributeCodec.unpackJoint(g.packedJoints(a), 0));
+        }
+        return null;
+    }
+
+    private static float[] delta(MeshGeometry g, int from, int to) {
+        return new float[]{g.position(to, 0) - g.position(from, 0), g.position(to, 1) - g.position(from, 1),
+                g.position(to, 2) - g.position(from, 2)};
+    }
+
+    /** See {@link #slotFrame}. */
+    public record SlotFrame(float width, float height, org.joml.Vector3f centre, int node) {
+    }
+
     /** Distinct slot names, in mesh order. */
     public List<String> slots() {
         return slotMeshes.stream().map(SlotMesh::slot).distinct().toList();

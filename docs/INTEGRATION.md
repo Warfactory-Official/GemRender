@@ -1255,6 +1255,7 @@ DirectRenderer.submit(model, palette, morphs, pose, light, overlay, argb, Direct
 - Unbound (`null`) => that slot's meshes not drawn; the overloads without `TextureSlots` bind none.
 - `TextureSlots.emissive(slot)` => slot unlit (displays): no diffuse, lightmap, dynamic lights; overlay still applies.
 - Slot primitives: never atlased, UVs as authored, merged per (slot, material); batched per (mesh, texture).
+- `GemRenderGltfModel.slotFrame(slot)` => quad width / height (model units per U / V from the first triangle's UVs), mesh centre, owner node's palette slot. `DirectRenderer.submitSlots(model, palette, morphs, pose, light, overlay, argb, pass, slots)` draws only the slot meshes at an already posed palette (the body drawn by a world visual).
 - Direct path only: outside the Flywheel `Model` => world visuals draw none. `GemRenderGltfModel.slots()` lists them.
 - Items: `ItemAppearance.slots(stack, context)`.
 - Untextured material, `baseColorFactor != 1` => atlased (1x1 bake), even alone; off the sheet = white.

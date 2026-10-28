@@ -253,10 +253,51 @@ public final class DirectRenderer {
         DirectStats.submitEnd(queued);
     }
 
+    /**
+     * Only the model's slot meshes, at an already posed palette: the body is drawn elsewhere (a world visual).
+     * Unbound slots draw nothing.
+     */
+    public static void submitSlots(GemRenderGltfModel model, Matrix4f[] palette, @Nullable float[] morphBlock,
+                                   Matrix4f pose, int light, int overlay, int argb, DirectPass pass,
+                                   TextureSlots slots) {
+        RenderSystem.assertOnRenderThread();
+
+        if (model.slotMeshes().isEmpty() || !DirectProgram.getInstance()
+                .ensureCreated()) {
+            return;
+        }
+
+        ResidentModel resident = ResidentModels.get(model);
+        if (resident == null) {
+            return;
+        }
+
+        DirectPass queued = queueFor(pass);
+        DirectStats.submitBegin();
+        guiQueued |= queued == DirectPass.GUI;
+
+        PassQueue queue = QUEUES.computeIfAbsent(queued, key -> new PassQueue());
+        PaletteSlot slot = stage(model, palette, morphBlock);
+        DirectStats.palette(queued, false);
+
+        enqueue(queue, resident, pose, slot, light, overlay, argb, VariantUv.NONE, Paint.NONE, 0, 0, slots, true);
+
+        DirectStats.submitEnd(queued);
+    }
+
     private static void enqueue(PassQueue queue, ResidentModel resident, Matrix4f pose, PaletteSlot slot, int light,
                                 int overlay, int argb, VariantUv variant, Paint paint, int reference, int restBase,
                                 TextureSlots slots) {
+        enqueue(queue, resident, pose, slot, light, overlay, argb, variant, paint, reference, restBase, slots, false);
+    }
+
+    private static void enqueue(PassQueue queue, ResidentModel resident, Matrix4f pose, PaletteSlot slot, int light,
+                                int overlay, int argb, VariantUv variant, Paint paint, int reference, int restBase,
+                                TextureSlots slots, boolean slotsOnly) {
         for (ResidentModel.Part part : resident.parts()) {
+            if (slotsOnly && part.slot() == null) {
+                continue;
+            }
             Batch batch;
             int partLight = light;
             if (part.slot() == null) {
