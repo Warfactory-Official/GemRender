@@ -4,7 +4,10 @@ import com.wf.gemrender.render.Vanilla;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.Minecraft;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import org.lwjgl.system.MemoryStack;
+
+import java.nio.IntBuffer;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL20C.GL_CURRENT_PROGRAM;
@@ -12,19 +15,21 @@ import static org.lwjgl.opengl.GL20C.glDrawBuffers;
 import static org.lwjgl.opengl.GL30C.*;
 
 /**
- * IR irradiance x albedo of the main view ({@link Lights.IrView#SPLIT}): RGBA16F, main target size. COLOR1 of
- * the main framebuffer from {@code AFTER_SKY} to the end of the hand pass; detached otherwise.
- * <p>COLOR1 is writable only while a program with {@code _grl_irOut} at location 1 is bound. Programs without
- * that output leave the IR image intact, including when the renderer switches away from and back to the main target.
- * <p>Gap: Fabulous translucent/particle/weather targets carry no COLOR1 => no IR there.
+ * IR irradiance x albedo of the main view ({@link Lights.IrView#SPLIT}): RGBA16F, main target size, from
+ * {@code AFTER_SKY} to the end of the hand pass. Attached to every framebuffer drawing into the main colour texture
+ * (main target; Veil {@code dynamic_main}, colour attachments 1..n = its dynamic buffers) at its first free colour
+ * attachment, which equals {@link LightShaders#irLocation} of the programs drawn there; detached otherwise.
+ * <p>The IR draw buffer is enabled only while a program with {@code _grl_irOut} at that index is bound. Programs
+ * without that output leave the IR image intact, including when the renderer switches away from and back to the
+ * main target. {@code _grl_irOut} at an index owned by another attachment => that draw buffer {@code GL_NONE}.
+ * <p>Gap: Fabulous translucent/particle/weather targets carry no IR attachment => no IR there.
  */
 public final class IrTarget {
     private static final float[] ZERO = new float[4];
-    private static final int[] COLOR_ONLY = {GL_COLOR_ATTACHMENT0};
-    private static final int[] COLOR_AND_IR = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    /** Framebuffer -> IR attachment index; 0 = draws elsewhere. Per level pass: framebuffer names are reused. */
+    private static final Int2IntOpenHashMap INDEX = new Int2IntOpenHashMap();
 
     private static int texture;
-    private static int fbo;
     private static int width;
     private static int height;
     private static boolean pending;
@@ -55,18 +60,17 @@ public final class IrTarget {
         }
         pending = false;
         RenderSystem.assertOnRenderThread();
-        RenderTarget main = com.wf.gemrender.render.Vanilla.mainTarget();
+        RenderTarget main = Vanilla.mainTarget();
         if (texture == 0 || width != main.width || height != main.height) {
             allocate(main.width, main.height);
         }
         int previous = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
-        fbo = Vanilla.fboOf(main);
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texture, 0);
-        glDrawBuffers(COLOR_AND_IR);
-        glClearBufferfv(GL_COLOR, 1, ZERO);
+        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, Vanilla.fboOf(main));
         attached = true;
-        drawBuffersForProgram(glGetInteger(GL_CURRENT_PROGRAM));
+        int index = index(glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING));
+        drawBuffers(index, index);
+        glClearBufferfv(GL_COLOR, index, ZERO);
+        drawBuffers(index, irLocation(glGetInteger(GL_CURRENT_PROGRAM)));
         GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previous);
     }
 
@@ -78,35 +82,87 @@ public final class IrTarget {
         }
         attached = false;
         int previous = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
-        GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
-        glDrawBuffers(COLOR_ONLY);
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, 0, 0);
+        for (var entry : INDEX.int2IntEntrySet()) {
+            int index = entry.getIntValue();
+            if (index == 0 || !glIsFramebuffer(entry.getIntKey())) {
+                continue;
+            }
+            GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, entry.getIntKey());
+            drawBuffers(index, -1);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, 0, 0);
+        }
+        INDEX.clear();
         GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previous);
     }
 
     public static void programChanged(int program) {
-        if (attached && glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING) == fbo) {
-            drawBuffersForProgram(program);
+        if (attached) {
+            int index = index(glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING));
+            if (index != 0) {
+                drawBuffers(index, irLocation(program));
+            }
         }
     }
 
     public static void framebufferBound(int target, int framebuffer) {
-        if (attached && framebuffer == fbo && (target == GL_FRAMEBUFFER || target == GL_DRAW_FRAMEBUFFER)) {
-            drawBuffersForProgram(glGetInteger(GL_CURRENT_PROGRAM));
+        if (attached && (target == GL_FRAMEBUFFER || target == GL_DRAW_FRAMEBUFFER)) {
+            int index = index(framebuffer);
+            if (index != 0) {
+                drawBuffers(index, irLocation(glGetInteger(GL_CURRENT_PROGRAM)));
+            }
         }
     }
 
     /** Render passes can reset their draw buffers even when the program and framebuffer stay bound. */
     public static void refreshDrawBuffers() {
-        if (attached && glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING) == fbo) {
-            drawBuffersForProgram(glGetInteger(GL_CURRENT_PROGRAM));
-        }
+        programChanged(glGetInteger(GL_CURRENT_PROGRAM));
     }
 
-    /** The currently bound draw framebuffer owns COLOR1 as its IR image. */
-    static void drawBuffersForProgram(int program) {
-        var writesIr = program != 0 && glGetFragDataLocation(program, "_grl_irOut") == 1;
-        glDrawBuffers(writesIr ? COLOR_AND_IR : COLOR_ONLY);
+    /** {@code framebuffer} bound to DRAW. First sight in this pass: main colour => IR attached at first free slot. */
+    private static int index(int framebuffer) {
+        if (framebuffer == 0) {
+            return 0;
+        }
+        int known = INDEX.getOrDefault(framebuffer, -1);
+        if (known >= 0) {
+            return known;
+        }
+        int index = 0;
+        if (glGetFramebufferAttachmentParameteri(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE) == GL_TEXTURE
+                && glGetFramebufferAttachmentParameteri(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) == Vanilla.colorTextureId(Vanilla.mainTarget())) {
+            index = 1;
+            while (glGetFramebufferAttachmentParameteri(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index,
+                    GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE) != GL_NONE) {
+                index++;
+            }
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index, GL_TEXTURE_2D, texture, 0);
+        }
+        INDEX.put(framebuffer, index);
+        return index;
+    }
+
+    /** Bound framebuffer with IR attached at {@code index}, {@code program} current. */
+    static void drawBuffersFor(int index, int program) {
+        drawBuffers(index, irLocation(program));
+    }
+
+    private static int irLocation(int program) {
+        return program == 0 ? -1 : glGetFragDataLocation(program, "_grl_irOut");
+    }
+
+    /** Bound framebuffer, IR attached at {@code index}: colour 0..index-1, plus IR iff {@code location == index}. */
+    private static void drawBuffers(int index, int location) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer buffers = stack.mallocInt(index + 1);
+            for (int i = 0; i < index; i++) {
+                buffers.put(i, i == location && i != 0 ? GL_NONE : GL_COLOR_ATTACHMENT0 + i);
+            }
+            buffers.put(index, GL_COLOR_ATTACHMENT0 + index);
+            buffers.limit(location == index ? index + 1 : index);
+            glDrawBuffers(buffers);
+        }
     }
 
     private static void allocate(int w, int h) {

@@ -7,6 +7,9 @@ import net.minecraft.resources.ResourceLocation;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -21,7 +24,7 @@ import static org.lwjgl.opengl.GL31C.glUniformBlockBinding;
 /**
  * Source patches: before fog, {@code colour += albedo * gemrender_lights(p, n)}; the lit colour is never rebuilt as
  * albedo x lightmap (on Sable sub-levels that product loses the face shading); IR term ->
- * {@code _grl_irOut} (location 1, {@link IrTarget}). Albedo = lit colour / lightmap sample, the vanilla path fed
+ * {@code _grl_irOut} ({@link #irLocation}, {@link IrTarget}). Albedo = lit colour / lightmap sample, the vanilla path fed
  * {@code max(lightmap, 1/255)} => a zeroed lightmap (darkness mods) still recovers albedo.
  * Anchor missing => throw: a changed upstream shader must not silently go unlit.
  */
@@ -61,7 +64,9 @@ public final class LightShaders {
     private static final Pattern VANILLA_FOG = Pattern.compile("fragColor = linear_fog\\(color,");
 //?}
     private static final Pattern MAIN = Pattern.compile("void main\\(\\) \\{");
-    private static final Pattern VANILLA_OUT = Pattern.compile("(?m)^\\s*out\\s+vec4\\s+fragColor\\s*;");
+    /** Veil dynamic buffers reprint it as {@code layout(location = 0) out vec4 fragColor;}. */
+    private static final Pattern VANILLA_OUT = Pattern.compile(
+            "(?m)^\\s*(?:layout\\s*\\(\\s*location\\s*=\\s*0\\s*\\)\\s*)?out\\s+vec4\\s+fragColor\\s*;");
 
     /** Sodium {@code texture(u_LightTex, uv)} (uv 0..1); Embeddium 0.3 {@code _sample_lightmap(u_LightTex, uv)} (uv 0..256). */
     private static final Pattern SODIUM_LIGHTMAP =
@@ -127,18 +132,24 @@ public final class LightShaders {
             }
             """;
 
+    /** %d IR output location. */
     private static final String FRAGMENT_INPUTS = """
             in vec3 _grl_pos;
             in vec3 _grl_normal;
             in vec4 _grl_lmColor;
             in float _grl_sky;
-            layout(location = 1) out vec4 _grl_irOut;
+            layout(location = %d) out vec4 _grl_irOut;
             """;
 
     /** GLSL 150 (vanilla): explicit output locations. */
     private static final String EXPLICIT_LOCATION = "#extension GL_ARB_explicit_attrib_location : require\n";
 
     private static final String PREPARE = "$0\n    gemrender_lightPrepare(_grl_pos);\n    _grl_irOut = vec4(0.0);";
+    /**
+     * Sodium: prepare spliced before fog, not at {@code main} head. Veil {@code SodiumShaderPreProcessor} inserts its
+     * albedo output at main body index 1, reading {@code lodBias} declared by statement 0.
+     */
+    private static final String SODIUM_PREPARE = "gemrender_lightPrepare(_grl_pos);\n    _grl_irOut = vec4(0.0);\n    ";
 
     /** %1$s colour variable, %2$s light call. */
     private static final String ADD = """
@@ -148,6 +159,8 @@ public final class LightShaders {
                 """;
 
     private static String include;
+    private static volatile MethodHandle veilRenderer;
+    private static MethodHandle veilMask;
 
     private LightShaders() {
     }
@@ -173,6 +186,11 @@ public final class LightShaders {
     }
 
     public static String vanilla(String name, boolean vertex, String source) {
+        return vanilla(name, vertex, source, irLocation(veilBuffers()));
+    }
+
+    /** @param irLocation {@link #irLocation} of the Veil buffer mask this program is compiled for */
+    public static String vanilla(String name, boolean vertex, String source, int irLocation) {
         if (!VANILLA.contains(name)) {
             return source;
         }
@@ -200,10 +218,15 @@ public final class LightShaders {
         patched = replaceOne(name, patched, VANILLA_FOG,
                 ADD.formatted("color", "gemrender_lights(_grl_pos, " + (FACE_NORMAL.contains(name)
                         ? "gemrender_lightFaceNormal(_grl_pos)" : "gemrender_lightNormal(_grl_normal)") + ")") + "$0");
-        return afterVersion(name, patched, EXPLICIT_LOCATION + include() + FRAGMENT_INPUTS);
+        return afterVersion(name, patched, EXPLICIT_LOCATION + include() + fragmentInputs(name, patched, irLocation));
     }
 
     public static String sodium(ResourceLocation id, String source) {
+        return sodium(id, source, irLocation(veilBuffers()));
+    }
+
+    /** @param irLocation {@link #irLocation} of the Veil buffer mask Veil applies to this compile */
+    public static String sodium(ResourceLocation id, String source, int irLocation) {
         String name = id.toString();
         if (id.equals(SODIUM_VERTEX)) {
             String patched = wrapLightmap(name, source, SODIUM_LIGHTMAP,
@@ -214,11 +237,10 @@ public final class LightShaders {
             return afterVersion(name, patched, VERTEX_DECLARATIONS);
         }
         if (id.equals(SODIUM_FRAGMENT)) {
-            String patched = replaceOne(name, source, MAIN, PREPARE);
-            patched = replaceOne(name, patched, VANILLA_OUT, "layout(location = 0) out vec4 fragColor;");
-            patched = replaceOne(name, patched, SODIUM_FOG,
-                    ADD.formatted("$1", "gemrender_lights(_grl_pos, gemrender_lightFaceNormal(_grl_pos))") + "$0");
-            return afterVersion(name, patched, include() + FRAGMENT_INPUTS);
+            String patched = replaceOne(name, source, VANILLA_OUT, "layout(location = 0) out vec4 fragColor;");
+            patched = replaceOne(name, patched, SODIUM_FOG, SODIUM_PREPARE
+                    + ADD.formatted("$1", "gemrender_lights(_grl_pos, gemrender_lightFaceNormal(_grl_pos))") + "$0");
+            return afterVersion(name, patched, include() + fragmentInputs(name, patched, irLocation));
         }
         return source;
     }
@@ -302,6 +324,54 @@ public final class LightShaders {
         //?} else {
         /*return false;
         *///?}
+    }
+
+    /** First fragment output after Veil's dynamic buffers ({@code layout(location = 1 + i)} per active type). */
+    public static int irLocation(int veilBuffers) {
+        return 1 + Integer.bitCount(veilBuffers);
+    }
+
+    /** Veil {@code DynamicBufferManager} active mask; 0 without Veil, before Veil init, or on a Veil without dynamic buffers. */
+    static int veilBuffers() {
+        if (veilRenderer == null) {
+            resolveVeil();
+        }
+        try {
+            Object renderer = veilRenderer.invoke();
+            return renderer == null ? 0 : (int) veilMask.invoke(renderer);
+        } catch (Throwable t) {
+            throw new IllegalStateException("GemRender lights: Veil buffer mask", t);
+        }
+    }
+
+    private static synchronized void resolveVeil() {
+        if (veilRenderer != null) {
+            return;
+        }
+        MethodHandle renderer = MethodHandles.constant(Object.class, null);
+        MethodHandle mask = null;
+        try {
+            Class<?> system = Class.forName("foundry.veil.api.client.render.VeilRenderSystem");
+            MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+            Method rendererGetter = system.getMethod("renderer");
+            Method managerGetter = rendererGetter.getReturnType().getMethod("getDynamicBufferManger");
+            MethodHandle manager = lookup.unreflect(managerGetter);
+            mask = MethodHandles.filterReturnValue(manager,
+                    lookup.unreflect(managerGetter.getReturnType().getMethod("getActiveBuffers")));
+            renderer = lookup.unreflect(rendererGetter);
+        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+        veilMask = mask;
+        veilRenderer = renderer;
+    }
+
+    private static String fragmentInputs(String name, String source, int irLocation) {
+        if (Pattern.compile("layout\\s*\\(\\s*location\\s*=\\s*" + irLocation + "\\s*\\)\\s*out\\b").matcher(source).find()) {
+            throw new IllegalStateException("GemRender lights: " + name + " already has an output at IR location " + irLocation);
+        }
+        return FRAGMENT_INPUTS.formatted(irLocation);
     }
 
     private static String afterVersion(String name, String source, String text) {

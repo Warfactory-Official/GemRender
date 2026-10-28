@@ -1,6 +1,7 @@
 package com.wf.gemrender.light;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.lwjgl.opengl.GL46C.*;
 
 import com.wf.gemrender.gl.HeadlessGl;
@@ -526,7 +527,7 @@ class LightShadingGlTest {
 			var expected = new float[] {0.25f, 0.5f, 0.75f, 1.0f};
 			for (var i : new int[] {0, 1, 2, 0}) {
 				glUseProgram(programs[i]);
-				IrTarget.drawBuffersForProgram(programs[i]);
+				IrTarget.drawBuffersFor(1, programs[i]);
 				assertThat(glGetInteger(GL_DRAW_BUFFER1)).isEqualTo(i == 1 ? GL_COLOR_ATTACHMENT1 : GL_NONE);
 				glDrawArrays(GL_TRIANGLES, 0, 3);
 				if (i == 1) {
@@ -545,7 +546,7 @@ class LightShadingGlTest {
 			glLinkProgram(programs[1]);
 			assertThat(glGetProgrami(programs[1], GL_LINK_STATUS)).isEqualTo(GL_TRUE);
 			glUseProgram(programs[1]);
-			IrTarget.drawBuffersForProgram(programs[1]);
+			IrTarget.drawBuffersFor(1, programs[1]);
 			assertThat(glGetInteger(GL_DRAW_BUFFER1)).isEqualTo(GL_NONE);
 			glDrawArrays(GL_TRIANGLES, 0, 3);
 			glReadBuffer(GL_COLOR_ATTACHMENT1);
@@ -553,7 +554,7 @@ class LightShadingGlTest {
 			assertThat(kept).containsExactly(expected);
 
 			glUseProgram(0);
-			IrTarget.drawBuffersForProgram(0);
+			IrTarget.drawBuffersFor(1, 0);
 			assertThat(glGetInteger(GL_DRAW_BUFFER1)).isEqualTo(GL_NONE);
 			assertThat(glGetError()).isEqualTo(GL_NO_ERROR);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -567,6 +568,149 @@ class LightShadingGlTest {
 				glDeleteShader(fragment);
 			}
 			glDeleteShader(vertex);
+		}
+	}
+
+	/**
+	 * Veil {@code dynamic_main} shape: colour 0, Veil buffer 1, IR 2. A program compiled before Veil's buffers turned
+	 * on (IR at 1) must not write into Veil's attachment.
+	 */
+	@Test
+	void irDrawBuffersBesideVeilBuffers() {
+		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
+			int vertex = shader("fill", GL_VERTEX_SHADER, """
+					#version 330 core
+					void main() {
+					    gl_Position = vec4(vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0), 0.0, 1.0);
+					}
+					""");
+			var bodies = new String[] {
+					"layout(location = 1) out vec4 VeilDynamicAlbedo;\nlayout(location = 2) out vec4 _grl_irOut;\n"
+							+ "void main() { colour = vec4(1.0); VeilDynamicAlbedo = vec4(0.5); _grl_irOut = vec4(0.75); }",
+					"layout(location = 1) out vec4 _grl_irOut;\nvoid main() { colour = vec4(1.0); _grl_irOut = vec4(0.125); }",
+					"layout(location = 1) out vec4 VeilDynamicAlbedo;\nvoid main() { colour = vec4(1.0); VeilDynamicAlbedo = vec4(0.25); }"};
+			var programs = new int[bodies.length];
+			for (var i = 0; i < bodies.length; i++) {
+				programs[i] = glCreateProgram();
+				int fragment = shader("veil" + i, GL_FRAGMENT_SHADER, "#version 330 core\nlayout(location = 0) out vec4 colour;\n" + bodies[i]);
+				glAttachShader(programs[i], vertex);
+				glAttachShader(programs[i], fragment);
+				glLinkProgram(programs[i]);
+				assertThat(glGetProgrami(programs[i], GL_LINK_STATUS)).as(glGetProgramInfoLog(programs[i])).isEqualTo(GL_TRUE);
+				glDeleteShader(fragment);
+			}
+			int vao = glGenVertexArrays();
+			glBindVertexArray(vao);
+			int[] targets = {texture(8, 8, 0.0f), texture(8, 8, 0.0f), texture(8, 8, 0.0f)};
+			int fbo = glGenFramebuffers();
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+			for (var i = 0; i < targets.length; i++) {
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, targets[i], 0);
+			}
+			glViewport(0, 0, 8, 8);
+			float[] veil = new float[4];
+			float[] ir = new float[4];
+			// program -> {Veil buffer, IR} after its draw
+			float[][] expected = {{0.5f, 0.75f}, {0.5f, 0.75f}, {0.25f, 0.75f}};
+			for (var i = 0; i < programs.length; i++) {
+				glUseProgram(programs[i]);
+				IrTarget.drawBuffersFor(2, programs[i]);
+				assertThat(glGetInteger(GL_DRAW_BUFFER1)).as("program %d", i).isEqualTo(i == 1 ? GL_NONE : GL_COLOR_ATTACHMENT1);
+				assertThat(glGetInteger(GL_DRAW_BUFFER2)).as("program %d", i).isEqualTo(i == 0 ? GL_COLOR_ATTACHMENT2 : GL_NONE);
+				glDrawArrays(GL_TRIANGLES, 0, 3);
+				glReadBuffer(GL_COLOR_ATTACHMENT1);
+				glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, veil);
+				glReadBuffer(GL_COLOR_ATTACHMENT2);
+				glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, ir);
+				assertThat(veil).as("program %d", i).containsOnly(expected[i][0]);
+				assertThat(ir).as("program %d", i).containsOnly(expected[i][1]);
+			}
+			assertThat(glGetError()).isEqualTo(GL_NO_ERROR);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glDeleteFramebuffers(fbo);
+			glDeleteTextures(targets);
+			glDeleteVertexArrays(vao);
+			for (var program : programs) {
+				glDeleteProgram(program);
+			}
+			glDeleteShader(vertex);
+		}
+	}
+
+	/** Veil buffers on (albedo + normal at 1, 2): {@code fragColor} reprinted with a location; IR moves to 3. */
+	@Test
+	void veilRewrittenFragmentsPatch() {
+		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
+			for (String name : VANILLA) {
+				String source = vanilla(name + ".fsh").replaceFirst("(?m)^out vec4 fragColor;",
+						"layout(location = 0) out vec4 fragColor;\nlayout(location = 1) out vec4 VeilDynamicAlbedo;\n"
+								+ "layout(location = 2) out vec4 VeilDynamicNormal;");
+				assertThat(source).as(name).contains("VeilDynamicAlbedo");
+				int program = glCreateProgram();
+				int vertex = shader(name, GL_VERTEX_SHADER, LightShaders.vanilla(name, true, vanilla(name + ".vsh")));
+				int fragment = shader(name, GL_FRAGMENT_SHADER,
+						LightShaders.vanilla(name, false, source, LightShaders.irLocation(0b11)));
+				glAttachShader(program, vertex);
+				glAttachShader(program, fragment);
+				glLinkProgram(program);
+				assertThat(glGetProgrami(program, GL_LINK_STATUS)).as(name + ": " + glGetProgramInfoLog(program))
+						.isEqualTo(GL_TRUE);
+				assertThat(glGetFragDataLocation(program, "_grl_irOut")).as(name).isEqualTo(3);
+				glDeleteShader(vertex);
+				glDeleteShader(fragment);
+				glDeleteProgram(program);
+				assertThatThrownBy(() -> LightShaders.vanilla(name, false, source, 1)).as(name)
+						.hasMessageContaining("already has an output at IR location 1");
+			}
+		}
+	}
+
+	/** Sodium 0.8 {@code block_layer_opaque.fsh}, imports inlined. */
+	private static final String SODIUM_FRAGMENT = """
+			#version 330 core
+			#define MAX_TEXTURE_LOD_BIAS 4
+			vec4 _linearFog(vec4 fragColor, float fragDistance, vec4 fogColor, float fogStart, float fogEnd) {
+			    return vec4(mix(fragColor.rgb, fogColor.rgb, smoothstep(fogStart, fogEnd, fragDistance) * fogColor.a), fragColor.a);
+			}
+			bool _material_use_mips(uint material) {
+			    return (material & 1u) != 0u;
+			}
+			in vec4 v_Color;
+			in vec2 v_TexCoord;
+			in float v_FragDistance;
+			flat in uint v_Material;
+			uniform sampler2D u_BlockTex;
+			uniform vec4 u_FogColor;
+			uniform float u_FogStart;
+			uniform float u_FogEnd;
+			out vec4 fragColor; // The output fragment for the color framebuffer
+			void main() {
+			    float lodBias = _material_use_mips(v_Material) ? 0.0 : float(-MAX_TEXTURE_LOD_BIAS);
+			    vec4 color = texture(u_BlockTex, v_TexCoord, lodBias);
+			    color *= v_Color;
+			    fragColor = _linearFog(color, v_FragDistance, u_FogColor, u_FogStart, u_FogEnd);
+			}
+			""";
+
+	/**
+	 * Veil {@code SodiumShaderPreProcessor} (albedo + normal on): outputs at 1, 2; albedo assignment inserted at main
+	 * body index 1, reading statement 0's {@code lodBias}.
+	 */
+	@Test
+	void sodiumFragmentSurvivesVeilBuffers() {
+		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
+			String patched = LightShaders.sodium(com.wf.gemrender.Ids.of("sodium",
+					"blocks/block_layer_opaque.fsh"), SODIUM_FRAGMENT, LightShaders.irLocation(0b11));
+			int head = patched.indexOf("void main() {") + "void main() {".length();
+			int first = patched.indexOf(';', head) + 1;
+			assertThat(patched.substring(head, first)).contains("float lodBias");
+			String veil = patched.substring(0, patched.indexOf("void main() {"))
+					+ "layout(location = 1) out vec4 VeilDynamicAlbedo;\nlayout(location = 2) out vec4 VeilDynamicNormal;\n"
+					+ patched.substring(patched.indexOf("void main() {"), first)
+					+ "\n    VeilDynamicAlbedo = texture(u_BlockTex, v_TexCoord, lodBias);\n    VeilDynamicNormal = vec4(0.0, 1.0, 0.0, 1.0);"
+					+ patched.substring(first);
+			int fragment = shader("sodium", GL_FRAGMENT_SHADER, veil);
+			glDeleteShader(fragment);
 		}
 	}
 
