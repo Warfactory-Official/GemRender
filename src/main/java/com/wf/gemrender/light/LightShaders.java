@@ -11,6 +11,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,7 +64,7 @@ public final class LightShaders {
             "\\b(?:minecraft_sample_lightmap|texelFetch)\\(\\s*Sampler2\\s*,");
     private static final Pattern VANILLA_FOG = Pattern.compile("fragColor = linear_fog\\(color,");
 //?}
-    private static final Pattern MAIN = Pattern.compile("void main\\(\\) \\{");
+    private static final Pattern MAIN = Pattern.compile("void\\s+main\\s*\\(\\s*\\)\\s*\\{");
     /** Veil dynamic buffers reprint it as {@code layout(location = 0) out vec4 fragColor;}. */
     private static final Pattern VANILLA_OUT = Pattern.compile(
             "(?m)^\\s*(?:layout\\s*\\(\\s*location\\s*=\\s*0\\s*\\)\\s*)?out\\s+vec4\\s+fragColor\\s*;");
@@ -161,6 +162,8 @@ public final class LightShaders {
     private static String include;
     private static volatile MethodHandle veilRenderer;
     private static MethodHandle veilMask;
+    /** Shaders whose vertex stage a resource pack replaced beyond patching; their fragment stage is left alone too. */
+    private static final Set<String> UNPATCHED = new HashSet<>();
 
     private LightShaders() {
     }
@@ -189,11 +192,38 @@ public final class LightShaders {
         return vanilla(name, vertex, source, irLocation(veilBuffers()));
     }
 
-    /** @param irLocation {@link #irLocation} of the Veil buffer mask this program is compiled for */
+    /**
+     * A resource pack's own copy of a vanilla shader may not fit the anchors. That shader then goes unlit by GemRender
+     * rather than failing the reload, which vanilla retries forever when the pack is a mod's. The vertex stage
+     * compiles first, so a skipped vertex skips its fragment, whose inputs it would not write.
+     *
+     * @param irLocation {@link #irLocation} of the Veil buffer mask this program is compiled for
+     */
     public static String vanilla(String name, boolean vertex, String source, int irLocation) {
         if (!VANILLA.contains(name)) {
             return source;
         }
+        synchronized (UNPATCHED) {
+            if (vertex) {
+                UNPATCHED.remove(name);
+            } else if (UNPATCHED.contains(name)) {
+                return source;
+            }
+        }
+        try {
+            return patchVanilla(name, vertex, source, irLocation);
+        } catch (IllegalStateException e) {
+            GemRender.LOGGER.warn("Lights skip {} ({}): {}", name, vertex ? "vertex" : "fragment", e.getMessage());
+            if (vertex) {
+                synchronized (UNPATCHED) {
+                    UNPATCHED.add(name);
+                }
+            }
+            return source;
+        }
+    }
+
+    private static String patchVanilla(String name, boolean vertex, String source, int irLocation) {
         if (vertex) {
 //? if >=26.1 {
             /*String position = source.contains("ChunkPosition")
