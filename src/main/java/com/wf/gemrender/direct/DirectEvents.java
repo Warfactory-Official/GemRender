@@ -42,8 +42,9 @@ public final class DirectEvents {
     public static void onRenderStage(RenderLevelStageEvent event) {
         RenderLevelStageEvent.Stage stage = event.getStage();
         if (stage == RenderLevelStageEvent.Stage.AFTER_ENTITIES
-                || stage == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES
-                || stage == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
+                || stage == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
+            DirectRenderer.flushOpaque(DirectPass.LEVEL);
+        } else if (stage == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
             DirectRenderer.flush(DirectPass.LEVEL);
         }
     }

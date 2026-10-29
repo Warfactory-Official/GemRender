@@ -466,6 +466,10 @@ public final class DirectRenderer {
         }
 
         PassQueue queue = QUEUES.get(pass);
+        if (pass == DirectPass.LEVEL && !HELD.isEmpty()) {
+            queue = QUEUES.computeIfAbsent(pass, key -> new PassQueue());
+            restoreHeld(queue);
+        }
         if (queue == null || queue.isEmpty()) {
             if (queue != null) {
                 queue.reset();
@@ -534,6 +538,89 @@ public final class DirectRenderer {
 
             queue.reset();
         }
+    }
+
+    /** Blended instances {@link #flushOpaque} held back, and a copy of the bone data they index. */
+    private static final PassQueue HELD = new PassQueue();
+    private static float[] heldBones = new float[0];
+    private static int heldFloats;
+
+    /**
+     * {@link #flush} of the opaque parts only: blended ones wait for the next {@link #flush} of {@code pass}, so what
+     * vanilla draws in between (clouds) goes behind them, not over. Staging restarts at each upload: their bone data
+     * is copied and their bases rebased onto the copy. Guest pipelines draw everything at once.
+     */
+    public static void flushOpaque(DirectPass pass) {
+        RenderSystem.assertOnRenderThread();
+        PassQueue queue = QUEUES.get(pass);
+        if (queue == null || (guest != null && guest.active())) {
+            flush(pass);
+            return;
+        }
+        int shift = -1;
+        for (Batch batch : queue.order) {
+            if (batch.count == 0 || !batch.part.material()
+                    .blended()) {
+                continue;
+            }
+            if (shift < 0) {
+                shift = holdBones();
+            }
+            Batch held = batch.texture == null ? HELD.batch(batch.part) : HELD.batch(batch.part, batch.texture);
+            long from = MemoryUtil.memAddress(batch.instances);
+            for (int i = 0; i < batch.count; i++) {
+                int to = held.reserve();
+                long address = MemoryUtil.memAddress(held.instances) + to;
+                MemoryUtil.memCopy(from + (long) i * ResidentMesh.INSTANCE_STRIDE, address,
+                        ResidentMesh.INSTANCE_STRIDE);
+                rebase(address, shift);
+            }
+            batch.reset();
+        }
+        flush(pass);
+    }
+
+    /** The staged bone floats appended to {@link #heldBones}; their offset there. */
+    private static int holdBones() {
+        BoneBuffer bones = BoneBuffer.direct();
+        int n = bones.stagedFloats();
+        int at = heldFloats;
+        if (at + n > heldBones.length) {
+            heldBones = java.util.Arrays.copyOf(heldBones, Math.max(at + n, heldBones.length * 2));
+        }
+        bones.copyStaged(heldBones, at);
+        heldFloats = at + n;
+        return at;
+    }
+
+    /** An instance's bone, morph and rest bases moved by {@code floats} (matrix-aligned). */
+    private static void rebase(long address, int floats) {
+        int matrices = floats / 16;
+        MemoryUtil.memPutInt(address + 64, MemoryUtil.memGetInt(address + 64) + matrices);
+        MemoryUtil.memPutInt(address + 68, MemoryUtil.memGetInt(address + 68) + floats);
+        MemoryUtil.memPutFloat(address + 112, MemoryUtil.memGetFloat(address + 112) + matrices);
+    }
+
+    /** {@link #HELD} back into {@code queue}, its bone copy restaged: before a full flush. */
+    private static void restoreHeld(PassQueue queue) {
+        int base = heldFloats == 0 ? 0 : BoneBuffer.direct()
+                .addFloatBlock(heldBones, heldFloats);
+        for (Batch held : HELD.order) {
+            if (held.count == 0) {
+                continue;
+            }
+            Batch batch = held.texture == null ? queue.batch(held.part) : queue.batch(held.part, held.texture);
+            long from = MemoryUtil.memAddress(held.instances);
+            for (int i = 0; i < held.count; i++) {
+                int to = batch.reserve();
+                long address = MemoryUtil.memAddress(batch.instances) + to;
+                MemoryUtil.memCopy(from + (long) i * ResidentMesh.INSTANCE_STRIDE, address,
+                        ResidentMesh.INSTANCE_STRIDE);
+                rebase(address, base);
+            }
+        }
+        HELD.reset();
+        heldFloats = 0;
     }
 
     private static void flushGuest(DirectPass pass, PassQueue queue) {

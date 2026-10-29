@@ -152,6 +152,20 @@ public final class BoneBuffer {
         }
     }
 
+    /** Floats staged since the last upload; always matrix-aligned. */
+    public int stagedFloats() {
+        synchronized (stagingLock) {
+            return floatCount;
+        }
+    }
+
+    /** {@link #stagedFloats} floats into {@code out} at {@code at}. */
+    public void copyStaged(float[] out, int at) {
+        synchronized (stagingLock) {
+            staging.get(0, out, at, floatCount);
+        }
+    }
+
     public int lastUploadedCount() {
         return lastUploadedCount;
     }

@@ -1,6 +1,7 @@
 package com.wf.gemrender.gltf;
 
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
+import com.wf.gemrender.gltf.skin.BoneAttributeCodec;
 import com.wf.gemrender.gltf.skin.SkinnedBounds;
 import com.wf.gemrender.texture.VariantUv;
 import dev.engine_room.flywheel.api.model.Model;
@@ -8,6 +9,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4fc;
 
 import java.util.List;
 import java.util.Map;
@@ -82,10 +85,10 @@ public record GemRenderGltfModel(Model model, GltfPaletteLayout layout, SkinnedB
                 du += pu * pu;
                 dv += pv * pv;
             }
-            org.joml.Vector4fc sphere = g.boundingSphere();
+           Vector4fc sphere = g.boundingSphere();
             return new SlotFrame((float) Math.sqrt(du), (float) Math.sqrt(dv),
-                    new org.joml.Vector3f(sphere.x(), sphere.y(), sphere.z()),
-                    com.wf.gemrender.gltf.skin.BoneAttributeCodec.unpackJoint(g.packedJoints(a), 0));
+                    new Vector3f(sphere.x(), sphere.y(), sphere.z()),
+                   BoneAttributeCodec.unpackJoint(g.packedJoints(a), 0));
         }
         return null;
     }

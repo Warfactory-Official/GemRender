@@ -1174,7 +1174,7 @@ share a single palette.
 | Pass | Contains | Flushed at |
 |---|---|---|
 | `GUI` | inventories, hotbars, anything through `GuiGraphics`, and any entity rendered into a screen | `GuiGraphics.flush()` |
-| `LEVEL` | armour, third-person held, dropped items, frames, block entity renderers | after entities, and after block entities |
+| `LEVEL` | armour, third-person held, dropped items, frames, block entity renderers | opaque after entities and after block entities; blended after weather (`flushOpaque`: held instances keep a copy of their bone data, bases rebased), so clouds stay behind them. Iris guest / Fabric / 26.1: all at once |
 | `HAND` | the first-person hand | the tail of the hand render |
 
 Those are vanilla's own flush points, not points of GemRender's choosing, which is what makes deferring
