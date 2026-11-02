@@ -40,6 +40,9 @@ final class DirectProgram {
     private int light1Loc;
     private int alphaCutoffLoc;
     private int bandedLoc;
+    private int sceneTestLoc;
+    private int znearLoc;
+    private int zfarLoc;
 
     private boolean created;
     private boolean failed;
@@ -118,11 +121,16 @@ final class DirectProgram {
             light1Loc = glGetUniformLocation(program, "_gr_light1");
             alphaCutoffLoc = glGetUniformLocation(program, "_gr_alphaCutoff");
             bandedLoc = glGetUniformLocation(program, "_gr_banded");
+            sceneTestLoc = glGetUniformLocation(program, "_gr_sceneTest");
+            znearLoc = glGetUniformLocation(program, "_gr_znear");
+            zfarLoc = glGetUniformLocation(program, "_gr_zfar");
 
             GlStateManager._glUseProgram(program);
             glUniform1i(glGetUniformLocation(program, "_gr_atlas"), DirectRenderer.UNIT_ATLAS);
             glUniform1i(glGetUniformLocation(program, "_gr_lightmap"), DirectRenderer.UNIT_LIGHTMAP);
             glUniform1i(glGetUniformLocation(program, "_gr_overlayTex"), DirectRenderer.UNIT_OVERLAY);
+            glUniform1i(glGetUniformLocation(program, "_gr_sceneDepth"),
+                    com.wf.gemrender.volume.SceneDepth.TEXTURE_UNIT);
             glUniform1i(glGetUniformLocation(program, "_gemrender_bones"), BoneBuffer.direct()
                     .unit());
             glUniform1i(glGetUniformLocation(program, "_gemrender_morphs"), MorphBuffer.TEXTURE_UNIT);
@@ -170,6 +178,14 @@ final class DirectProgram {
 
     void banded(boolean banded) {
         glUniform1i(bandedLoc, banded ? 1 : 0);
+    }
+
+    void sceneTest(boolean on) {
+        glUniform1i(sceneTestLoc, on ? 1 : 0);
+        if (on) {
+            glUniform1f(znearLoc, com.wf.gemrender.render.Vanilla.zNear());
+            glUniform1f(zfarLoc, com.wf.gemrender.render.Vanilla.depthFar());
+        }
     }
 
     void delete() {

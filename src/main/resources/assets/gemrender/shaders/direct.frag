@@ -9,6 +9,12 @@ uniform float _gr_alphaCutoff;
 // Sheet bands: base, surface, emissive (rgb = emission, a = paint coverage).
 uniform bool _gr_banded;
 
+// Blended parts of the level pass: tested against the depth taken before translucent terrain (water writes depth).
+uniform bool _gr_sceneTest;
+uniform sampler2D _gr_sceneDepth;
+uniform float _gr_znear;
+uniform float _gr_zfar;
+
 in vec2 _gr_texCoord;
 in vec2 _gr_lightCoord;
 in vec4 _gr_tint;
@@ -45,6 +51,13 @@ void main() {
 
     if (colour.a <= _gr_alphaCutoff) {
         discard;
+    }
+    if (_gr_sceneTest) {
+        float n = 2.0 * gl_FragCoord.z - 1.0;
+        float linear = 2.0 * _gr_znear * _gr_zfar / (_gr_zfar + _gr_znear - n * (_gr_zfar - _gr_znear));
+        if (linear > texelFetch(_gr_sceneDepth, ivec2(gl_FragCoord.xy), 0).r * 1.0005 + 0.0005) {
+            discard;
+        }
     }
 
     vec3 lit = colour.rgb;
