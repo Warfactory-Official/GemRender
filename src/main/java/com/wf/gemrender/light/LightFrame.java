@@ -105,6 +105,7 @@ public final class LightFrame {
         frames++;
         levelGpu.begin();
         LightGlare.clear();
+        LightShafts.clear();
         if (LightShaders.standDown()) {
             return;
         }
@@ -165,6 +166,7 @@ public final class LightFrame {
                 }
             }
             light.write(ubo);
+            LightShafts.add(shaded, light);
             if (light.distance + 2.0 * light.boundR > near) {
                 far = farInsert(far, shaded, light.r + light.g + light.b);
             }
@@ -212,7 +214,7 @@ public final class LightFrame {
 
     public String report() {
         return "lightsCollected=" + lastCollected + " lightsVisible=" + lastVisible + " lightsShaded=" + lastShaded
-                + " far=" + lastFar + " glares=" + LightGlare.lastDrawn + " shadowed=" + lastShadowed + " shadowDropped=" + lastShadowDropped
+                + " far=" + lastFar + " glares=" + LightGlare.lastDrawn + " shafts=" + LightShafts.lastDrawn + " shadowed=" + lastShadowed + " shadowDropped=" + lastShadowDropped
                 + " cellTests=" + grid.cellTests() + " cellsLit=" + grid.cellsLit()
                 + " lightCpuUs=" + (cpuSamples == 0 ? 0 : cpuNanos / cpuSamples / 1000)
                 + " " + occupancy.report(cpuSamples) + " " + shadows.report()

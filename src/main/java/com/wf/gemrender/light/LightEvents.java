@@ -32,8 +32,10 @@ public final class LightEvents {
 
     @SubscribeEvent
     public static void onAfterLevel(RenderLevelStageEvent.AfterLevel event) {
-        com.wf.gemrender.render.Vanilla.intoMainTarget(() -> LightGlare.draw(event.getModelViewMatrix(),
-                event.getLevelRenderState().cameraRenderState.projectionMatrix));
+        com.wf.gemrender.render.Vanilla.intoMainTarget(() -> {
+            LightGlare.draw(event.getModelViewMatrix(), event.getLevelRenderState().cameraRenderState.projectionMatrix);
+            LightShafts.draw(event.getModelViewMatrix(), event.getLevelRenderState().cameraRenderState.projectionMatrix);
+        });
     }
     *///?} else {
     @SubscribeEvent
@@ -49,8 +51,10 @@ public final class LightEvents {
         } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
             //? if >=1.21 {
             LightGlare.draw(event.getModelViewMatrix(), event.getProjectionMatrix());
+            LightShafts.draw(event.getModelViewMatrix(), event.getProjectionMatrix());
             //?} else {
             /*LightGlare.draw(event.getPoseStack().last().pose(), event.getProjectionMatrix());
+            LightShafts.draw(event.getPoseStack().last().pose(), event.getProjectionMatrix());
             *///?}
         }
     }
