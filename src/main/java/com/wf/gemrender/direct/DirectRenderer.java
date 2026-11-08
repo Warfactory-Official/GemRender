@@ -470,6 +470,10 @@ public final class DirectRenderer {
             queue = QUEUES.computeIfAbsent(pass, key -> new PassQueue());
             restoreHeld(queue);
         }
+        draw(pass, queue);
+    }
+
+    private static void draw(DirectPass pass, PassQueue queue) {
         if (queue == null || queue.isEmpty()) {
             if (queue != null) {
                 queue.reset();
@@ -518,8 +522,10 @@ public final class DirectRenderer {
 
             drawsLastFlush = 0;
             instancesLastFlush = 0;
-            drawPile(queue, program, false);
-            drawPile(queue, program, true);
+            boolean behindWater = pass == DirectPass.LEVEL && sceneDepthTaken;
+            sceneDepthTaken = false;
+            drawPile(queue, program, false, false);
+            drawPile(queue, program, true, behindWater);
             palettesLastFlush = queue.palettes.size() + queue.blendPalettes.size();
         } finally {
             DirectVanilla.unbindTextures(UNIT_ATLAS, UNIT_OVERLAY, UNIT_LIGHTMAP);
@@ -553,7 +559,10 @@ public final class DirectRenderer {
     public static void flushOpaque(DirectPass pass) {
         RenderSystem.assertOnRenderThread();
         PassQueue queue = QUEUES.get(pass);
-        if (queue == null || (guest != null && guest.active())) {
+        if (queue == null) {
+            return;
+        }
+        if (guest != null && guest.active()) {
             flush(pass);
             return;
         }
@@ -577,8 +586,16 @@ public final class DirectRenderer {
             }
             batch.reset();
         }
-        flush(pass);
+        draw(pass, queue);
+        if (pass == DirectPass.LEVEL && !HELD.isEmpty()) {
+            com.wf.gemrender.volume.SceneDepth.getInstance()
+                    .capture();
+            sceneDepthTaken = true;
+        }
     }
+
+    /** Depth before translucent terrain taken this frame: {@link #HELD} tests against it, not against water's. */
+    private static boolean sceneDepthTaken;
 
     /** The staged bone floats appended to {@link #heldBones}; their offset there. */
     private static int holdBones() {
@@ -648,7 +665,12 @@ public final class DirectRenderer {
         }
     }
 
-    private static void drawPile(PassQueue queue, DirectProgram program, boolean blended) {
+    private static void drawPile(PassQueue queue, DirectProgram program, boolean blended, boolean sceneTest) {
+        if (blended && sceneTest) {
+            com.wf.gemrender.volume.SceneDepth.getInstance()
+                    .bind();
+        }
+        program.sceneTest(blended && sceneTest);
         for (Batch batch : queue.order) {
             if (batch.count == 0 || batch.part.material()
                     .blended() != blended) {
@@ -663,6 +685,9 @@ public final class DirectRenderer {
                 GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                         GL_ONE_MINUS_SRC_ALPHA);
                 GlStateManager._depthMask(false);
+                if (sceneTest) {
+                    GlStateManager._disableDepthTest();
+                }
             } else {
                 GlState.disableBlend();
                 GlStateManager._depthMask(true);
