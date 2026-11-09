@@ -158,9 +158,18 @@ public final class LightShafts {
         }
 
         float partial = Vanilla.partialTick();
+        //? if >=26.1 {
+        /*Vec3 eye = mc.gameRenderer.getMainCamera().position();
+        *///?} else {
         Vec3 eye = mc.gameRenderer.getMainCamera().getPosition();
+        //?}
         float rain = mc.level.getRainLevel(partial);
-        float sky = Math.max(0.0f, (mc.level.getSkyDarken(partial) - 0.2f) / 0.8f)
+        //? if >=26.1 {
+        /*float skyDarken = mc.level.getSkyDarken();
+        *///?} else {
+        float skyDarken = mc.level.getSkyDarken(partial);
+        //?}
+        float sky = Math.max(0.0f, (skyDarken - 0.2f) / 0.8f)
                 * mc.level.getBrightness(LightLayer.SKY, BlockPos.containing(eye)) / 15.0f;
         float dayFade = 1.0f - 0.9f * sky;
         float density = DENSITY * (1.0f + 3.0f * rain);

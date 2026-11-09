@@ -39,7 +39,11 @@ public final class SceneEffects {
                 || !Float.isFinite(grade) || !Float.isFinite(whiteout)) {
             throw new IllegalArgumentException("Scene effect parameters must be finite");
         }
+        //? if >=26.1 {
+        /*Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().position();
+        *///?} else {
         Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        //?}
         float attenuation = (float) (1 / (1 + camera.distanceTo(new Vec3(wx, wy, wz)) / 500));
         float k = Math.max(0, Math.min(grade * attenuation, 0.8f));
         if (k >= strength) {

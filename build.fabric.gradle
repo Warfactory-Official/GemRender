@@ -394,6 +394,7 @@ sourceSets.main.java.exclude 'com/wf/gemrender/medium/CameraMediumEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/lens/LensEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/iris/IrisPbrEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/light/LightEvents.java'
+sourceSets.main.java.exclude 'com/wf/gemrender/effect/EffectEvents.java'
 
 // The mixins are NOT excluded either. gemrender.mixins.json names all nine unconditionally, and
 // dropping a class here while leaving its name in a `required` config is a hard load failure;
