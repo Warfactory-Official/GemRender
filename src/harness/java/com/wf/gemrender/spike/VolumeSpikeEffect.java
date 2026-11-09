@@ -2,6 +2,7 @@ package com.wf.gemrender.spike;
 
 import com.wf.gemrender.volume.VolumeQuality;
 import com.wf.gemrender.volume.VolumeStyle;
+import com.wf.gemrender.volume.VolumeShape;
 
 import dev.engine_room.flywheel.api.visual.Effect;
 import dev.engine_room.flywheel.api.visual.EffectVisual;
@@ -11,6 +12,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 
 public final class VolumeSpikeEffect implements Effect {
+
+	public static final boolean EFFECT = System.getProperty("gemrender.volumeshape") != null;
+	public static final VolumeShape SHAPE = VolumeShape.valueOf(
+			System.getProperty("gemrender.volumeshape", "ELLIPSOID").toUpperCase(java.util.Locale.ROOT));
+	public static final float HEAT = Float.parseFloat(System.getProperty("gemrender.volumeheat", "0.85"));
+	public static final float TIME = Float.parseFloat(System.getProperty("gemrender.volumetime", "-1"));
 
 	public static final float SIZE =
 			Float.parseFloat(System.getProperty("gemrender.volumesize", "6"));
@@ -48,11 +55,13 @@ public final class VolumeSpikeEffect implements Effect {
 	private final BlockPos origin;
 
 	private final int count;
+	private final long born;
 
 	public VolumeSpikeEffect(Level level, BlockPos origin, int count) {
 		this.level = level;
 		this.origin = origin;
 		this.count = Math.max(1, count);
+		this.born = level.getGameTime();
 	}
 
 	public BlockPos origin() {
@@ -65,6 +74,10 @@ public final class VolumeSpikeEffect implements Effect {
 
 	public int spacing() {
 		return SPACING;
+	}
+
+	public float time(float partialTick) {
+		return TIME >= 0.0f ? TIME : (level.getGameTime() - born + partialTick) / 20.0f;
 	}
 
 	public static VolumeStyle style() {

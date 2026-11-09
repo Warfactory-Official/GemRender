@@ -6,6 +6,7 @@ import com.wf.gemrender.volume.VolumeField;
 import com.wf.gemrender.volume.VolumeInstance;
 import com.wf.gemrender.volume.VolumeModels;
 import com.wf.gemrender.volume.VolumeStyle;
+import com.wf.gemrender.volume.VolumeShape;
 
 import dev.engine_room.flywheel.api.instance.Instancer;
 import dev.engine_room.flywheel.api.visual.EffectVisual;
@@ -26,12 +27,15 @@ public final class VolumeSpikeVisual extends AbstractVisual
 	private final VolumeField[] fields;
 
 	private final BlockPos[] centres;
+	private final VolumeSpikeEffect effect;
 
 	public VolumeSpikeVisual(VisualizationContext ctx, VolumeSpikeEffect effect, float partialTick) {
 		super(ctx, (Level) effect.level(), partialTick);
+		this.effect = effect;
 
 		Instancer<VolumeInstance> instancer = ctx.instancerProvider()
-				.instancer(GemRenderVolumeTypes.VOLUME, VolumeModels.cloud());
+				.instancer(GemRenderVolumeTypes.VOLUME,
+						VolumeSpikeEffect.EFFECT ? VolumeModels.effect() : VolumeModels.cloud());
 
 		VolumeStyle style = VolumeSpikeEffect.style();
 
@@ -49,6 +53,11 @@ public final class VolumeSpikeVisual extends AbstractVisual
 			volumes[i] = Volume.create(style)
 					.extent(size, size * 0.7f, size)
 					.seed(i * 7.31f);
+			if (VolumeSpikeEffect.EFFECT) {
+				volumes[i].shape(VolumeSpikeEffect.SHAPE)
+						.billow(VolumeSpikeEffect.SHAPE == VolumeShape.SHELL ? 0.0f : 0.1f)
+						.heat(VolumeSpikeEffect.HEAT, 2.0f);
+			}
 
 			centres[i] = effect.origin()
 					.offset((i % side - side / 2) * spacing, Math.round(size * 0.8f),
@@ -66,18 +75,22 @@ public final class VolumeSpikeVisual extends AbstractVisual
 			instances[i].volume(volumes[i].slot());
 		}
 
-		push();
+		push(partialTick);
 	}
 
 	@Override
 	public void beginFrame(Context context) {
-		push();
+		push(context.partialTick());
 	}
 
-	private void push() {
+	private void push(float partialTick) {
 		Vec3i renderOrigin = renderOrigin();
+		float time = effect.time(partialTick);
 
 		for (int i = 0; i < instances.length; i++) {
+			if (VolumeSpikeEffect.EFFECT) {
+				volumes[i].animate(time, 0.4f);
+			}
 			instances[i].center(centres[i].getX() - renderOrigin.getX(),
 					centres[i].getY() - renderOrigin.getY(),
 					centres[i].getZ() - renderOrigin.getZ());

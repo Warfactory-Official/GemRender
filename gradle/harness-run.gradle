@@ -212,7 +212,13 @@ if (project.hasProperty('volumeSpacing')) {
  'volumeAmbient': 'gemrender.volumeambient',
  'volumeSun'   : 'gemrender.volumesun',
  'volumeEdge'  : 'gemrender.volumeedge',
- 'volumeDetail': 'gemrender.volumedetail'].each { gradleName, systemName ->
+ 'volumeDetail': 'gemrender.volumedetail',
+ 'volumeShape' : 'gemrender.volumeshape',
+ 'volumeHeat'  : 'gemrender.volumeheat',
+ 'effectFamily': 'gemrender.effectfamily',
+ 'effectScale' : 'gemrender.effectscale',
+ 'effectLifetime': 'gemrender.effectlifetime',
+ 'volumeTime'  : 'gemrender.volumetime'].each { gradleName, systemName ->
     if (project.hasProperty(gradleName)) {
         props.put systemName, project.property(gradleName).toString()
     }

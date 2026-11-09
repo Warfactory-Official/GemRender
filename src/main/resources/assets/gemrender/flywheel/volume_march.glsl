@@ -8,14 +8,21 @@ const int GEMRENDER_VOLUME_MAX_STEPS = 128;
 const int GEMRENDER_VOLUME_MAX_SUN_STEPS = 8;
 
 vec2 gemrender_volumeSpan(in GemRenderVolume v, vec3 center, vec3 origin, vec3 direction) {
-    vec3 inverse = 1.0 / direction;
-    vec3 a = (center - v.extent - origin) * inverse;
-    vec3 b = (center + v.extent - origin) * inverse;
-
-    vec3 low = min(a, b);
-    vec3 high = max(a, b);
-
-    return vec2(max(max(max(low.x, low.y), low.z), 0.0), min(min(high.x, high.y), high.z));
+    float near = 0.0;
+    float far = 1e30;
+    vec3 local = origin - center;
+    for (int axis = 0; axis < 3; axis++) {
+        // On a box face, 0 * (1 / 0) would otherwise poison the interval with NaNs.
+        if (abs(direction[axis]) < 1e-7) {
+            if (abs(local[axis]) > v.extent[axis]) return vec2(1.0, 0.0);
+        } else {
+            float a = (-v.extent[axis] - local[axis]) / direction[axis];
+            float b = (v.extent[axis] - local[axis]) / direction[axis];
+            near = max(near, min(a, b));
+            far = min(far, max(a, b));
+        }
+    }
+    return vec2(near, far);
 }
 
 float gemrender_volumeJitter() {

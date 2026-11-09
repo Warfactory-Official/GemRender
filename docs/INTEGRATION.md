@@ -1687,6 +1687,129 @@ clouds).
   the nearer.
 - Absorbance front half split by cloud coverage too (cloud pixels wait for `AFTER_WEATHER`).
 
+### Procedural fire, smoke and energy volumes
+
+Use `GemRenderVolumeTypes.VOLUME` with `VolumeModels.effect()` for procedural volumes. The ordinary
+`VolumeModels.cloud()` material keeps its existing noise/field behavior. Effect shapes are
+`VolumeShape.ELLIPSOID`, `TORUS`, `COLUMN`, `SHELL`, `MUSHROOM`, `ENERGY`, `ELECTRIC`, `SPECTRAL`,
+`GROUND_WAVE`, `TRAIL`, `FALLOUT`, and `BEAM`; `extent` is the enclosing half-size
+in blocks. The shapes leave a margin for animated billows inside those bounds.
+
+```java
+Volume volume = Volume.create(VolumeStyle.builder()
+        .density(0.8f).tint(0x70645B).quality(VolumeQuality.HIGH).build())
+        .extent(12, 18, 12)
+        .shape(VolumeShape.MUSHROOM)
+        .billow(0.1f)
+        .heat(0.85f, 2.0f);
+
+var instance = ctx.instancerProvider()
+        .instancer(GemRenderVolumeTypes.VOLUME, VolumeModels.effect())
+        .createInstance();
+instance.volume(volume.slot());
+
+// Every frame: effect-local seconds, roll speed in radians/second, center relative to renderOrigin.
+volume.animate(ageSeconds, 0.4f);
+instance.center(x - renderOrigin.getX(), y - renderOrigin.getY(), z - renderOrigin.getZ());
+instance.setChanged();
+
+// Cleanup: delete the instance and release its independently allocated volume slot.
+instance.delete();
+volume.close();
+```
+
+- `heat(temperature, strength)`: temperature 0..1, red through white; strength is nonnegative HDR
+  emission. `heat(0, strength)` gives smoke without fire. `emissionTint(rgb)` multiplies the fire color.
+- `billow(0..0.15)`: displacement relative to the smallest extent. Use `billow(0)` for a smooth shell.
+- `animate(seconds, roll)`: moves noise with the shape's flow. Torus/mushroom caps roll around their
+  cross section; columns and the stem rise. Keep the animation clock on the effect so a rebuilt visual
+  does not reset it. Growth/cooling are driven by the caller through extent/heat/fade.
+- Noise: authored by `tools/make_volume_noise.py`, using only Python's standard library. The shipped
+  528x528 RGBA texture contains a tileable 64^3 volume: billow, erosion, thermal variation and fine
+  cellular detail. Every slice has wrapped gutters, so filtering cannot bleed into adjacent slices.
+- Screen coverage uses the existing volume instance shader, including fullscreen coverage when bounds
+  cross the eye plane. Marches start at the camera when inside and stop at the scene depth. Shells use
+  integrated thickness, without an outside-only surface normal.
+- Smoke and HDR fire use the existing absorbance/emission targets; ordinary and guest OIT paths receive
+  combined color. The Flywheel depth hook reports the first occupied sample rather than the coverage
+  quad's near-plane depth. The shared volume record is now 32 floats; custom slot decoders must match
+  `volume.glsl`.
+- The effect material uses analytic shapes, not `VolumeField`. Keep it in its detailed march when the
+  camera enters: `CameraMedium.inside(volume, box)` substitutes generic fog and loses its shape/heat.
+
+Harness, NeoForge 1.21.1:
+
+```sh
+./gradlew :1.21.1:runClient -PmakeWorld=volume-fx -Pvolume=1 \
+    -PvolumeShape=MUSHROOM -PvolumeHeat=0.85 -PcameraBack=18 -PcameraUp=5 -Ppitch=0 -PspikeExit=180
+```
+
+`-PvolumeShape=SHELL -PvolumeHeat=0.7` selects an energy shell; `-PvolumeHeat=0` selects smoke.
+`-PvolumeTime=3` freezes animation for comparisons. `VolumeEffectsGlTest` draws the shipped shaders on
+the GPU and checks all shapes outside/on/inside their bounds, HDR emission, near-wall clipping,
+parallel boundary rays and effect depth for Fabulous.
+
+### Effect family service (NeoForge 1.21.1)
+
+`com.wf.gemrender.effect.Effects` owns volume slots, timelines and cleanup. Call it on the client/render
+thread. Both entry points return false when the world/backend is unavailable; keep a fallback renderer.
+
+```java
+// Packet-spawned effect: ages with world ticks and expires automatically.
+boolean replaced = Effects.spawn(level, "NUCLEAR", x, y, z, 1f, 900f, 0);
+// Entity-driven effect: submit every rendered frame with the same entity identity.
+boolean replaced = Effects.submit(entity, level, "EMP", x, y, z, ageTicks, 1f, lifetimeTicks, 0);
+```
+
+Tracked submissions expire after two missing frames; world changes release every entry. Geometry and
+noise clocks survive Flywheel visual rebuilds. Sounds, damage, camera shake and entity lifetime belong
+to the caller. Part shapes share projected coverage, inside-camera marching and world-depth clipping.
+
+| Family | Visual behavior | Scale |
+|---|---|---|
+| `NUCLEAR` / `STEAM` | Fireball-to-mushroom transition, rolling cap, rising stem, dust ring; steam stays cold | Cloud multiplier |
+| `FLEIJA` | Expanding energy core, collapsing core near end, outgoing shell | Expansion multiplier |
+| `SOLINIUM` / `RAINBOW` / `EMP` | Turquoise plasma / moving spectrum / noisy electrical shell | Expansion multiplier |
+| `ANTIMATTER` | Brief violet-white core and expanding shell | Core radius / expansion multiplier |
+| `GROUND_WAVE` | Expanding dust/fire ring; variant 1 crimson | Radius/height multiplier |
+| `IMPACT` | Broad hot dome and expanding dust wall | Blast multiplier |
+| `TRAIL` | Hot foot and tapered plume; highest submitted top retained as the source falls | Plume multiplier |
+| `BEAM` | Pulsing vertical emissive column | Width/height multiplier |
+| `FALLOUT` | Cloud deck, broken curtains and noise-dependent sun attenuation | Radius in blocks |
+
+Variant 1 tints nuclear fire green, variant 2 violet. OR `Effects.NO_FLASH` into the variant to disable
+whiteout. Black holes are deliberately outside this service.
+
+`SceneEffects` adds frame-scoped tint, grain, vignette, directional glow, stylized radial rays and
+whiteout before the hand/HUD. `SceneEffects.interference(0..1)` adds camera-sensor specks for a caller
+that has a radiation reading. These rays are an artistic overlay, not scene-occluded light shafts.
+The blend passes preserve destination alpha and GL state; fallout's density/shadow march supplies
+its separate volumetric light breakup. No scene-color copy is required.
+
+NTM Continuum's optional `NukeFxBridge` maps Torex, FLEIJA/Solinium/rainbow/EMP, moonstone blast/trail,
+lance beam and fallout to these families. Mini-nuke/tiny-tot, RBMK mushroom and antimatter packets
+use autonomous effects. It preserves mesh bodies, sounds, shake and the existing flash toggle. Torex
+keeps its HUD flash and disables the duplicate volume whiteout. Missing API or unsupported backend
+uses the existing NTM visuals. Entity delivery still follows NTM's tracking ranges and the server's
+view distance; this bridge does not extend them. Continuum's black-hole/vortex renderer and registrations are unchanged.
+Fallout synchronizes only its radius; its server terrain work remains separate.
+
+Build GemRender with `./gradlew :1.21.1:jar`, then launch from the NTM Continuum checkout:
+
+```sh
+./client 1.21.1-neoforge -Pgemrender.dir=../GemRender -Pgemrender.version=0.1.20
+```
+
+The default published dependency can lack this new API; the local override selects the rebuilt jar.
+
+Family harness: `-Pvolume=1 -PeffectFamily=EMP -PeffectScale=1 -PeffectLifetime=1200`. Choose a camera
+distance that fits the growing effect (`-PcameraBack=300` for large shells); use a small distance to
+check entry. NTM's `NukeFxFamilies.java` scenario checks actual renderer acceptance, entry views and
+entry cleanup and backend fallback on 1.21.1 NeoForge with the local GemRender jar.
+
+The service/event hooks currently target NeoForge 1.21.1. Other nodes return false and use their
+fallbacks. Iris/shader-pack compatibility and final visual tuning require dedicated in-game checks.
+
 ### Camera inside a cloud
 
 `CameraMedium.getInstance()`, per frame (else `outside()`):

@@ -1,6 +1,6 @@
 uniform samplerBuffer _gemrender_volumes;
 
-const int GEMRENDER_VOLUME_FLOATS = 24;
+const int GEMRENDER_VOLUME_FLOATS = 32;
 const int GEMRENDER_VOLUME_TEXELS = GEMRENDER_VOLUME_FLOATS / 4;
 
 struct GemRenderVolume {
@@ -21,6 +21,12 @@ struct GemRenderVolume {
     float sunStrength;
     vec3 fieldOrigin;
     float fieldScale;
+    int shape;
+    float time;
+    float flow;
+    float billow;
+    float temperature;
+    vec3 emission;
 };
 
 GemRenderVolume gemrender_volume(uint slot) {
@@ -32,6 +38,8 @@ GemRenderVolume gemrender_volume(uint slot) {
     vec4 d = texelFetch(_gemrender_volumes, base + 3);
     vec4 e = texelFetch(_gemrender_volumes, base + 4);
     vec4 f = texelFetch(_gemrender_volumes, base + 5);
+    vec4 g = texelFetch(_gemrender_volumes, base + 6);
+    vec4 h = texelFetch(_gemrender_volumes, base + 7);
 
     GemRenderVolume v;
     v.extent = a.xyz;
@@ -51,6 +59,12 @@ GemRenderVolume gemrender_volume(uint slot) {
     v.sunStrength = e.w;
     v.fieldOrigin = f.xyz;
     v.fieldScale = f.w;
+    v.shape = int(g.x + 0.5);
+    v.time = g.y;
+    v.flow = g.z;
+    v.billow = g.w;
+    v.temperature = h.x;
+    v.emission = h.yzw;
     return v;
 }
 

@@ -18,7 +18,7 @@ import static org.lwjgl.opengl.GL33C.*;
 public final class VolumeBuffer {
     public static final int TEXTURE_UNIT = TextureUnits.VOLUMES;
 
-    public static final int VOLUME_FLOATS = 24;
+    public static final int VOLUME_FLOATS = 32;
 
     private static final int INITIAL_SLOTS = 64;
 
@@ -126,6 +126,25 @@ public final class VolumeBuffer {
     public int activeCount() {
         synchronized (lock) {
             return used.cardinality();
+        }
+    }
+
+    public void writeEffect(int slot, VolumeShape shape, float time, float flow, float billow,
+                            float temperature, float red, float green, float blue) {
+        synchronized (lock) {
+            if (slot < 0 || slot >= capacity || !used.get(slot)) {
+                return;
+            }
+            int at = slot * VOLUME_FLOATS + 24;
+            data[at] = shape.ordinal();
+            data[at + 1] = time;
+            data[at + 2] = flow;
+            data[at + 3] = billow;
+            data[at + 4] = temperature;
+            data[at + 5] = red;
+            data[at + 6] = green;
+            data[at + 7] = blue;
+            dirty = true;
         }
     }
 

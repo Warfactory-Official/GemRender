@@ -397,6 +397,11 @@ public final class GemRenderClient {
 		return null;
 	}
 
+	private static boolean autoRow() {
+		return autoAsset() == null && (AUTO_PARTICLES > 0 || AUTO_VOLUMES > 0 || AUTO_ROPES > 0
+				|| ParticleKindsEffect.wanted());
+	}
+
 	private static int autoCount() {
 		if (!AUTO_BLEND.isEmpty()) {
 			return com.wf.gemrender.spike.BlendVisual.COPIES;
@@ -639,9 +644,7 @@ public final class GemRenderClient {
 
 			// Ropes are laid out in a row like the particle emitters are, so the camera squares up to
 			// them rather than looking along the row from its corner.
-			boolean particleRow =
-					asset == null && (AUTO_PARTICLES > 0 || AUTO_VOLUMES > 0 || AUTO_ROPES > 0
-							|| ParticleKindsEffect.wanted());
+			boolean particleRow = autoRow();
 			connection.sendCommand(particleRow
 					? String.format(java.util.Locale.ROOT, "tp @s %d %d %d %d %d",
 							origin.getX(), origin.getY() + up, origin.getZ() - back, AUTO_YAW, AUTO_PITCH)
@@ -683,7 +686,7 @@ public final class GemRenderClient {
 		}
 
 		if (mc.player != null) {
-			float yaw = CAMERA_BASE_YAW + AUTO_YAW;
+			float yaw = (autoRow() ? 0 : CAMERA_BASE_YAW) + AUTO_YAW;
 			mc.player.setYRot(yaw);
 			mc.player.yRotO = yaw;
 			mc.player.setYHeadRot(yaw);
@@ -781,6 +784,16 @@ public final class GemRenderClient {
 		}
 
 		if (ticksSinceSpike >= AUTO_EXIT_TICKS) {
+
+            String family = System.getProperty("gemrender.effectfamily");
+            if (family != null) {
+                int expectedParts = com.wf.gemrender.effect.EffectFamily.valueOf(family).frame(0, 1, 1200, 0).parts().length;
+                int live = com.wf.gemrender.effect.Effects.activeCount();
+                int slots = com.wf.gemrender.volume.VolumeBuffer.getInstance().activeCount();
+                if (live != 1 || slots != expectedParts) throw new IllegalStateException(
+                        "Family lifecycle failed: entries=" + live + " volumes=" + slots + " expected=" + expectedParts);
+                GemRender.LOGGER.info("Family lifecycle verified: entries={}, volumes={}", live, slots);
+            }
 
 			//? if >=26.1 {
 			/*Screenshot.grab(mc.gameDirectory, "gemrender-spike.png", mc.getMainRenderTarget(), 1,
@@ -946,6 +959,14 @@ public final class GemRenderClient {
 					"the fountain holds ~" + AUTO_PARTICLES + " alive and alive= tracks it");
 			return;
 		}
+
+        if (AUTO_VOLUMES > 0 && System.getProperty("gemrender.effectfamily") != null) {
+            SpikeHud.describe(java.util.List.of("Effect family: " + System.getProperty("gemrender.effectfamily"),
+                    "scale=" + System.getProperty("gemrender.effectscale", "1") + "  lifetime="
+                            + System.getProperty("gemrender.effectlifetime", "1200") + " ticks"),
+                    "volumetrics= counts parts; the autonomous clock survives visual rebuilds");
+            return;
+        }
 
 		if (AUTO_VOLUMES > 0 && asset == null) {
 			SpikeHud.progress(AUTO_ROW.isEmpty() ? "" : "[" + AUTO_ROW + "]");
@@ -1355,7 +1376,13 @@ public final class GemRenderClient {
 					.queueAdd(kinds);
 		}
 
-		if (AUTO_VOLUMES > 0) {
+		if (AUTO_VOLUMES > 0 && System.getProperty("gemrender.effectfamily") != null) {
+            boolean accepted = com.wf.gemrender.effect.Effects.spawn(level,
+                    System.getProperty("gemrender.effectfamily"), origin.getX(), origin.getY(), origin.getZ(),
+                    Float.parseFloat(System.getProperty("gemrender.effectscale", "1")),
+                    Float.parseFloat(System.getProperty("gemrender.effectlifetime", "1200")), 0);
+            GemRender.LOGGER.info("Family harness: accepted={}, family={}", accepted, System.getProperty("gemrender.effectfamily"));
+        } else if (AUTO_VOLUMES > 0) {
 			VisualizationManager.getOrThrow(level)
 					.effects()
 					.queueAdd(new com.wf.gemrender.spike.VolumeSpikeEffect(level, origin, AUTO_VOLUMES));
@@ -1423,8 +1450,10 @@ public final class GemRenderClient {
 
 		mc.reloadResourcePacks()
 				.thenRun(() -> mc.execute(() -> {
-					sceneQueued = false;
-					rebuildAfterReload = true;
+					if (System.getProperty("gemrender.effectfamily") == null) {
+						sceneQueued = false;
+						rebuildAfterReload = true;
+					}
 				}));
 	}
 

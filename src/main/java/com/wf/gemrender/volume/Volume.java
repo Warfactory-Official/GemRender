@@ -17,6 +17,14 @@ public final class Volume {
 
     private VolumeField field;
 
+    private VolumeShape shape = VolumeShape.ELLIPSOID;
+    private float time;
+    private float flow;
+    private float billow = 0.1f;
+    private float temperature;
+    private float emission;
+    private int emissionTint = 0xFFFFFF;
+
     private boolean closed;
 
     private boolean hidden;
@@ -73,6 +81,52 @@ public final class Volume {
         return field;
     }
 
+    /** Shapes, animation and heat are drawn by {@link VolumeModels#effect()}. */
+    public Volume shape(VolumeShape value) {
+        shape = java.util.Objects.requireNonNull(value);
+        flush();
+        return this;
+    }
+
+    /** Effect-local seconds and roll speed in radians/second; independent of world uptime. */
+    public Volume animate(float seconds, float roll) {
+        if (!Float.isFinite(seconds) || !Float.isFinite(roll)) {
+            throw new IllegalArgumentException("Volume animation must be finite");
+        }
+        time = seconds;
+        flow = roll;
+        flush();
+        return this;
+    }
+
+    /** Surface displacement as a fraction of the smallest extent, 0..0.15; 0 gives a smooth shell. */
+    public Volume billow(float value) {
+        if (!Float.isFinite(value) || value < 0.0f || value > 0.15f) {
+            throw new IllegalArgumentException("Volume billow must be in 0..0.15");
+        }
+        billow = value;
+        flush();
+        return this;
+    }
+
+    /** Temperature 0..1 (red through white), and nonnegative HDR emission strength. */
+    public Volume heat(float value, float strength) {
+        if (!Float.isFinite(value) || value < 0.0f || value > 1.0f
+                || !Float.isFinite(strength) || strength < 0.0f) {
+            throw new IllegalArgumentException("Volume heat needs temperature 0..1 and finite, nonnegative strength");
+        }
+        temperature = value;
+        emission = strength;
+        flush();
+        return this;
+    }
+
+    public Volume emissionTint(int rgb) {
+        emissionTint = rgb;
+        flush();
+        return this;
+    }
+
     public VolumeStyle style() {
         return style;
     }
@@ -122,5 +176,9 @@ public final class Volume {
                         current == null ? 0.0f : atlas.originV(current.tile()),
                         current == null ? 0.0f : atlas.originW(current.tile()),
                         current == null ? 0.0f : atlas.scale());
+        VolumeBuffer.getInstance().writeEffect(slot, shape, time, flow, billow, temperature,
+                ((emissionTint >> 16) & 255) / 255.0f * emission,
+                ((emissionTint >> 8) & 255) / 255.0f * emission,
+                (emissionTint & 255) / 255.0f * emission);
     }
 }
