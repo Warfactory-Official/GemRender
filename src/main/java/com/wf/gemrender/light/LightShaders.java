@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,7 +28,8 @@ import static org.lwjgl.opengl.GL31C.glUniformBlockBinding;
  * albedo x lightmap (on Sable sub-levels that product loses the face shading); IR term ->
  * {@code _grl_irOut} ({@link #irLocation}, {@link IrTarget}). Albedo = lit colour / lightmap sample, the vanilla path fed
  * {@code max(lightmap, 1/255)} => a zeroed lightmap (darkness mods) still recovers albedo.
- * Anchor missing => throw: a changed upstream shader must not silently go unlit.
+ * Anchor missing => throw for Sodium and Flywheel, skip for vanilla and Voxy ({@link #skipUnfit}): a resource pack or a
+ * Voxy fork may replace those shaders.
  */
 public final class LightShaders {
     /** 26.1+ core shader ids (path only); earlier versions use the rendertype_* program names. */
@@ -97,7 +99,8 @@ public final class LightShaders {
     private static final Pattern VOXY_FIRST_UNIFORM = Pattern.compile("(?m)^layout\\(binding = 0\\) uniform sampler2D blockModelAtlas;");
     private static final Pattern VOXY_OUT = Pattern.compile("(?m)^layout\\(location = 0\\) out vec4 outColour;");
     private static final Pattern VOXY_COLOUR = Pattern.compile("(?m)^    colour = computeColour\\(texPos, colour\\);");
-    /** Location 2 free: Voxy uses 0, 1 (uv), 7 (debug). */
+    /** Voxy uses 0, 1 (uv), 7 (debug); a fork that takes 2 (Neo-Voxy) cannot be patched. */
+    private static final Pattern VOXY_POS_LOCATION = Pattern.compile("layout\\s*\\(\\s*location\\s*=\\s*2\\s*\\)");
     private static final String VOXY_POS_OUT = """
             #ifndef PATCHED_SHADER
             layout(location = 2) out vec3 _grl_pos;
@@ -162,7 +165,7 @@ public final class LightShaders {
     private static String include;
     private static volatile MethodHandle veilRenderer;
     private static MethodHandle veilMask;
-    /** Shaders whose vertex stage a resource pack replaced beyond patching; their fragment stage is left alone too. */
+    /** Shaders whose vertex stage was replaced beyond patching; their fragment stage is left alone too. */
     private static final Set<String> UNPATCHED = new HashSet<>();
 
     private LightShaders() {
@@ -193,9 +196,8 @@ public final class LightShaders {
     }
 
     /**
-     * A resource pack's own copy of a vanilla shader may not fit the anchors. That shader then goes unlit by GemRender
-     * rather than failing the reload, which vanilla retries forever when the pack is a mod's. The vertex stage
-     * compiles first, so a skipped vertex skips its fragment, whose inputs it would not write.
+     * A resource pack's own copy of a vanilla shader may not fit the anchors. Failing the reload would make vanilla
+     * retry forever when the pack is a mod's.
      *
      * @param irLocation {@link #irLocation} of the Veil buffer mask this program is compiled for
      */
@@ -203,6 +205,14 @@ public final class LightShaders {
         if (!VANILLA.contains(name)) {
             return source;
         }
+        return skipUnfit(name, vertex, source, () -> patchVanilla(name, vertex, source, irLocation));
+    }
+
+    /**
+     * A shader that does not fit goes unlit by GemRender with one warning. The vertex stage compiles first, so a skipped
+     * vertex skips its fragment, whose inputs it would not write.
+     */
+    private static String skipUnfit(String name, boolean vertex, String source, Supplier<String> patch) {
         synchronized (UNPATCHED) {
             if (vertex) {
                 UNPATCHED.remove(name);
@@ -211,7 +221,7 @@ public final class LightShaders {
             }
         }
         try {
-            return patchVanilla(name, vertex, source, irLocation);
+            return patch.get();
         } catch (IllegalStateException e) {
             GemRender.LOGGER.warn("Lights skip {} ({}): {}", name, vertex ? "vertex" : "fragment", e.getMessage());
             if (vertex) {
@@ -280,26 +290,38 @@ public final class LightShaders {
      * stage packs the light id ({@code block << 4 | sky}) into {@code interData.w} bits 16-23 instead of baking an
      * 8-bit lit tint, so albedo stays exact at lightmap 0. Dynamic lights: far list only. IR -> location 1 ->
      * Voxy aux target ({@code voxy.auxColour}). Lightmap = Voxy's unit 1. {@code PATCHED_SHADER} (Iris) untouched.
+     * A throw here would end in Voxy failing the world join, so a fork that does not fit keeps its own lighting.
      */
     public static String voxy(String id, String source) {
         if (id.equals(VOXY_VERTEX)) {
-            String patched = replaceOne(id, source, VOXY_TINTING, "vec4 tinting = vec4(1.0);");
-            patched = replaceOne(id, patched, VOXY_ATTRIBUTES, "attributes.z = addin|(face<<8)|(lighting<<16);");
-            patched = replaceOne(id, patched, VOXY_CORNER_FN, "vec3 _grl_corner;\n" + VOXY_POS_OUT + "$0");
-            patched = replaceOne(id, patched, VOXY_CORNER, "_grl_corner = point;\n    $0");
-            return replaceOne(id, patched, VOXY_POSITION,
-                    "$0\n#ifndef PATCHED_SHADER\n    _grl_pos = _grl_corner - cameraSubPos;\n#endif");
+            return skipUnfit("voxy", true, source, () -> patchVoxyVertex(id, source));
         }
         if (id.equals(VOXY_FRAGMENT)) {
-            String patched = replaceOne(id, source, VOXY_OUT, "$0\nlayout(location = 1) out vec4 _grl_irOut;");
-            patched = replaceOne(id, patched, MAIN, "$0\n#ifndef PATCHED_SHADER\n    gemrender_lightPrepare(_grl_pos);\n#endif");
-            patched = replaceOne(id, patched, VOXY_COLOUR, VOXY_ADD);
-            // Before the first declaration: #extension lines may follow #version.
-            return replaceOne(id, patched, VOXY_FIRST_UNIFORM, Matcher.quoteReplacement("#ifndef PATCHED_SHADER\n"
-                    + include() + "layout(binding = 1) uniform sampler2D _grl_voxyLightmap;\n"
-                    + "layout(location = 2) in vec3 _grl_pos;\n#endif\n") + "$0");
+            return skipUnfit("voxy", false, source, () -> patchVoxyFragment(id, source));
         }
         return source;
+    }
+
+    private static String patchVoxyVertex(String id, String source) {
+        if (VOXY_POS_LOCATION.matcher(source).find()) {
+            throw new IllegalStateException("GemRender lights: " + id + " already uses location 2");
+        }
+        String patched = replaceOne(id, source, VOXY_TINTING, "vec4 tinting = vec4(1.0);");
+        patched = replaceOne(id, patched, VOXY_ATTRIBUTES, "attributes.z = addin|(face<<8)|(lighting<<16);");
+        patched = replaceOne(id, patched, VOXY_CORNER_FN, "vec3 _grl_corner;\n" + VOXY_POS_OUT + "$0");
+        patched = replaceOne(id, patched, VOXY_CORNER, "_grl_corner = point;\n    $0");
+        return replaceOne(id, patched, VOXY_POSITION,
+                "$0\n#ifndef PATCHED_SHADER\n    _grl_pos = _grl_corner - cameraSubPos;\n#endif");
+    }
+
+    private static String patchVoxyFragment(String id, String source) {
+        String patched = replaceOne(id, source, VOXY_OUT, "$0\nlayout(location = 1) out vec4 _grl_irOut;");
+        patched = replaceOne(id, patched, MAIN, "$0\n#ifndef PATCHED_SHADER\n    gemrender_lightPrepare(_grl_pos);\n#endif");
+        patched = replaceOne(id, patched, VOXY_COLOUR, VOXY_ADD);
+        // Before the first declaration: #extension lines may follow #version.
+        return replaceOne(id, patched, VOXY_FIRST_UNIFORM, Matcher.quoteReplacement("#ifndef PATCHED_SHADER\n"
+                + include() + "layout(binding = 1) uniform sampler2D _grl_voxyLightmap;\n"
+                + "layout(location = 2) in vec3 _grl_pos;\n#endif\n") + "$0");
     }
 
     /**

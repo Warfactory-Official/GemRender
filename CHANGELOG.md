@@ -8,6 +8,11 @@
   occlusion tracing). Rain thickens it, daylight under open sky fades it. `-Dgemrender.shafts=false` turns it off;
   `gemrender.shaftMax`, `shaftSteps`, `shaftDensity`, `shaftPhase`, `shaftDust` tune it. Other versions: not ported yet.
 
+## 0.1.21
+
+- Fix: a Voxy fork whose LOD shaders the dynamic-light patch cannot fit (Neo-Voxy 0.5.0) no longer crashes the game when
+  joining a world. Its LOD terrain is left unlit by GemRender with one warning in the log.
+
 ## 0.1.20
 
 - Fix: a resource pack or mod that replaces a vanilla core shader (for example Stellarity's armor shader, which puts the

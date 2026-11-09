@@ -1,7 +1,6 @@
 package com.wf.gemrender.light;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.lwjgl.opengl.GL46C.*;
 
 import com.wf.gemrender.gl.HeadlessGl;
@@ -659,8 +658,8 @@ class LightShadingGlTest {
 				glDeleteShader(vertex);
 				glDeleteShader(fragment);
 				glDeleteProgram(program);
-				assertThatThrownBy(() -> LightShaders.vanilla(name, false, source, 1)).as(name)
-						.hasMessageContaining("already has an output at IR location 1");
+				// IR location 1 is taken, so this fragment stage cannot be patched.
+				assertThat(LightShaders.vanilla(name, false, source, 1)).as(name).isEqualTo(source);
 			}
 		}
 	}
