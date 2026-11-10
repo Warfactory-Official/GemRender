@@ -212,11 +212,12 @@ vec4 gemrender_energyMarch(in GemRenderVolume v, vec3 center, vec3 origin, vec3 
         float arcs = 1.0 - smoothstep(0.006, 0.026, abs(gemrender_effectNoise(q).g - 0.42));
         filament += arcs * 1.8;
     }
-    vec3 light = color * (0.02 + filament * 1.25 + limb * 1.5)
-            + vec3(0.7, 0.95, 1.0) * limb * limb * 0.8;
+    vec3 body = color * (0.02 + filament * 1.25);
+    vec3 rim = color * limb * 1.5 + vec3(0.7, 0.95, 1.0) * limb * limb * 0.8;
     float optical = v.density * (finish - start) / max(min(min(v.extent.x, v.extent.y), v.extent.z), 0.01);
     float alpha = 1.0 - exp(-optical * v.fade);
-    emission = light * v.temperature * v.emission * alpha;
+    // The chord shrinks to nothing at the silhouette, so weighting the rim by it would dim the very limb it brightens.
+    emission = (body * alpha + rim * sqrt(alpha)) * v.temperature * v.emission;
     return vec4(v.tint * 0.45, alpha);
 }
 
