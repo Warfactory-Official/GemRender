@@ -8,6 +8,8 @@ import com.wf.gemrender.fabric.LevelStageHooks;
 import com.wf.gemrender.fabric.LightHooks;
 import dev.engine_room.flywheel.api.event.EndClientResourceReloadCallback;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.loader.api.FabricLoader;
 
 /^*
  * The Fabric entrypoint.
@@ -27,6 +29,8 @@ public final class GemRenderFabric implements ClientModInitializer {
         DirectHooks.init();
         IrisHooks.init();
         LightHooks.init();
+        ClientTickEvents.END_CLIENT_TICK.register(client -> ShaderPackNotice.tick(client,
+                FabricLoader.getInstance().isModLoaded("colorwheel") || FabricLoader.getInstance().isModLoaded("irisflw")));
         attachHarness();
         attachBench();
     }

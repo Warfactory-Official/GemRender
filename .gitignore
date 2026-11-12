@@ -41,3 +41,6 @@ src/main/resources/assets/gemrender/models/vehicles/
 .settings/
 .classpath
 .project
+
+# LWJGL natives a dev run extracts per version.
+versions/*/.lwjgl/

@@ -114,14 +114,18 @@ dependencies {
     modCfg("net.fabricmc.fabric-api:fabric-api:${fabric_api_version}")
 
     // Flywheel is the instancing engine every visual in this mod is written against. Published for
-    // the obfuscated era; 26.1 has none, which is what flywheel_vendored is for.
+    // every node; flywheel_vendored builds the old fork in src/flywheel instead.
     if (!flywheel_vendored.toBoolean() && flywheel_artifact) {
         // The full jar, not the -api slice: GemRender mixes into the backend's draw managers, and
         // those classes are not in the api artifact.
-        modCompileCfg("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
-        devRuntime("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
+        def flywheelDep = "dev.engine-room.flywheel:${flywheel_artifact}:${flywheel_version}"
+        modCompileCfg(flywheelDep)
+        devRuntime(flywheelDep)
         // Nested like NeoForge's jarJar: Loader keeps the newest copy, so Create's or one in mods/ wins.
-        include("dev.engine-room.flywheel:flywheel-fabric-${mcVersion}:${flywheel_version}")
+        include(flywheelDep)
+        if (!obfuscated) {
+            dependencies.add('testImplementation', flywheelDep)
+        }
     }
 
     if (project.findProperty('sodium_standalone_version')) {
@@ -395,6 +399,7 @@ sourceSets.main.java.exclude 'com/wf/gemrender/lens/LensEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/iris/IrisPbrEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/light/LightEvents.java'
 sourceSets.main.java.exclude 'com/wf/gemrender/effect/EffectEvents.java'
+sourceSets.main.java.exclude 'com/wf/gemrender/ShaderPackNoticeEvents.java'
 
 // The mixins are NOT excluded either. gemrender.mixins.json names all nine unconditionally, and
 // dropping a class here while leaving its name in a `required` config is a hard load failure;
@@ -518,6 +523,7 @@ fabricMetadata.configure {
             'flywheel_version_range' : flywheel_fabric_version_range,
             'mixin_configs'          : mixinConfigs.collect { "\"${it}\"" }.join(', '),
             'flywheel_vendored'      : flywheelVendored,
+            'golemcore_floor'        : project.findProperty('golemcore_floor') ?: '',
             'flywheel_vendored_version': flywheel_vendored_version
     ]
 

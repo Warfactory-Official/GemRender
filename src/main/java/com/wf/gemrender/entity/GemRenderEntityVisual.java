@@ -166,10 +166,9 @@ public abstract class GemRenderEntityVisual<T extends Entity> extends ComponentE
     public void beginFrame(DynamicVisual.Context ctx) {
         float partialTick = ctx.partialTick();
 
-        // 26.1 renamed Camera#getPosition to position(), matching Entity. Same Vec3, same frame.
+        // 26.1 hands visuals the extracted camera state, not the Camera. Same Vec3, same frame.
         //? if >=26.1 {
-		/*var camera = ctx.camera()
-				.position();
+		/*var camera = ctx.cameraRenderState().pos;
         *///?} else {
         var camera = ctx.camera()
                 .getPosition();

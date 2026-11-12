@@ -258,8 +258,7 @@ public final class PartsVisual extends AbstractVisual
 		PoseLod lod = PoseLod.getInstance();
 
 		//? if >=26.1 {
-		/*Vec3 camera = ctx.camera()
-				.position();
+		/*Vec3 camera = ctx.cameraRenderState().pos;
 *///?} else {
 		Vec3 camera = ctx.camera()
 				.getPosition();

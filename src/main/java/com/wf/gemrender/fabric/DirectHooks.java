@@ -30,7 +30,7 @@ public final class DirectHooks {
     *///?}
 
     // NeoForge registers the item renderer type in RegisterSpecialModelRendererEvent; Fabric has no
-    // event for it, so the vanilla id map is widened (gemrender.accesswidener).
+    // event for it, so it writes the vanilla id map, which Fabric API's transitive access widener opens.
     //? if direct && >=26.1 {
     /*private static void registerItemRenderer() {
         net.minecraft.client.renderer.special.SpecialModelRenderers.ID_MAPPER.put(

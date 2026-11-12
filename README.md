@@ -55,16 +55,17 @@ sibling `GemRender-Vulkan` worktree own **26.2+**, with Tenon and OpenGL/Vulkan 
 
 | | 1.21.1 NeoForge | 1.21.1 Fabric | 1.20.1 Forge | 1.20.1 Fabric | 26.1.2 NeoForge | 26.1.2 Fabric |
 |---|---|---|---|---|---|---|
-| Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.109 | Loader 0.19.5, API 0.155.3 |
+| Loader | NeoForge 21.1.248 | Loader 0.19.3, API 0.116.15 | Forge 47.4.23 | Loader 0.19.3, API 0.92.2 | NeoForge 26.1.2.126 | Loader 0.19.5, API 0.155.3 |
 | Java | 21 | 21 | 17 | 17 | 25 | 25 |
-| Flywheel | 1.0.6, bundled | 1.0.6, bundled | 1.0.6, bundled | 1.0.6-281, bundled | 1.0.7 fork, **provided** | 1.0.7 fork, **provided** |
-| Iris shader packs | yes | yes | no | yes (Colorwheel) | no | no |
+| Flywheel | 1.0.6, bundled | 1.0.6, bundled | 1.0.6, bundled | 1.0.6-281, bundled | 1.0.7-mc26.1, bundled | 1.0.7-mc26.1, bundled |
+| Iris shader packs | yes | yes | Colorwheel + Oculus | yes (Colorwheel) | Colorwheel 26.1 (unreleased) | Colorwheel 26.1 (unreleased) |
 | Lights | yes | yes | yes | yes | yes | yes |
 | Terrain transparency | GemRender split | GemRender split | GemRender split | GemRender split | opt-in split | opt-in split |
 
 - Bundled Flywheel: Create nests the same coordinate => one copy; a Flywheel in `mods/` displaces it.
-- 26.1: Flywheel vendored + ported (`src/flywheel`, MIT; Fabric platform layer in `src/flywheelFabric`); a Flywheel
-  in `mods/` = duplicate mod id, load failure.
+- 26.1: upstream Flywheel 1.0.7-mc26.1, bundled like the older versions (NeoForge 26.1.2.126+). Under an Iris pack
+  its backends stand down unless Colorwheel's 26.1 build is installed. `src/flywheel` (the earlier 26.1 fork) is no
+  longer built (`flywheel_vendored=false`).
 - 26.1 water split: on => OIT composited on the wrong side of water. `-Dgemrender.watersplit=force` /
   `-Dgemrender.cloudsplit=force` to enable.
 - OpenGL: Flywheel's 3.3 floor; 4.2 for BC7 only.

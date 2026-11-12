@@ -17,7 +17,8 @@
   "depends": {
     "fabricloader": ">=0.16",
     "minecraft": "${minecraft_version_range}",
-    "java": ">=${java_version}",${flywheel_vendored ? '\n    "fabric-api": "*",' : ''}
+    "java": ">=${java_version}",
+    "fabric-api": "*",
     "flywheel": "${flywheel_vendored ? '=' + flywheel_vendored_version : flywheel_version_range}"
-  }
+  }${golemcore_floor ? ',\n  "breaks": {\n    "golemcore": "<' + golemcore_floor + '"\n  }' : ''}
 }

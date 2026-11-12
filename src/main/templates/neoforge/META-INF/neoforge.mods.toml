@@ -19,8 +19,8 @@ description = '''${mod_description}'''
 #
 # The consequence to know: this jar PROVIDES `flywheel`, it does not bundle it. A real Flywheel in
 # mods/ would be a duplicate mod id and a hard load failure, not the "installed copy wins" that
-# jar-in-jar gives on the versions where Flywheel is published. There is no 26.1 Flywheel to collide
-# with today; when Engine-Room ships one, this block goes and so does the source set.
+# jar-in-jar gives on the versions where Flywheel is published. Only a `flywheel_vendored=true` build
+# emits this block; every version currently nests published Flywheel.
 [[mods]]
 modId = "flywheel"
 version = "${flywheel_vendored_version}"
@@ -92,7 +92,17 @@ versionRange = "${platform_version_range}"
 ordering = "NONE"
 side = "BOTH"
 
-# --- Required: Minecraft ---
+<% if (golemcore_floor) { %># --- Incompatible: older Golem Core ---
+# Golem Core before this version calls the API of GemRender's old 26.1 Flywheel fork and crashes on upstream Flywheel.
+[[dependencies.gemrender]]
+modId = "golemcore"
+type = "incompatible"
+reason = "Golem Core before ${golemcore_floor} does not work with this GemRender. Update Golem Core, or use GemRender 0.1.21."
+versionRange = "(,${golemcore_floor})"
+ordering = "NONE"
+side = "CLIENT"
+
+<% } %># --- Required: Minecraft ---
 [[dependencies.gemrender]]
 modId = "minecraft"
 type = "required"
@@ -115,7 +125,6 @@ type = "required"
 versionRange = "${flywheel_version_range}"
 ordering = "AFTER"
 side = "CLIENT"
-<% } else { %># Omitted deliberately: on this version Flywheel has no published build and its source is
-# VENDORED into GemRender's own jar, so there is no separate `flywheel` mod to depend on. A
-# required dependency on one would stop the mod loading. See versions/26.1/gradle.properties.
+<% } else { %># Omitted: a `flywheel_vendored=true` build compiles Flywheel into GemRender's own jar, so there is
+# no separate `flywheel` mod to depend on, and a required dependency on one would stop the mod loading.
 <% } %>

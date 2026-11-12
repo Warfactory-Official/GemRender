@@ -25,7 +25,7 @@ public final class Vanilla {
 
     public static int fboOf(RenderTarget target) {
         //? if >=26.1 {
-        /*return dev.engine_room.flywheel.backend.util.VanillaState.fboOf(target);
+        /*return fboOf(target.getColorTexture(), target.getDepthTexture());
         *///?} else {
         return target.frameBufferId;
         //?}
@@ -33,15 +33,30 @@ public final class Vanilla {
 
 
     //? if >=26.1 {
-    /*public static int textureId(com.mojang.blaze3d.textures.GpuTexture texture) {
-        return dev.engine_room.flywheel.backend.util.VanillaState.glId(texture);
+    /*private static int scratchFbo = -1;
+
+    private static int fboOf(com.mojang.blaze3d.textures.GpuTexture color,
+                             com.mojang.blaze3d.textures.GpuTexture depth) {
+        if (scratchFbo == -1) {
+            scratchFbo = org.lwjgl.opengl.GL32C.glGenFramebuffers();
+        }
+        GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, scratchFbo);
+        org.lwjgl.opengl.GL32C.glFramebufferTexture(GL_FRAMEBUFFER, org.lwjgl.opengl.GL32C.GL_COLOR_ATTACHMENT0,
+                textureId(color), 0);
+        org.lwjgl.opengl.GL32C.glFramebufferTexture(GL_FRAMEBUFFER, org.lwjgl.opengl.GL32C.GL_DEPTH_ATTACHMENT,
+                depth == null ? 0 : textureId(depth), 0);
+        return scratchFbo;
+    }
+
+    public static int textureId(com.mojang.blaze3d.textures.GpuTexture texture) {
+        return ((com.mojang.blaze3d.opengl.GlTexture) texture).glId();
     }
     *///?}
 
     public static void bindWrite(RenderTarget target) {
         //? if >=26.1 {
         /*GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER,
-				dev.engine_room.flywheel.backend.util.VanillaState.fboOf(target));
+				fboOf(target.getColorTexture(), target.getDepthTexture()));
         *///?} else {
         target.bindWrite(false);
         //?}
@@ -85,7 +100,7 @@ public final class Vanilla {
         org.lwjgl.opengl.GL11C.glGetIntegerv(org.lwjgl.opengl.GL11C.GL_SCISSOR_BOX, previousScissorBox);
 
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER,
-				dev.engine_room.flywheel.backend.util.VanillaState.fboOf(color.texture(),
+				fboOf(color.texture(),
 						depth == null ? null : depth.texture()));
         GlStateManager._viewport(0, 0, color.getWidth(0), color.getHeight(0));
 
@@ -156,7 +171,8 @@ public final class Vanilla {
 
     public static float depthFar() {
         //? if >=26.1 {
-        /*return dev.engine_room.flywheel.backend.util.VanillaState.depthFar();
+        /*var options = Minecraft.getInstance().options;
+        return Math.max(options.getEffectiveRenderDistance() * 16 * 4.0F, options.cloudRange().get() * 16);
         *///?} else {
         return Minecraft.getInstance().gameRenderer.getDepthFar();
         //?}

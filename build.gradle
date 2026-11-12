@@ -800,9 +800,11 @@ var generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             minecraft_version_range: minecraft_version_range,
             loader_version_range   : loader_version_range,
             platform_version_range : platform_version_range,
-            flywheel_version_range : flywheel_version_range,
+            // The mod's own version can differ from its Maven one (upstream 26.1: Maven 1.0.7-mc26.1-16, mod 1.0.7-16).
+            flywheel_version_range : project.findProperty('flywheel_mod_version_range') ?: flywheel_version_range,
 
             flywheel_dependency    : !flywheelVendored,
+            golemcore_floor        : project.findProperty('golemcore_floor') ?: '',
             flywheel_mod_id        : 'flywheel',
 
             direct_path            : directSupported,
