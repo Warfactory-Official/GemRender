@@ -64,6 +64,8 @@ public final class Canvas {
     private int[] batchClip = new int[16 * 5];
     private int batchCount;
     private boolean clipDirty;
+    private boolean maskPass;
+    private boolean masked;
 
     private float[] matrices = new float[6 * 16];
     private int depth;
@@ -199,6 +201,7 @@ public final class Canvas {
         font.refresh();
         vertexCount = 0;
         batchCount = 0;
+        masked = false;
         depth = 0;
         a = 1;
         b = 0;
@@ -429,6 +432,28 @@ public final class Canvas {
 
     public Canvas fill(float x0, float y0, float x1, float y1, int argb) {
         return gradient(x0, y0, x1, y1, argb, argb);
+    }
+
+    /**
+     * Writes alpha 0 over the rectangle, colour kept. Target alpha is otherwise 1 under opaque draws; a sampler that
+     * reads alpha as an emission mask sees 0 here and the antialiased remainder of later translucent draws.
+     */
+    public Canvas mask(float x0, float y0, float x1, float y1) {
+        flush();
+        fill(x0, y0, x1, y1, 0xFFFFFFFF);
+        maskPass = true;
+        try {
+            flush();
+        } finally {
+            maskPass = false;
+        }
+        masked = true;
+        return this;
+    }
+
+    /** A {@link #mask} was drawn since {@code begin}. */
+    public boolean masked() {
+        return masked;
     }
 
     /** Vertical gradient, {@code top} at {@code y0}. */
@@ -910,7 +935,7 @@ public final class Canvas {
             int end = i + 1 < batchCount ? batchFirst[i + 1] : vertexCount;
             maxQuads = Math.max(maxQuads, (end - batchFirst[i]) / 4);
         }
-        int baseVertex = gl.bind(base, vertices, vertexCount, maxQuads);
+        int baseVertex = gl.bind(base, vertices, vertexCount, maxQuads, maskPass);
         for (int i = 0; i < batchCount; i++) {
             int first = batchFirst[i];
             int end = i + 1 < batchCount ? batchFirst[i + 1] : vertexCount;

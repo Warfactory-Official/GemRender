@@ -35,12 +35,23 @@ layout(location = 0) out vec4 _gr_fragColor;
 layout(location = 1) out vec4 _grl_irOut;
 #endif
 
+// Light coord x < -2: slot texture alpha = emission mask (1 glowing, 0 world-lit), true coord = x + 4.
+const float GR_MASKED_BELOW = -2.0;
+const float GR_MASKED_OFFSET = 4.0;
+
 void main() {
 #ifdef GEMRENDER_LIGHTS
     gemrender_lightPrepare(_gr_lightPos);
     _grl_irOut = vec4(0.0);
 #endif
+    bool masked = _gr_lightCoord.x < GR_MASKED_BELOW;
+    vec2 lightCoord = masked ? _gr_lightCoord + vec2(GR_MASKED_OFFSET, 0.0) : _gr_lightCoord;
     vec4 colour = texture(_gr_atlas, _gr_texCoord) * _gr_tint;
+    float glow = 1.0;
+    if (masked) {
+        glow = colour.a;
+        colour.a = 1.0;
+    }
     if (_gr_paintLayer >= 0) {
         vec4 paint = gemrender_paint(_gr_paintLayer, _gr_paintCoord,
                 texture(_gr_atlas, _gr_texCoord + vec2(0.0, GR_EMISSIVE_BAND)).a);
@@ -63,18 +74,19 @@ void main() {
     vec3 lit = colour.rgb;
     vec3 emission = _gr_banded ? texture(_gr_atlas, _gr_texCoord + vec2(0.0, GR_EMISSIVE_BAND)).rgb : vec3(0.0);
     // Emissive: light coord < 0.
-    if (_gr_lightCoord.x >= 0.0) {
+    if (lightCoord.x >= 0.0) {
         float light0 = max(0.0, dot(normalize(_gr_light0), _gr_shadeNormal));
         float light1 = max(0.0, dot(normalize(_gr_light1), _gr_shadeNormal));
         float diffuse = min(1.0, (light0 + light1) * 0.6 + 0.4);
 
-        lit = colour.rgb * diffuse * texture(_gr_lightmap, _gr_lightCoord).rgb;
+        lit = colour.rgb * diffuse * texture(_gr_lightmap, lightCoord).rgb;
 #ifdef GEMRENDER_LIGHTS
-        float skyLevel = clamp((_gr_lightCoord.y * 16.0 - 0.5) / 15.0, 0.0, 1.0);
+        float skyLevel = clamp((lightCoord.y * 16.0 - 0.5) / 15.0, 0.0, 1.0);
         lit += colour.rgb * (gemrender_lights(_gr_lightPos, _gr_shadeNormal) + gemrender_mergedNight(skyLevel));
         _grl_irOut = vec4(colour.rgb * (_grl_irSum + gemrender_nightSky(skyLevel)), colour.a);
 #endif
         lit += emission;
+        lit = mix(lit, colour.rgb, glow);
     }
 
     vec4 overlay = texture(_gr_overlayTex, _gr_overlayCoord);

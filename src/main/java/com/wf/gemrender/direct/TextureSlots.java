@@ -18,4 +18,12 @@ public interface TextureSlots {
     default boolean emissive(String slot) {
         return false;
     }
+
+    /**
+     * {@code true} (and not {@link #emissive}) => {@code slot}'s texture alpha is a per-pixel emission mask: 1 = unlit,
+     * 0 = lit as the vehicle is; alpha is not coverage.
+     */
+    default boolean emissionMask(String slot) {
+        return false;
+    }
 }

@@ -38,6 +38,8 @@ public final class DirectRenderer {
     private static final float QUANTUM_SECONDS = 1.0f / 128.0f;
     /** Packed light no level produces => {@link TextureSlots#emissive}. */
     private static final int EMISSIVE = -1;
+    /** Bit 15 of the packed block light (<= 240) => {@link TextureSlots#emissionMask}; instance light x biased by -4. */
+    private static final int MASKED = 1 << 15;
 
     private static final Map<DirectPass, PassQueue> QUEUES = new EnumMap<>(DirectPass.class);
 
@@ -308,7 +310,7 @@ public final class DirectRenderer {
                     continue;
                 }
                 batch = queue.batch(part, texture);
-                partLight = slots.emissive(part.slot()) ? EMISSIVE : light;
+                partLight = slots.emissive(part.slot()) ? EMISSIVE : slots.emissionMask(part.slot()) ? light | MASKED : light;
             }
             write(batch, batch.reserve(), pose, slot, partLight, overlay, argb, variant, paint, reference, restBase);
         }
@@ -364,7 +366,8 @@ public final class DirectRenderer {
             MemoryUtil.memPutFloat(address + 72, -1.0f);
             MemoryUtil.memPutFloat(address + 76, -1.0f);
         } else {
-            MemoryUtil.memPutFloat(address + 72, ((light & 0xFFFF) + 8.0f) / 256.0f);
+            float bias = (light & MASKED) != 0 ? -4.0f : 0.0f;
+            MemoryUtil.memPutFloat(address + 72, ((light & 0x7FFF) + 8.0f) / 256.0f + bias);
             MemoryUtil.memPutFloat(address + 76, ((light >>> 16 & 0xFFFF) + 8.0f) / 256.0f);
         }
 

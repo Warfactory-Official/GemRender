@@ -231,7 +231,7 @@ final class CanvasGl {
      * Draw state for every batch; called per flush since vanilla calls between flushes reset it.
      * Returns the base vertex for {@link #draw}.
      */
-    int bind(Matrix4f matrix, long vertices, int vertexCount, int maxBatchQuads) {
+    int bind(Matrix4f matrix, long vertices, int vertexCount, int maxBatchQuads, boolean maskAlpha) {
         GlStateManager._glUseProgram(program);
         try (MemoryStack stack = MemoryStack.stackPush()) {
             glUniformMatrix4fv(matrixLoc, false, matrix.get(stack.mallocFloat(16)));
@@ -241,7 +241,11 @@ final class CanvasGl {
         GlStateManager._glBindBuffer(GL_ARRAY_BUFFER, vbo);
         int base = upload(vertices, vertexCount);
         GlState.enableBlend();
-        GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        if (maskAlpha) {
+            GlStateManager._blendFuncSeparate(GL_ZERO, GL_ONE, GL_ZERO, GL_ZERO);
+        } else {
+            GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        }
         GlStateManager._disableDepthTest();
         GlStateManager._depthMask(false);
         GlStateManager._disableCull();
