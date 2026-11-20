@@ -11,7 +11,10 @@ import org.lwjgl.system.MemoryUtil;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
+import org.assertj.core.api.Assertions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.lwjgl.opengl.GL46C.*;
@@ -123,7 +126,7 @@ class VolumeEffectsGlTest {
                 for (int c = 0; c < 3; c++) {
                     float composited = smoke[c] * (1 - transmission) + fire[c] * transmission;
                     assertThat(composited).isCloseTo(combined[c] * combined[3],
-                            org.assertj.core.api.Assertions.within(0.001f));
+                            Assertions.within(0.001f));
                 }
             } finally {
                 volume.close();
@@ -217,7 +220,7 @@ class VolumeEffectsGlTest {
                         float limb = rim[2] * (float) Math.exp(-edge[3]);
                         assertThat(limb).as("blue rim must remain brighter than the body").isGreaterThan(body * 1.5f);
                         if (previousAlpha >= 0) assertThat(center[3]).isCloseTo(previousAlpha,
-                                org.assertj.core.api.Assertions.within(0.005f));
+                                Assertions.within(0.005f));
                         previousAlpha = center[3];
                     } finally { volume.close(); }
                 }
@@ -431,8 +434,8 @@ class VolumeEffectsGlTest {
                 }
                 image.setRGB(x, SIZE - y - 1, rgb);
             }
-            var output = java.nio.file.Path.of("build", "fx-previews", name + ".png");
-            java.nio.file.Files.createDirectories(output.getParent());
+            var output = Path.of("build", "fx-previews", name + ".png");
+            Files.createDirectories(output.getParent());
             ImageIO.write(image, "png", output.toFile());
         }
 

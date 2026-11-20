@@ -3,6 +3,8 @@ package com.wf.gemrender.gltf;
 import com.wf.gemrender.vendor.jgltf.model.MeshModel;
 import com.wf.gemrender.vendor.jgltf.model.MeshPrimitiveModel;
 import com.wf.gemrender.vendor.jgltf.model.NodeModel;
+import java.util.Arrays;
+import java.util.HashMap;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Quaternionfc;
@@ -56,7 +58,7 @@ public final class NodeTable {
         this.slots = slots;
         this.names = names;
 
-        Map<String, Integer> byName = new java.util.HashMap<>();
+        Map<String, Integer> byName = new HashMap<>();
         for (int i = 0; i < nodeCount; i++) {
             if (names[i] != null) {
                 byName.putIfAbsent(names[i], i);
@@ -138,7 +140,7 @@ public final class NodeTable {
         }
 
         int[] weightBase = new int[nodeCount];
-        java.util.Arrays.fill(weightBase, -1);
+        Arrays.fill(weightBase, -1);
 
         return new NodeTable(nodeCount, trs.clone(), new Matrix4f[nodeCount], parents.clone(),
                 evaluationOrder(parents), weightBase, new int[nodeCount], Map.of(), names.clone());

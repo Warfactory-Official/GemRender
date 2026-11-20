@@ -3,6 +3,7 @@ package com.wf.gemrender.particle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ class ParticleStyleTest {
 		style.write(target, ParticleStyle.FLOATS);
 
 		assertThat(target).startsWith(new float[ParticleStyle.FLOATS]);
-		assertThat(java.util.Arrays.copyOfRange(target, ParticleStyle.FLOATS, target.length))
+		assertThat(Arrays.copyOfRange(target, ParticleStyle.FLOATS, target.length))
 				.containsExactly(2.1f, 1.6f, 0.5f, 2.8f, 0.25f, 0.5f, 0.75f, 0.75f, 0.4f, 0.1f, 0.6f, 3.0f, 0.9f,
 						0.8f, 2.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.25f, 0.04f, 0.0f, 0.0f, 0.0f);
 	}
@@ -70,7 +71,7 @@ class ParticleStyleTest {
 
 		assertThat(style.response).isEqualTo(ContactResponse.BOUNCE);
 		assertThat(style.collides()).isTrue();
-		assertThat(java.util.Arrays.copyOfRange(target, 16, 20))
+		assertThat(Arrays.copyOfRange(target, 16, 20))
 				.containsExactly(0.4f, 0.7f, ContactResponse.BOUNCE.ordinal(), 0.0f);
 	}
 

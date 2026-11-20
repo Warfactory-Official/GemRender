@@ -3,6 +3,7 @@ package com.wf.gemrender.direct;
 import com.wf.gemrender.Ids;
 
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.gltf.GltfMaterial;
 import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.material.Transparency;
 import dev.engine_room.flywheel.lib.material.CutoutShaders;
@@ -40,11 +41,11 @@ public record DirectMaterial(ResourceLocation texture, Mode mode, float alphaCut
         }
 
         return new DirectMaterial(texture, mode, cutoff, !material.backfaceCulling(),
-                com.wf.gemrender.gltf.GltfMaterial.banded(material));
+                GltfMaterial.banded(material));
     }
 
     /** Texture-slot material: texture bound per batch. */
-    public static DirectMaterial of(com.wf.gemrender.gltf.GltfMaterial material) {
+    public static DirectMaterial of(GltfMaterial material) {
         Mode mode = switch (material.alphaMode()) {
             case OPAQUE -> Mode.OPAQUE;
             case MASK -> Mode.MASK;

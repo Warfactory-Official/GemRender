@@ -16,6 +16,8 @@ import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11C;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import org.lwjgl.opengl.GL30C;
 
 
 
@@ -99,7 +101,7 @@ public final class SceneDepth {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        RenderTarget main = com.wf.gemrender.render.Vanilla.mainTarget();
+        RenderTarget main = Vanilla.mainTarget();
         ensureSize(main.width, main.height);
 
         GlAudit.Scope audit = GlAudit.open("volume:depth");
@@ -191,7 +193,7 @@ public final class SceneDepth {
         try {
             GlStateManager._bindTexture(texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT,
-                    (java.nio.ByteBuffer) null);
+                    (ByteBuffer) null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -200,7 +202,7 @@ public final class SceneDepth {
             GlStateManager._bindTexture(previousTexture);
         }
 
-        int previousFramebuffer = glGetInteger(org.lwjgl.opengl.GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
+        int previousFramebuffer = glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
         fbo = glGenFramebuffers();
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);

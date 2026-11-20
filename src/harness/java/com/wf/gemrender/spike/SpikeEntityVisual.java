@@ -10,6 +10,8 @@ import com.wf.gemrender.entity.GemRenderEntityVisual;
 import com.wf.gemrender.gltf.AnimationPhase;
 import com.wf.gemrender.gltf.GemRenderGltfModel;
 import com.wf.gemrender.gltf.GltfAnimation;
+import com.wf.gemrender.gltf.blend.AnimationBlend;
+import com.wf.gemrender.render.PoseCache;
 
 import dev.engine_room.flywheel.api.visual.DynamicVisual;
 import dev.engine_room.flywheel.api.visualization.VisualizationContext;
@@ -87,7 +89,7 @@ public final class SpikeEntityVisual extends GemRenderEntityVisual<Entity> {
 
 		DRAWN.incrementAndGet();
 
-		com.wf.gemrender.render.PoseCache.Pose pose = pose();
+		PoseCache.Pose pose = pose();
 		if (pose != null) {
 			GltfVisual.recordCullSphere(pose.sphere());
 		}
@@ -102,7 +104,7 @@ public final class SpikeEntityVisual extends GemRenderEntityVisual<Entity> {
 	 * the clip's first frame and its farthest one.
 	 */
 	@Override
-	protected boolean blend(float partialTick, com.wf.gemrender.gltf.blend.AnimationBlend blend) {
+	protected boolean blend(float partialTick, AnimationBlend blend) {
 		GemRenderGltfModel model = model();
 		if (!BLEND || model == null) {
 			return false;

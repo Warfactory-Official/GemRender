@@ -13,6 +13,9 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Locale;
+import org.lwjgl.system.MemoryUtil;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
@@ -189,8 +192,8 @@ public final class Lenses {
     }
 
     private float changed(int width, int height) {
-        java.nio.ByteBuffer before = org.lwjgl.system.MemoryUtil.memAlloc(width * height * 4);
-        java.nio.ByteBuffer after = org.lwjgl.system.MemoryUtil.memAlloc(width * height * 4);
+        ByteBuffer before = MemoryUtil.memAlloc(width * height * 4);
+        ByteBuffer after = MemoryUtil.memAlloc(width * height * 4);
         int pack = glGetInteger(GL_PIXEL_PACK_BUFFER_BINDING);
         try {
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
@@ -210,8 +213,8 @@ public final class Lenses {
             return (float) changed / (width * height);
         } finally {
             glBindBuffer(GL_PIXEL_PACK_BUFFER, pack);
-            org.lwjgl.system.MemoryUtil.memFree(before);
-            org.lwjgl.system.MemoryUtil.memFree(after);
+            MemoryUtil.memFree(before);
+            MemoryUtil.memFree(after);
         }
     }
 
@@ -222,7 +225,7 @@ public final class Lenses {
                 ? "ready" : "not built yet") + ", pending=" + count + ", lastPass=" + lastDrawn + " lens(es) "
                 + (ago < 0 ? "never" : ago + "ms ago") + ", passes=" + framesDrawn + ", dropped=" + dropped
                 + ", copy=" + copyWidth + "x" + copyHeight + ", measured=" + (measured < 0.0f ? "-"
-                : String.format(java.util.Locale.ROOT, "%.2f%% of pixels changed", measured * 100.0f));
+                : String.format(Locale.ROOT, "%.2f%% of pixels changed", measured * 100.0f));
     }
 
     private void ensureCopy(int width, int height) {
@@ -231,7 +234,7 @@ public final class Lenses {
         }
         GlStateManager._activeTexture(GL_TEXTURE0);
         GlStateManager._bindTexture(copyTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, copyFbo);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, copyTexture, 0);
         copyWidth = width;

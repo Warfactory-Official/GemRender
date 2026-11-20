@@ -3,6 +3,7 @@ package com.wf.gemrender.gltf.skin;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -73,7 +74,7 @@ class BoneAttributeCodecTest {
 		for (float[] weights : cases) {
 			BoneAttributeCodec.quantizeWeights(weights, 0, out);
 			assertThat(out[0] + out[1] + out[2] + out[3])
-					.as("sum for %s", java.util.Arrays.toString(weights))
+					.as("sum for %s", Arrays.toString(weights))
 					.isEqualTo(BoneAttributeCodec.WEIGHT_SUM);
 		}
 	}

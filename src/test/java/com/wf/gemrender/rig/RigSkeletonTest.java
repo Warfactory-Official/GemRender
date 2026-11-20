@@ -18,6 +18,7 @@ import com.wf.gemrender.gltf.NodeOscillate;
 import com.wf.gemrender.gltf.NodeSwing;
 import com.wf.gemrender.gltf.NodeTable;
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
+import java.util.Map;
 
 class RigSkeletonTest {
 	private static final Vector3f UPPER_PIVOT = new Vector3f(0.0f, 0.25f, 0.0f);
@@ -212,7 +213,7 @@ class RigSkeletonTest {
 	@Test
 	@DisplayName("a mistyped mesh name names the ones the file does have")
 	void unknownMeshIsNamed() {
-		assertThatThrownBy(() -> rig.attach(body, java.util.Map.of("Body", geometry()), "Bdoy"))
+		assertThatThrownBy(() -> rig.attach(body, Map.of("Body", geometry()), "Bdoy"))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("Body");
 	}

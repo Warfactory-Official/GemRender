@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import org.lwjgl.opengl.GL11C;
 
 import static org.lwjgl.opengl.GL11C.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11C.GL_TRIANGLES;
@@ -161,7 +162,7 @@ final class GuestOit {
         if (target == GL_TEXTURE_2D) {
             GlStateManager._bindTexture(texture);
         } else {
-            org.lwjgl.opengl.GL11C.glBindTexture(target, texture);
+            GL11C.glBindTexture(target, texture);
         }
         GlStateManager._activeTexture(GL_TEXTURE0);
     }

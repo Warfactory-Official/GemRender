@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
+import com.sun.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -17,7 +18,9 @@ import com.wf.gemrender.gltf.MorphFixture;
 import com.wf.gemrender.gltf.NodeRotation;
 import com.wf.gemrender.gltf.NodeSwing;
 import com.wf.gemrender.gltf.NodeTable;
+import com.wf.gemrender.gltf.PoseDriver;
 import com.wf.gemrender.gltf.RigFixture;
+import java.lang.management.ManagementFactory;
 
 class BlendEvaluatorTest {
 	private static final int NODES = 31;
@@ -229,7 +232,7 @@ class BlendEvaluatorTest {
 
 	private static GltfAnimation pinned(NodeTable table, Quaternionf q, boolean negate) {
 		float s = negate ? -1.0f : 1.0f;
-		com.wf.gemrender.gltf.PoseDriver driver = new com.wf.gemrender.gltf.PoseDriver() {
+		PoseDriver driver = new PoseDriver() {
 			@Override
 			public void apply(float time, float[] scratch) {
 				int r = NodeRotation.offsetOf(table, 0);
@@ -367,8 +370,8 @@ class BlendEvaluatorTest {
 	@Test
 	@DisplayName("steady-state evaluation allocates nothing")
 	void noAllocation() {
-		com.sun.management.ThreadMXBean bean =
-				(com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+		ThreadMXBean bean =
+				(ThreadMXBean) ManagementFactory.getThreadMXBean();
 		AnimationBlend blend = new AnimationBlend();
 		AdditiveReference rest = AdditiveReference.rest(table);
 		BlendMask arm = BlendMask.subtree(table, "n1");

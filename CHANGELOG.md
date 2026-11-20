@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.23
+
+- Opt-in sharp text (1.21.1): a `Screen` implementing `com.wf.gemrender.ui.SharpTextScreen`, or code between
+  `SharpText.begin()` and `SharpText.end()`, draws vanilla `Font` text with a sharp-bilinear sampler. Identical to
+  vanilla at integer GUI scale; even stems at fractional scale. Other text is untouched; inert under an Iris pack.
+
 ## 0.1.22
 
 - 26.1 runs on upstream Flywheel 1.0.7-mc26.1, nested like on 1.20.1 and 1.21.1, instead of GemRender's own fork.

@@ -10,8 +10,10 @@ import com.wf.gemrender.gltf.PoseDriver;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.wf.gemrender.vendor.mcgltf.animation.GltfAnimationCreator.*;
 
@@ -19,8 +21,8 @@ public final class BedrockAnimations {
     private BedrockAnimations() {
     }
 
-    public static java.util.Set<String> drivenBones(JsonObject root) {
-        java.util.Set<String> out = new java.util.LinkedHashSet<>();
+    public static Set<String> drivenBones(JsonObject root) {
+        Set<String> out = new LinkedHashSet<>();
         if (!root.has("animations")) {
             return out;
         }

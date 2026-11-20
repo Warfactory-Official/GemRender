@@ -3,6 +3,7 @@ package com.wf.gemrender.effect;
 import com.wf.gemrender.gl.HeadlessGl;
 import com.wf.gemrender.gl.ShaderSources;
 import com.wf.gemrender.render.GlPrograms;
+import java.nio.ByteBuffer;
 import org.joml.Matrix4f;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ class SceneEffectsGlTest {
             int fbo = glGenFramebuffers(), texture = glGenTextures(), vao = glGenVertexArrays();
             try {
                 glBindTexture(GL_TEXTURE_2D, texture);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 32, 32, 0, GL_RGBA, GL_FLOAT, (java.nio.ByteBuffer) null);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 32, 32, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
                 glBindFramebuffer(GL_FRAMEBUFFER, fbo);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
                 assertThat(glCheckFramebufferStatus(GL_FRAMEBUFFER)).isEqualTo(GL_FRAMEBUFFER_COMPLETE);

@@ -18,6 +18,7 @@ import com.wf.gemrender.gltf.AnimationPhase;
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.gltf.GltfPose;
 import com.wf.gemrender.gltf.RigFixture;
+import com.wf.gemrender.gltf.morph.GltfMorphLayout;
 import com.wf.gemrender.gltf.skin.SkinnedBounds;
 
 class PoseCacheTest {
@@ -103,7 +104,7 @@ class PoseCacheTest {
 		Matrix4f[] actual = RigFixture.pose(clip, bucketTime);
 		assertThat(actual).isEqualTo(expected);
 
-		Vector4f direct = new org.joml.Vector4f();
+		Vector4f direct = new Vector4f();
 		bounds().evaluate(expected, direct);
 
 		cache.endFrame();
@@ -192,7 +193,7 @@ class PoseCacheTest {
 
 	private static int layered(PoseCache cache, SkinnedBounds bounds, GltfAnimation[] clips,
 			float... times) {
-		return cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE,
+		return cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE,
 				clips, times, 0)
 				.boneBase();
 	}
@@ -220,14 +221,14 @@ class PoseCacheTest {
 		GltfAnimation clip = RigFixture.animation();
 
 		for (int i = 0; i < 8; i++) {
-			cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE, clip,
+			cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE, clip,
 					i * QUANTUM * 0.5f, 0);
 		}
 		cache.endFrame();
 		int atLevel0 = cache.evaluationsLastFrame();
 
 		for (int i = 0; i < 8; i++) {
-			cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE, clip,
+			cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE, clip,
 					i * QUANTUM * 0.5f, 2);
 		}
 		cache.endFrame();
@@ -244,10 +245,10 @@ class PoseCacheTest {
 		SkinnedBounds bounds = bounds();
 		GltfAnimation clip = RigFixture.animation();
 
-		int near = cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE,
+		int near = cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE,
 				clip, 3 * QUANTUM, 0)
 				.boneBase();
-		int far = cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE,
+		int far = cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE,
 				clip, 12 * QUANTUM, 2)
 				.boneBase();
 
@@ -263,9 +264,9 @@ class PoseCacheTest {
 		SkinnedBounds bounds = bounds();
 		GltfAnimation clip = RigFixture.animation();
 
-		cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE, clip,
+		cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE, clip,
 				0.0f, 0);
-		cache.pose(RigFixture.layout(), bounds, com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE, clip,
+		cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE, clip,
 				0.0f, 4);
 		cache.endFrame();
 
@@ -282,7 +283,7 @@ class PoseCacheTest {
 		List<Integer> bases = new ArrayList<>();
 		for (int i = 0; i < 16; i++) {
 			bases.add(cache.pose(RigFixture.layout(), bounds,
-					com.wf.gemrender.gltf.morph.GltfMorphLayout.NONE, null, 0.0f, 0)
+					GltfMorphLayout.NONE, null, 0.0f, 0)
 					.boneBase());
 		}
 
@@ -391,7 +392,7 @@ class PoseCacheTest {
 		float time = 5 * QUANTUM;
 		PoseCache.Pose pose = cache.pose(RigFixture.layout(), bounds(), clip, time);
 
-		org.joml.Vector4f direct = new org.joml.Vector4f();
+		Vector4f direct = new Vector4f();
 		bounds().evaluate(RigFixture.pose(clip, time), direct);
 
 		assertThat(pose.sphere()

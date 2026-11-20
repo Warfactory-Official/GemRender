@@ -2,6 +2,8 @@ package com.wf.gemrender.particle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Random;
+import java.util.function.Supplier;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,6 +18,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import org.assertj.core.api.Assertions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -150,7 +153,7 @@ class ParticleSweepScaleTest {
 
 	/** One explosion's worth of debris: a cone of velocities out of a single point above the floor. */
 	private static int burst(ParticleCollision.Probe probe, ParticleStyle style, long seed, int count) {
-		java.util.Random random = new java.util.Random(seed);
+		Random random = new Random(seed);
 		int landed = 0;
 
 		for (int i = 0; i < count; i++) {
@@ -172,7 +175,7 @@ class ParticleSweepScaleTest {
 		return landed;
 	}
 
-	private static double best(java.util.function.Supplier<ParticleCollision.Probe> probes, ParticleStyle style) {
+	private static double best(Supplier<ParticleCollision.Probe> probes, ParticleStyle style) {
 		for (int round = 0; round < WARMUP_ROUNDS; round++) {
 			burst(probes.get(), style, round);
 		}
@@ -282,7 +285,7 @@ class ParticleSweepScaleTest {
 		FlatLevel level = new FlatLevel();
 		ParticleStyle style = rubble();
 
-		java.util.Random random = new java.util.Random(7);
+		Random random = new Random(7);
 		ParticleCollision.Probe walking = LevelContactProbe.of(level);
 		ParticleCollision.Probe clipping = clipping(level);
 
@@ -297,7 +300,7 @@ class ParticleSweepScaleTest {
 					0.0, FLOOR + 2.0, 0.0, vx, vy, vz, 5.0f, 0.0f);
 
 			assertThat(a.contactAge()).as("contact age for velocity %.2f %.2f %.2f", vx, vy, vz)
-					.isCloseTo(b.contactAge(), org.assertj.core.api.Assertions.within(1.0e-4f));
+					.isCloseTo(b.contactAge(), Assertions.within(1.0e-4f));
 			assertThat(a.normal()).isEqualTo(b.normal());
 		}
 	}

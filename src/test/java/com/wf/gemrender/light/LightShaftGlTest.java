@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.lwjgl.opengl.GL46C.*;
 
 import com.wf.gemrender.gl.HeadlessGl;
+import com.wf.gemrender.render.GlPrograms;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Tag;
@@ -12,7 +15,10 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Random;
+import org.assertj.core.data.Offset;
 
 /**
  * {@code gemrender_shaft} against a fine numeric integral of the same medium: the analytic cone clip, the scene-depth
@@ -54,9 +60,9 @@ class LightShaftGlTest {
 
 	private static String shader(String name) {
 		try (var in = LightShaftGlTest.class.getResourceAsStream("/assets/gemrender/shaders/" + name)) {
-			return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + "\n";
-		} catch (java.io.IOException e) {
-			throw new java.io.UncheckedIOException(e);
+			return new String(in.readAllBytes(), StandardCharsets.UTF_8) + "\n";
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
 		}
 	}
 
@@ -267,7 +273,7 @@ class LightShaftGlTest {
 			glBufferData(GL_UNIFORM_BUFFER, ubo, GL_STATIC_DRAW);
 			glBindBufferBase(GL_UNIFORM_BUFFER, LightFrame.UBO_BINDING, buffer);
 
-			int program = com.wf.gemrender.render.GlPrograms.link("shaft test",
+			int program = GlPrograms.link("shaft test",
 					"#version 150\n" + LightShadows.source("light_trace.vert"),
 					"#version 150\n" + LightShaders.include() + LightShadows.source("include/shaft.glsl")
 							+ LightShadows.source("shaft.frag"));
@@ -337,13 +343,13 @@ class LightShaftGlTest {
 							Double.POSITIVE_INFINITY) * l.r * 40.0;
 					double expected = 1.0 - Math.exp(-s);
 					assertThat((double) centre[0][0]).as("lit pixel vs integral (expected %.4f)", expected)
-							.isCloseTo(expected, org.assertj.core.data.Offset.offset(0.03 + 0.1 * expected));
+							.isCloseTo(expected, Offset.offset(0.03 + 0.1 * expected));
 				}
 				MemoryUtil.memFree(px);
 			}
-			System.out.println("[gemrender] shaft pixels: centre " + java.util.Arrays.toString(centre[0]) + ", corner "
-					+ java.util.Arrays.toString(corner[0]) + ", behind-geometry " + java.util.Arrays.toString(centre[1])
-					+ ", scissored-out " + java.util.Arrays.toString(left[2]));
+			System.out.println("[gemrender] shaft pixels: centre " + Arrays.toString(centre[0]) + ", corner "
+					+ Arrays.toString(corner[0]) + ", behind-geometry " + Arrays.toString(centre[1])
+					+ ", scissored-out " + Arrays.toString(left[2]));
 			assertThat(centre[0][0]).as("beam through the middle").isGreaterThan(0.05f);
 			assertThat(corner[0][0]).as("a ray missing the cone").isEqualTo(0.0f);
 			assertThat(centre[1][0]).as("geometry in front of the lamp stops the ray").isEqualTo(0.0f);

@@ -2,6 +2,8 @@ package com.wf.gemrender.asset;
 
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.bedrock.BedrockImporter;
+import com.wf.gemrender.direct.ArmorRig;
+import com.wf.gemrender.direct.GemRenderArmorModel;
 import com.wf.gemrender.gltf.GemRenderGltfModel;
 import com.wf.gemrender.gltf.GemRenderPartsModel;
 import com.wf.gemrender.gltf.GltfImporter;
@@ -157,9 +159,9 @@ public final class GemRenderModels {
      */
     public static ModelCache.Handle<GemRenderGltfModel> armor(ResourceLocation asset) {
         return built(asset.withPath(asset.getPath() + "/armor"), id -> {
-            com.wf.gemrender.direct.ArmorRig rig = com.wf.gemrender.direct.GemRenderArmorModel.rig();
+            ArmorRig rig = GemRenderArmorModel.rig();
             return GltfImporter.load(asset, id, List.of(Map.of()), rig == null ? null
-                    : r -> rig.patch(r, com.wf.gemrender.direct.GemRenderArmorModel.DEFAULT_BONES));
+                    : r -> rig.patch(r, GemRenderArmorModel.DEFAULT_BONES));
         });
     }
 

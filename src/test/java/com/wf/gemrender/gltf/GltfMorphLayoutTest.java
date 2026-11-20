@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
 import com.wf.gemrender.gltf.morph.MorphTargets;
+import java.util.Arrays;
 
 class GltfMorphLayoutTest {
 
@@ -90,7 +91,7 @@ class GltfMorphLayoutTest {
 		GltfMorphLayout layout = MorphFixture.morphLayout();
 
 		float[] dirty = new float[layout.blockFloats()];
-		java.util.Arrays.fill(dirty, 99.0f);
+		Arrays.fill(dirty, 99.0f);
 
 		Matrix4f[] palette = palette();
 		GltfPose.evaluate(MorphFixture.layout(), null, 0.0f, palette, layout, dirty);

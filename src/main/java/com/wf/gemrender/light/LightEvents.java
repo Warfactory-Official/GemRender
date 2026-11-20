@@ -1,6 +1,7 @@
 package com.wf.gemrender.light;
 
 import com.wf.gemrender.GemRender;
+import dev.engine_room.flywheel.api.event.EndClientResourceReloadEvent;
 //? if neoforge {
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -40,7 +41,7 @@ public final class LightEvents {
     *///?} else {
     @SubscribeEvent
     public static void onEndClientResourceReload(
-            dev.engine_room.flywheel.api.event.EndClientResourceReloadEvent event) {
+            EndClientResourceReloadEvent event) {
         LightCookies.reload();
     }
 

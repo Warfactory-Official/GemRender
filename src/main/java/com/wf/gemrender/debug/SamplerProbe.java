@@ -3,6 +3,7 @@ package com.wf.gemrender.debug;
 import com.wf.gemrender.render.BoneBuffer;
 import com.wf.gemrender.render.MorphBuffer;
 import com.wf.gemrender.render.TextureUnits;
+import org.lwjgl.opengl.GL13C;
 
 import static org.lwjgl.opengl.GL31C.GL_TEXTURE_BINDING_BUFFER;
 import static org.lwjgl.opengl.GL33C.*;
@@ -29,7 +30,7 @@ public final class SamplerProbe {
         append(report, MorphBuffer.TEXTURE_UNIT, MorphBuffer.getInstance()
                 .textureId());
 
-        org.lwjgl.opengl.GL13C.glActiveTexture(previous);
+        GL13C.glActiveTexture(previous);
         lastReport = report.toString();
     }
 

@@ -31,6 +31,7 @@
  */
 package com.wf.gemrender.vendor.mikktspace;
 
+import java.io.Serializable;
 import java.util.logging.Logger;
 
 /**
@@ -43,7 +44,7 @@ import java.util.logging.Logger;
  * @author Mark Powell
  * @author Joshua Slack
  */
-public final class Vector3f implements Cloneable, java.io.Serializable {
+public final class Vector3f implements Cloneable, Serializable {
 
     /**
      * Shared instance of the all-zero vector (0,0,0). Do not modify!

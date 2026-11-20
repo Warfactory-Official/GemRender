@@ -4,6 +4,7 @@ import com.wf.gemrender.Ids;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
 import com.wf.gemrender.gltf.morph.MorphTargets;
@@ -13,8 +14,12 @@ import com.wf.gemrender.render.MorphBuffer;
 import com.wf.gemrender.texture.MaterialMaps;
 import com.wf.gemrender.texture.ModelAtlas;
 import com.wf.gemrender.texture.ModelTextures;
+import com.wf.gemrender.texture.Pixels;
 import com.wf.gemrender.texture.SpriteUv;
+import com.wf.gemrender.texture.VariantUv;
 import com.wf.gemrender.vendor.jgltf.GltfResourceHook;
+import com.wf.gemrender.vendor.jgltf.model.impl.DefaultGltfModel;
+import com.wf.gemrender.vendor.jgltf.model.impl.DefaultNodeModel;
 import com.wf.gemrender.vendor.jgltf.model.*;
 import com.wf.gemrender.vendor.jgltf.model.io.GltfModelReader;
 import com.wf.gemrender.vendor.jgltf.model.v2.MaterialModelV2;
@@ -30,9 +35,15 @@ import org.joml.Vector4fc;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import org.jetbrains.annotations.Nullable;
 
 public final class GltfImporter {
     private static final Gson GSON = new Gson();
@@ -57,7 +68,7 @@ public final class GltfImporter {
 
     public static GemRenderGltfModel load(ResourceLocation location, ResourceLocation id,
                                           List<Map<ResourceLocation, ResourceLocation>> variants,
-                                          @org.jetbrains.annotations.Nullable RigPatch patch) throws IOException {
+                                          @Nullable RigPatch patch) throws IOException {
         try (InputStream in = Minecraft.getInstance()
                 .getResourceManager()
                 .getResourceOrThrow(location)
@@ -68,10 +79,10 @@ public final class GltfImporter {
     }
 
     private static Map<NodeModel, RigPatch.Weigher> patch(GltfModel gltf, RigPatch patch) {
-        if (!(gltf instanceof com.wf.gemrender.vendor.jgltf.model.impl.DefaultGltfModel model)) {
+        if (!(gltf instanceof DefaultGltfModel model)) {
             throw new IllegalArgumentException("rig patch needs a mutable glTF model, got " + gltf.getClass());
         }
-        Map<NodeModel, RigPatch.Weigher> weighers = new java.util.IdentityHashMap<>();
+        Map<NodeModel, RigPatch.Weigher> weighers = new IdentityHashMap<>();
         patch.patch(new RigPatch.Rig() {
             @Override
             public NodeModel node(String name) {
@@ -85,9 +96,9 @@ public final class GltfImporter {
 
             @Override
             public NodeModel addJoint(NodeModel parent, String name) {
-                var joint = new com.wf.gemrender.vendor.jgltf.model.impl.DefaultNodeModel();
+                var joint = new DefaultNodeModel();
                 joint.setName(name);
-                ((com.wf.gemrender.vendor.jgltf.model.impl.DefaultNodeModel) parent).addChild(joint);
+                ((DefaultNodeModel) parent).addChild(joint);
                 model.addNodeModel(joint);
                 return joint;
             }
@@ -138,7 +149,7 @@ public final class GltfImporter {
         Map<GltfMaterial, List<MeshGeometry>> byMaterial = new LinkedHashMap<>();
         Map<Map.Entry<String, GltfMaterial>, List<MeshGeometry>> bySlot = new LinkedHashMap<>();
         int maxInfluences = 0;
-        java.util.Set<ResourceLocation> masks = new java.util.LinkedHashSet<>();
+        Set<ResourceLocation> masks = new LinkedHashSet<>();
         boolean allPbr = true;
 
         for (Primitive primitive : primitives) {
@@ -234,7 +245,7 @@ public final class GltfImporter {
         GltfMorphLayout morphLayout = morphs.build();
         GemRenderGltfModel converted = new GemRenderGltfModel(new SimpleModel(meshes), layout, bounds.build(),
                 morphLayout, animations, atlas == null ? null : atlas.texture(), ownedTextures,
-                atlas == null ? java.util.List.of(com.wf.gemrender.texture.VariantUv.NONE)
+                atlas == null ? List.of(VariantUv.NONE)
                         : atlas.variants(), masks.isEmpty() || !allPbr ? -1 : paintReference(masks), slotMeshes);
         if (!masks.isEmpty() && !allPbr) {
             GemRender.LOGGER.warn("{} has a paint mask but a mesh outside the banded sheet; not paintable", source);
@@ -284,20 +295,20 @@ public final class GltfImporter {
         return converted;
     }
 
-    private static int paintReference(java.util.Set<ResourceLocation> masks) {
+    private static int paintReference(Set<ResourceLocation> masks) {
         double r = 0.0;
         double g = 0.0;
         double b = 0.0;
         double weight = 0.0;
         for (ResourceLocation mask : masks) {
-            com.mojang.blaze3d.platform.NativeImage image = ModelTextures.read(mask);
+            NativeImage image = ModelTextures.read(mask);
             if (image == null) {
                 continue;
             }
             try {
                 for (int y = 0; y < image.getHeight(); y++) {
                     for (int x = 0; x < image.getWidth(); x++) {
-                        int pixel = com.wf.gemrender.texture.Pixels.get(image, x, y);
+                        int pixel = Pixels.get(image, x, y);
                         double coverage = (pixel >>> 24) / 255.0;
                         r += coverage * (pixel & 0xFF);
                         g += coverage * (pixel >> 8 & 0xFF);
@@ -337,7 +348,7 @@ public final class GltfImporter {
         Vector4fc flywheel = model.model()
                 .boundingSphere();
 
-        GemRender.LOGGER.info(String.format(java.util.Locale.ROOT,
+        GemRender.LOGGER.info(String.format(Locale.ROOT,
                 "  cull bounds: %d bone boxes, rest sphere r=%.2f about (%.2f, %.2f, %.2f); "
                         + "Flywheel's mesh-space sphere is r=%.2f about (%.2f, %.2f, %.2f) and is not used",
                 model.bounds()
@@ -354,7 +365,7 @@ public final class GltfImporter {
     private static void collectPrimitives(NodeModel node, GltfPaletteLayout layout,
                                           Map<NodeModel, RigPatch.Weigher> weighers, List<Primitive> out) {
         if (node.getName() != null) {
-            String name = node.getName().toLowerCase(java.util.Locale.ROOT);
+            String name = node.getName().toLowerCase(Locale.ROOT);
             if (HIDDEN_PREFIXES.stream().anyMatch(name::startsWith)) {
                 return;
             }
@@ -483,7 +494,7 @@ public final class GltfImporter {
         NodeModel[] joints = new NodeModel[4];
         float[] w = new float[4];
         for (int v = 0; v < vertexCount; v++) {
-            java.util.Arrays.fill(w, 0);
+            Arrays.fill(w, 0);
             int n = weigher.weigh(pos.get(v, 0), pos.get(v, 1), pos.get(v, 2), joints, w);
             for (int i = 0; i < 4; i++) {
                 slots[v * 4 + i] = layout.nodeSlot(joints[i < n ? i : 0]);
@@ -581,7 +592,7 @@ public final class GltfImporter {
     /** Material {@code extras.textureSlot}: texture bound per submit, see {@link GemRenderGltfModel#slotMeshes}. */
     public static final String TEXTURE_SLOT = "textureSlot";
 
-    @org.jetbrains.annotations.Nullable
+    @Nullable
     private static String slot(MaterialModel materialModel) {
         Object extras = materialModel == null ? null : materialModel.getExtras();
         if (extras == null) {
@@ -595,8 +606,8 @@ public final class GltfImporter {
 
     private record Primitive(NodeModel node, MeshModel mesh, MeshPrimitiveModel primitive,
                              VertexSkinning skinning, GltfMaterial material, MaterialMaps maps, boolean uvInUnitSquare,
-                             MorphTargets targets, @org.jetbrains.annotations.Nullable String slot) {
-        @org.jetbrains.annotations.Nullable
+                             MorphTargets targets, @Nullable String slot) {
+        @Nullable
         ResourceLocation texture() {
             return maps.baseColor();
         }

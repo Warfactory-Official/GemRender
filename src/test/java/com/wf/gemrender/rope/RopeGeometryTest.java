@@ -3,6 +3,7 @@ package com.wf.gemrender.rope;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.Arrays;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -168,7 +169,7 @@ class RopeGeometryTest {
         Vector3f normal = geometricNormal(corner);
         if (normal == null) {
             // Wholly degenerate quads would draw nothing; none should exist.
-            throw new AssertionError("quad " + quad + " has no area on rope " + java.util.Arrays.toString(rope));
+            throw new AssertionError("quad " + quad + " has no area on rope " + Arrays.toString(rope));
         }
 
         Vector3f expected = new Vector3f();

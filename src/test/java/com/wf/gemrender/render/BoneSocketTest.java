@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.gltf.RigFixture;
 import com.wf.gemrender.gltf.skin.SkinnedBounds;
+import org.assertj.core.api.Assertions;
 
 class BoneSocketTest {
 	private static final float QUANTUM = 0.1f;
@@ -29,7 +30,7 @@ class BoneSocketTest {
 			for (int row = 0; row < 4; row++) {
 				assertThat(actual.get(column, row))
 						.as(what + ", m" + column + row)
-						.isEqualTo(expected.get(column, row), org.assertj.core.api.Assertions.within(TOLERANCE));
+						.isEqualTo(expected.get(column, row), Assertions.within(TOLERANCE));
 			}
 		}
 	}

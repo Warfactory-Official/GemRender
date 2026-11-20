@@ -6,10 +6,12 @@ import org.joml.Vector4fc;
 
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.gltf.AnimationPhase;
+import com.wf.gemrender.gltf.DutyCycle;
 import com.wf.gemrender.gltf.GemRenderGltfModel;
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.gltf.NodeSpin;
 import com.wf.gemrender.gltf.NodeTable;
+import com.wf.gemrender.gltf.PoseDriver;
 import com.wf.gemrender.render.GemRenderInstance;
 import com.wf.gemrender.render.GemRenderInstanceTypes;
 import com.wf.gemrender.render.FrameCost;
@@ -158,7 +160,7 @@ public final class GltfVisual extends AbstractVisual implements EffectVisual<Glt
 				.nodeTable();
 		int slot = effect.spinNode() >= 0 ? effect.spinNode() : table.firstRootSlot();
 
-		com.wf.gemrender.gltf.PoseDriver spin = com.wf.gemrender.gltf.DutyCycle
+		PoseDriver spin = DutyCycle
 				.of(NodeSpin.aboutY(table, slot, effect.spin()), effect.spinDuty());
 
 		GemRender.LOGGER.info("glTF visual: spinning slot {} ('{}') at {} turns/s, {}% duty, {}", slot,

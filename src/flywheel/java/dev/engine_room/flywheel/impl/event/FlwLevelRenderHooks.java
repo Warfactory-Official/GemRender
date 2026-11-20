@@ -11,6 +11,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import dev.engine_room.flywheel.api.visualization.VisualizationManager;
 import dev.engine_room.flywheel.backend.mixin.LevelRendererAccessor;
 import dev.engine_room.flywheel.backend.util.VanillaState;
+import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -120,7 +121,7 @@ public final class FlwLevelRenderHooks {
 		context = null;
 	}
 
-	private static void withManager(java.util.function.Consumer<VisualizationManager> action) {
+	private static void withManager(Consumer<VisualizationManager> action) {
 		if (context == null) {
 			return;
 		}

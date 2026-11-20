@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.gltf.skin.BoneAttributeCodec;
 import com.wf.gemrender.texture.SpriteUv;
+import java.util.ArrayList;
 
 class MeshGeometryTest {
 	private static MeshGeometry column() {
@@ -28,13 +29,13 @@ class MeshGeometryTest {
 		MeshGeometry column = column();
 		MeshGeometry flag = flag();
 
-		List<Integer> bases = new java.util.ArrayList<>();
+		List<Integer> bases = new ArrayList<>();
 		MeshGeometry.concat(List.of(column, flag, column), (part, base) -> bases.add(base));
 
 		assertThat(bases).containsExactly(0, column.vertexCount(),
 				column.vertexCount() + flag.vertexCount());
 
-		List<Integer> alone = new java.util.ArrayList<>();
+		List<Integer> alone = new ArrayList<>();
 		MeshGeometry.concat(List.of(column), (part, base) -> alone.add(base));
 		assertThat(alone).containsExactly(0);
 	}

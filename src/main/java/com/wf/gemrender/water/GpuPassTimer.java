@@ -1,5 +1,7 @@
 package com.wf.gemrender.water;
 
+import org.lwjgl.opengl.GL15C;
+
 import static org.lwjgl.opengl.GL33C.*;
 
 public final class GpuPassTimer {
@@ -42,7 +44,7 @@ public final class GpuPassTimer {
         if (glGetQueryObjecti(queries[slot], GL_QUERY_RESULT_AVAILABLE) == 0) {
             return;
         }
-        gpuTotalNanos += glGetQueryObjectui64(queries[slot], org.lwjgl.opengl.GL15C.GL_QUERY_RESULT);
+        gpuTotalNanos += glGetQueryObjectui64(queries[slot], GL15C.GL_QUERY_RESULT);
         gpuSamples++;
         pending[slot] = false;
     }

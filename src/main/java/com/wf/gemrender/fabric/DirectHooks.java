@@ -1,5 +1,6 @@
 package com.wf.gemrender.fabric;
 
+import com.wf.gemrender.direct.DirectReload;
 import java.util.Optional;
 
 import dev.engine_room.flywheel.api.event.EndClientResourceReloadCallback;
@@ -22,7 +23,7 @@ public final class DirectHooks {
             return;
         }
 
-        com.wf.gemrender.direct.DirectReload.run();
+        DirectReload.run();
     }
     //?} else {
     /*public static void init() {

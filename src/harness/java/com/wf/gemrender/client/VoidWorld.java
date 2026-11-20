@@ -7,8 +7,10 @@ import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
@@ -42,13 +44,13 @@ public final class VoidWorld {
 				WorldDataConfiguration.DEFAULT);
 *///?} else {
 		LevelSettings settings = new LevelSettings(name, GameType.SPECTATOR, false, Difficulty.PEACEFUL,
-				true, new net.minecraft.world.level.GameRules(), WorldDataConfiguration.DEFAULT);
+				true, new GameRules(), WorldDataConfiguration.DEFAULT);
 		//?}
 
 		//? if >=26.1 {
 		/*Function<HolderLookup.Provider, WorldDimensions> dimensions = access -> {
 *///?} else {
-		Function<net.minecraft.core.RegistryAccess, WorldDimensions> dimensions = access -> {
+		Function<RegistryAccess, WorldDimensions> dimensions = access -> {
 		//?}
 			HolderGetter<Biome> biomes = access.lookupOrThrow(Registries.BIOME);
 			FlatLevelGeneratorSettings flat = new FlatLevelGeneratorSettings(Optional.empty(),

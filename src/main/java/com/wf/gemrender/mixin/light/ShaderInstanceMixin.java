@@ -25,6 +25,7 @@ abstract class ShaderInstanceMixin {
 *///?} else {
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceProvider;
 
 @Mixin(ShaderInstance.class)
@@ -39,7 +40,7 @@ abstract class ShaderInstanceMixin {
     *///?} else {
     @Inject(method = "<init>(Lnet/minecraft/server/packs/resources/ResourceProvider;Lnet/minecraft/resources/ResourceLocation;Lcom/mojang/blaze3d/vertex/VertexFormat;)V",
             at = @At("TAIL"))
-    private void gemrender$bindLights(ResourceProvider provider, net.minecraft.resources.ResourceLocation location,
+    private void gemrender$bindLights(ResourceProvider provider, ResourceLocation location,
                                       VertexFormat format, CallbackInfo ci) {
         LightShaders.bindProgram(((ShaderInstance) (Object) this).getId());
     }

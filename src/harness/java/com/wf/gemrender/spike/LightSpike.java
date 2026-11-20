@@ -6,6 +6,7 @@ import com.wf.gemrender.light.LightCookie;
 import com.wf.gemrender.light.LightFrame;
 import com.wf.gemrender.light.LightSink;
 import com.wf.gemrender.light.Lights;
+import java.awt.Color;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -14,6 +15,8 @@ import org.joml.Vector3f;
 
 import java.util.Arrays;
 import java.util.Locale;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Lit room at night under a sweep of light counts; one {@code GEMRENDER-LIGHTS} line + screenshot per step.
@@ -146,8 +149,8 @@ public final class LightSpike implements Lights.Provider {
 
 	/** Occupancy hook alone: alternating stone/air over the spam region. */
 	private void benchBlockChanged() {
-		net.minecraft.world.level.block.state.BlockState stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
-		net.minecraft.world.level.block.state.BlockState air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+		BlockState stone = Blocks.STONE.defaultBlockState();
+		BlockState air = Blocks.AIR.defaultBlockState();
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 		int calls = 1 << 22;
 		long start = 0;
@@ -188,7 +191,7 @@ public final class LightSpike implements Lights.Provider {
 					direction = new Vector3f(0.0f, -1.0f, 0.15f).normalize();
 					range = thisSpot ? 12.0f : 7.0f;
 					intensity = 60.0f;
-					rgb = java.awt.Color.HSBtoRGB(i / (float) Math.max(1, n), 0.5f, 1.0f) & 0xFFFFFF;
+					rgb = Color.HSBtoRGB(i / (float) Math.max(1, n), 0.5f, 1.0f) & 0xFFFFFF;
 				}
 				case "cast" -> {
 					lx = origin.getX() - 12.0;

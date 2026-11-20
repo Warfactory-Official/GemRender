@@ -9,7 +9,12 @@
   "client": [
     "BakedGlyphAccessor",
     "BufferSourceAccessor",
+    "CompositeRenderTypeAccessor",
+    "CompositeStateAccessor",
     "FontAccessor",
-    "FontSetMixin"
+    "TextureShardAccessor",
+    "FontSetMixin",
+    "BakedGlyphMixin",
+    "ScreenMixin"
   ]
 }

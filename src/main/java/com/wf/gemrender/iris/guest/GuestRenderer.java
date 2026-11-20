@@ -60,7 +60,7 @@ final class GuestRenderer {
                 .setupOverlayColor();
         GlStateManager._enableDepthTest();
         GlStateManager._depthFunc(GL_LEQUAL);
-        com.wf.gemrender.render.GlState.colorMask(true, true, true, true);
+        GlState.colorMask(true, true, true, true);
         try {
             if (pass == DirectPass.SHADOW) {
                 for (DirectGuest.Batch batch : batches) {

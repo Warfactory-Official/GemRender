@@ -1,6 +1,7 @@
 package com.wf.gemrender.rope;
 
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 /**
  * The curve a rope hangs in, and the Java half of {@code rope.glsl}.
@@ -187,7 +188,7 @@ public final class RopeCurve {
      * <p>Pass the widest the rope ever gets — its own radius plus the sway amplitude — or the
      * indirect backend culls it away at the edges of the screen and nothing says so.
      */
-    public static void sphere(org.joml.Vector4f out, float ax, float ay, float az,
+    public static void sphere(Vector4f out, float ax, float ay, float az,
                               float bx, float by, float bz, float sag, float margin) {
         float lowest = lowestY(ay, by, sag);
         float top = Math.max(ay, by);

@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -91,7 +92,7 @@ class CaptureAnalysisTest {
 
 	private static List<String> elementAttributes(Document doc, String tag, String attribute) {
 		NodeList nodes = doc.getElementsByTagName(tag);
-		return java.util.stream.IntStream.range(0, nodes.getLength())
+		return IntStream.range(0, nodes.getLength())
 				.mapToObj(nodes::item)
 				.filter(n -> n.getAttributes() != null && n.getAttributes().getNamedItem(attribute) != null)
 				.map(n -> n.getAttributes().getNamedItem(attribute).getNodeValue())

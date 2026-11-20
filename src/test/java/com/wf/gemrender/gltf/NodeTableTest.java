@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.vendor.jgltf.model.NodeModel;
 import com.wf.gemrender.vendor.mcgltf.animation.GltfAnimationCreator;
+import java.util.Arrays;
 
 class NodeTableTest {
 	private final GltfPaletteLayout layout = RigFixture.layout();
@@ -224,7 +225,7 @@ class NodeTableTest {
 		float[] state = table.newScratch();
 		float[] rest = state.clone();
 
-		java.util.Arrays.fill(state, 99.0f);
+		Arrays.fill(state, 99.0f);
 		table.resetToRest(state);
 
 		for (int i = 0; i < rest.length; i++) {

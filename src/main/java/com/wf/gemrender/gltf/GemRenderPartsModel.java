@@ -1,6 +1,7 @@
 package com.wf.gemrender.gltf;
 
 import dev.engine_room.flywheel.api.model.Model;
+import java.util.Arrays;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
@@ -82,7 +83,7 @@ public record GemRenderPartsModel(List<Part> parts, GltfPaletteLayout layout, in
         for (PoseDriver driver : clip.drivers()) {
             int slot = table.slotOfOffset(driver.offset());
             if (slot < 0 || slot >= slotToPart.length) {
-                java.util.Arrays.fill(driven, true);
+                Arrays.fill(driven, true);
                 return driven;
             }
             driven[slotToPart[slot]] = true;

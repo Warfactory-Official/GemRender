@@ -3,7 +3,10 @@ package com.wf.gemrender.gltf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -104,7 +107,7 @@ class AnimationPhaseTest {
 		for (int eighth = 0; eighth < histogram.length; eighth++) {
 			assertThat(histogram[eighth])
 					.as("machines in eighth %d of the clip, of 64 in a row: %s", eighth,
-							java.util.Arrays.toString(histogram))
+							Arrays.toString(histogram))
 					.isGreaterThan(0);
 		}
 	}
@@ -121,7 +124,7 @@ class AnimationPhaseTest {
 	@DisplayName("snapping caps the distinct phases at the step count, however large the crowd")
 	void snappingCapsDistinctPhases() {
 		for (int steps : new int[] { 4, 8, 16 }) {
-			java.util.Set<Float> distinct = new java.util.HashSet<>();
+			Set<Float> distinct = new HashSet<>();
 			for (int i = 0; i < 4096; i++) {
 				float snapped = AnimationPhase.snap(i / 4096.0f, steps);
 				assertThat(snapped)

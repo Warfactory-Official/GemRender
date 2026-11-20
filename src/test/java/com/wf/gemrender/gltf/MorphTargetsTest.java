@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
 import com.wf.gemrender.gltf.morph.MorphTargets;
+import java.util.Arrays;
 
 class MorphTargetsTest {
 
@@ -170,7 +171,7 @@ class MorphTargetsTest {
 		int header = set * GltfMorphLayout.HEADER_FLOATS;
 		int count = (int) block[header + 1];
 		int offset = (int) block[header + 2];
-		return java.util.Arrays.copyOfRange(block, offset, offset + count);
+		return Arrays.copyOfRange(block, offset, offset + count);
 	}
 
 	@Test
@@ -214,7 +215,7 @@ class MorphTargetsTest {
 						+ Math.pow(out[1] - base[v * 3 + 1], 2)
 						+ Math.pow(out[2] - base[v * 3 + 2], 2));
 				assertThat(moved)
-						.as("vertex %d at weights %s", v, java.util.Arrays.toString(weights))
+						.as("vertex %d at weights %s", v, Arrays.toString(weights))
 						.isLessThanOrEqualTo(bound + 1e-4);
 			}
 		}

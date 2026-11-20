@@ -2153,6 +2153,12 @@ is read from `GlStateManager`'s shadow. `glBufferData` per flush 30 us; persiste
 
 ---
 
+### Sharp vanilla text
+
+- `implements SharpTextScreen` (marker) => the screen's `Font` text samples sharp-bilinear; or `SharpText.begin()` / `end()` around `Font` calls.
+- == vanilla at integer GUI scale; even stems under fractional pose / GUI scale. Other text untouched.
+- NORMAL display mode, `text` / `text_intensity` pages only. Inert under an Iris pack. 1.21.1 NeoForge only.
+
 ## Reference
 
 ### Where a model can be drawn

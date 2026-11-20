@@ -15,6 +15,8 @@ import com.wf.gemrender.texture.Paint;
 import com.wf.gemrender.texture.PaintArray;
 import com.wf.gemrender.texture.VariantUv;
 import com.wf.gemrender.render.PassState;
+import com.wf.gemrender.render.Vanilla;
+import com.wf.gemrender.volume.SceneDepth;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
@@ -22,6 +24,7 @@ import org.joml.Vector3f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.*;
 
 import static org.lwjgl.opengl.GL11C.*;
@@ -510,7 +513,7 @@ public final class DirectRenderer {
             PaintArray.bind();
 
             program.use();
-            program.matrices(new Matrix4f(com.wf.gemrender.render.Vanilla.modelViewMatrix()),
+            program.matrices(new Matrix4f(Vanilla.modelViewMatrix()),
                     new Matrix4f(DirectVanilla.projection()));
 
             Vector3f[] lights = DirectVanilla.lightDirections();
@@ -519,7 +522,7 @@ public final class DirectRenderer {
             GlStateManager._enableDepthTest();
             GlStateManager._depthFunc(GL_LEQUAL);
             // Inherited mask may drop alpha (26.1 GUI pipelines): an atlas slot cleared to alpha 0 stays invisible.
-            com.wf.gemrender.render.GlState.colorMask(true, true, true, true);
+            GlState.colorMask(true, true, true, true);
 
             DirectVanilla.bindLightAndOverlay(UNIT_OVERLAY, UNIT_LIGHTMAP);
 
@@ -591,7 +594,7 @@ public final class DirectRenderer {
         }
         draw(pass, queue);
         if (pass == DirectPass.LEVEL && !HELD.isEmpty()) {
-            com.wf.gemrender.volume.SceneDepth.getInstance()
+            SceneDepth.getInstance()
                     .capture();
             sceneDepthTaken = true;
         }
@@ -606,7 +609,7 @@ public final class DirectRenderer {
         int n = bones.stagedFloats();
         int at = heldFloats;
         if (at + n > heldBones.length) {
-            heldBones = java.util.Arrays.copyOf(heldBones, Math.max(at + n, heldBones.length * 2));
+            heldBones = Arrays.copyOf(heldBones, Math.max(at + n, heldBones.length * 2));
         }
         bones.copyStaged(heldBones, at);
         heldFloats = at + n;
@@ -670,7 +673,7 @@ public final class DirectRenderer {
 
     private static void drawPile(PassQueue queue, DirectProgram program, boolean blended, boolean sceneTest) {
         if (blended && sceneTest) {
-            com.wf.gemrender.volume.SceneDepth.getInstance()
+            SceneDepth.getInstance()
                     .bind();
         }
         program.sceneTest(blended && sceneTest);

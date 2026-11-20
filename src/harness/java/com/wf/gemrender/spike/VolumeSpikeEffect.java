@@ -7,6 +7,7 @@ import com.wf.gemrender.volume.VolumeShape;
 import dev.engine_room.flywheel.api.visual.Effect;
 import dev.engine_room.flywheel.api.visual.EffectVisual;
 import dev.engine_room.flywheel.api.visualization.VisualizationContext;
+import java.util.Locale;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
@@ -15,7 +16,7 @@ public final class VolumeSpikeEffect implements Effect {
 
 	public static final boolean EFFECT = System.getProperty("gemrender.volumeshape") != null;
 	public static final VolumeShape SHAPE = VolumeShape.valueOf(
-			System.getProperty("gemrender.volumeshape", "ELLIPSOID").toUpperCase(java.util.Locale.ROOT));
+			System.getProperty("gemrender.volumeshape", "ELLIPSOID").toUpperCase(Locale.ROOT));
 	public static final float HEAT = Float.parseFloat(System.getProperty("gemrender.volumeheat", "0.85"));
 	public static final float TIME = Float.parseFloat(System.getProperty("gemrender.volumetime", "-1"));
 

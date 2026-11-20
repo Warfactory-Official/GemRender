@@ -5,7 +5,11 @@ import com.wf.gemrender.render.TextureUnits;
 import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.material.MaterialShaders;
+import dev.engine_room.flywheel.backend.compile.PipelineCompiler;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import net.minecraft.client.Minecraft;
+import org.lwjgl.opengl.GL11C;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
@@ -118,7 +122,7 @@ public final class Absorbance {
                 return current;
             }
         }
-        MaterialShaders[] next = java.util.Arrays.copyOf(current, current.length + 1);
+        MaterialShaders[] next = Arrays.copyOf(current, current.length + 1);
         next[current.length] = value;
         return next;
     }
@@ -142,11 +146,11 @@ public final class Absorbance {
      * other Fabulous layers by its nearest depth.
      */
     public boolean skips(
-            dev.engine_room.flywheel.backend.compile.PipelineCompiler.OitMode mode
+            PipelineCompiler.OitMode mode
     ) {
         return exclusive && switch (mode) {
             case EVALUATE, OFF -> false;
-            case DEPTH_RANGE -> !com.wf.gemrender.render.Vanilla.shaderTransparency();
+            case DEPTH_RANGE -> !Vanilla.shaderTransparency();
             default -> true;
         };
     }
@@ -383,15 +387,15 @@ public final class Absorbance {
             int previousUnit = TextureUnits.activate(TextureUnits.ABSORBANCE_BAND);
             band = glGenTextures();
             glBindTexture(GL_TEXTURE_2D, band);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 1, 1, 0, GL_RGBA, GL_FLOAT, (java.nio.ByteBuffer) null);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 1, 1, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             TextureUnits.restore(previousUnit);
         }
 
         Minecraft mc = Minecraft.getInstance();
-        int newWidth = com.wf.gemrender.render.Vanilla.mainTarget().width;
-        int newHeight = com.wf.gemrender.render.Vanilla.mainTarget().height;
+        int newWidth = Vanilla.mainTarget().width;
+        int newHeight = Vanilla.mainTarget().height;
 
         if (width == newWidth && height == newHeight) {
             return;
@@ -406,8 +410,8 @@ public final class Absorbance {
             glDeleteTextures(frontEmission);
         }
 
-        int previousTexture = org.lwjgl.opengl.GL11C.glGetInteger(
-                org.lwjgl.opengl.GL11C.GL_TEXTURE_BINDING_2D);
+        int previousTexture = GL11C.glGetInteger(
+                GL11C.GL_TEXTURE_BINDING_2D);
         try {
             accumulate = allocate();
             front = allocate();
@@ -425,7 +429,7 @@ public final class Absorbance {
         int texture = glGenTextures();
         GlStateManager._bindTexture(texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT,
-                (java.nio.ByteBuffer) null);
+                (ByteBuffer) null);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

@@ -4,6 +4,7 @@ import com.wf.gemrender.Ids;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.bedrock.BedrockSkeleton.Part;
 import com.wf.gemrender.gltf.*;
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import net.minecraft.server.packs.resources.Resource;
 import java.util.*;
 
 public final class BedrockImporter {
@@ -217,7 +220,7 @@ public final class BedrockImporter {
         }
 
         int distinct = (int) models.stream()
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .distinct()
                 .count();
 
@@ -291,7 +294,7 @@ public final class BedrockImporter {
             return null;
         }
 
-        com.mojang.blaze3d.platform.NativeImage image = ModelTextures.read(source);
+        NativeImage image = ModelTextures.read(source);
         if (image == null) {
             return null;
         }
@@ -401,7 +404,7 @@ public final class BedrockImporter {
     @Nullable
     private static JsonObject animationJson(ResourceLocation location) {
         ResourceLocation clips = sibling(location, ".animation.json");
-        Optional<net.minecraft.server.packs.resources.Resource> resource = Minecraft.getInstance()
+        Optional<Resource> resource = Minecraft.getInstance()
                 .getResourceManager()
                 .getResource(clips);
         if (resource.isEmpty()) {

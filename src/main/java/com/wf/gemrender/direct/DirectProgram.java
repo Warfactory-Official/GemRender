@@ -4,9 +4,12 @@ import com.wf.gemrender.Ids;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.light.LightShaders;
 import com.wf.gemrender.render.BoneBuffer;
 import com.wf.gemrender.texture.PaintArray;
 import com.wf.gemrender.render.MorphBuffer;
+import com.wf.gemrender.render.Vanilla;
+import com.wf.gemrender.volume.SceneDepth;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -24,7 +27,7 @@ final class DirectProgram {
 
     //? if lights {
     private static final String LIGHTS_DEFINE = "#define GEMRENDER_LIGHTS\n";
-    private static final String LIGHTS_INCLUDE = com.wf.gemrender.light.LightShaders.include();
+    private static final String LIGHTS_INCLUDE = LightShaders.include();
     //?} else {
     /*private static final String LIGHTS_DEFINE = "";
     private static final String LIGHTS_INCLUDE = "";
@@ -130,14 +133,14 @@ final class DirectProgram {
             glUniform1i(glGetUniformLocation(program, "_gr_lightmap"), DirectRenderer.UNIT_LIGHTMAP);
             glUniform1i(glGetUniformLocation(program, "_gr_overlayTex"), DirectRenderer.UNIT_OVERLAY);
             glUniform1i(glGetUniformLocation(program, "_gr_sceneDepth"),
-                    com.wf.gemrender.volume.SceneDepth.TEXTURE_UNIT);
+                    SceneDepth.TEXTURE_UNIT);
             glUniform1i(glGetUniformLocation(program, "_gemrender_bones"), BoneBuffer.direct()
                     .unit());
             glUniform1i(glGetUniformLocation(program, "_gemrender_morphs"), MorphBuffer.TEXTURE_UNIT);
             glUniform1i(glGetUniformLocation(program, "_gemrender_paint"), PaintArray.TEXTURE_UNIT);
             GlStateManager._glUseProgram(0);
             //? if lights {
-            com.wf.gemrender.light.LightShaders.bindProgram(program);
+            LightShaders.bindProgram(program);
             //?}
 
             created = true;
@@ -183,8 +186,8 @@ final class DirectProgram {
     void sceneTest(boolean on) {
         glUniform1i(sceneTestLoc, on ? 1 : 0);
         if (on) {
-            glUniform1f(znearLoc, com.wf.gemrender.render.Vanilla.zNear());
-            glUniform1f(zfarLoc, com.wf.gemrender.render.Vanilla.depthFar());
+            glUniform1f(znearLoc, Vanilla.zNear());
+            glUniform1f(zfarLoc, Vanilla.depthFar());
         }
     }
 

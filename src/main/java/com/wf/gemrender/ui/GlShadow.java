@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import net.minecraft.client.renderer.ShaderInstance;
 
 /**
  * Reads {@link GlStateManager}'s shadow copy instead of {@code glGet}: under Mesa glthread every
@@ -51,9 +52,9 @@ final class GlShadow {
             SRC_ALPHA = blend.findVarHandle(blendClass, "srcAlpha", int.class);
             DST_ALPHA = blend.findVarHandle(blendClass, "dstAlpha", int.class);
             DEPTH_MASK = depth.findVarHandle(depthClass, "mask", boolean.class);
-            LAST_PROGRAM = MethodHandles.privateLookupIn(net.minecraft.client.renderer.ShaderInstance.class,
+            LAST_PROGRAM = MethodHandles.privateLookupIn(ShaderInstance.class,
                             MethodHandles.lookup())
-                    .findStaticVarHandle(net.minecraft.client.renderer.ShaderInstance.class, "lastProgramId", int.class);
+                    .findStaticVarHandle(ShaderInstance.class, "lastProgramId", int.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }

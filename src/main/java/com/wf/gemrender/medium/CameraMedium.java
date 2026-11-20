@@ -23,6 +23,8 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 import java.io.IOException;
+import java.util.function.BooleanSupplier;
+import org.lwjgl.opengl.GL14C;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL20C.*;
@@ -50,7 +52,7 @@ public final class CameraMedium {
     private static final float[] LIGHT0 = normalized(0.2f, 1.0f, -0.7f);
 
     private final PassState state = new PassState();
-    private java.util.function.BooleanSupplier hidden = () -> false;
+    private BooleanSupplier hidden = () -> false;
     private final GpuStampTimer timer = new GpuStampTimer();
     private final float[] matrix = new float[16];
 
@@ -202,7 +204,7 @@ public final class CameraMedium {
 
     /** After the level, main target bound. {@code projection x modelView} = camera-relative world to clip. */
     /** {@code when} true at {@link #draw} => no fog (sensor seeing through the medium). */
-    public void hideWhen(java.util.function.BooleanSupplier when) {
+    public void hideWhen(BooleanSupplier when) {
         hidden = when;
     }
 
@@ -230,7 +232,7 @@ public final class CameraMedium {
             GlState.colorMask(true, true, true, true);
             GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
-            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlState.blendEquation(GL14C.GL_FUNC_ADD);
 
             GlStateManager._glUseProgram(program);
             Matrix4f clipToRelative = new Matrix4f(projection).mul(modelView)

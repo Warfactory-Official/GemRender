@@ -18,6 +18,7 @@ import static org.lwjgl.opengl.GL46C.glUniform4f;
 import static org.lwjgl.opengl.GL46C.glUniformMatrix4fv;
 import static org.lwjgl.opengl.GL46C.glUseProgram;
 
+import java.util.Arrays;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.DisplayName;
@@ -138,7 +139,7 @@ class CullBoundsGlTest {
 								new Vector3f(sphere[0], sphere[1], sphere[2]));
 						float expectedRadius = sphere[3] * maxColumnLength(matrix);
 
-						String where = "sphere " + java.util.Arrays.toString(sphere);
+						String where = "sphere " + Arrays.toString(sphere);
 						assertThat(actual[0]).as("%s centre x", where).isEqualTo(expectedCentre.x, within(1e-3f));
 						assertThat(actual[1]).as("%s centre y", where).isEqualTo(expectedCentre.y, within(1e-3f));
 						assertThat(actual[2]).as("%s centre z", where).isEqualTo(expectedCentre.z, within(1e-3f));

@@ -31,6 +31,7 @@ import com.wf.gemrender.vendor.jgltf.model.GltfConstants;
 import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesFunctionsModel;
 import com.wf.gemrender.vendor.jgltf.model.gl.TechniqueStatesModel;
 import com.wf.gemrender.vendor.jgltf.model.v1.gl.TechniqueStatesFunctionsModels;
+import com.wf.gemrender.vendor.jgltf.model.v1.gl.Techniques;
 
 import java.util.Arrays;
 import java.util.List;
@@ -67,7 +68,7 @@ public class TechniqueStatesModels {
     public static TechniqueStatesFunctionsModel
     createDefaultTechniqueStatesFunctions() {
         TechniqueStatesFunctions functions =
-                com.wf.gemrender.vendor.jgltf.model.v1.gl.Techniques
+                Techniques
                         .createDefaultTechniqueStatesFunctions();
         TechniqueStatesFunctionsModel techniqueStatesFunctionsModel =
                 TechniqueStatesFunctionsModels.create(functions);

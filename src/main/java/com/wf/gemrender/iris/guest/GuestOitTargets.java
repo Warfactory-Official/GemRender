@@ -1,6 +1,7 @@
 package com.wf.gemrender.iris.guest;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import java.nio.ByteBuffer;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
@@ -97,7 +98,7 @@ final class GuestOitTargets {
             glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA16F, width, height, layers, 0, GL_RGBA, GL_FLOAT,
-                    (java.nio.ByteBuffer) null);
+                    (ByteBuffer) null);
             for (int layer = 0; layer < layers; layer++) {
                 layerTextures[attachment] = coefficients[set];
                 layerIndices[attachment++] = layer;
@@ -118,7 +119,7 @@ final class GuestOitTargets {
         GlStateManager._bindTexture(texture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGBA, GL_FLOAT, (java.nio.ByteBuffer) null);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
         GlStateManager._bindTexture(0);
         return texture;
     }

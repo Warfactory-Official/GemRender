@@ -1,6 +1,7 @@
 package com.wf.gemrender.asset;
 
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.render.RenderThread;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
@@ -91,7 +92,7 @@ public final class ModelCache<T> {
      * Production form: loads on the pool, visible behind the import's render-thread calls.
      */
     public static <T> ModelCache<T> rendered(String name, Loader<T> loader, Disposer<T> disposer) {
-        return new ModelCache<>(name, loader, disposer, Pool.LOADERS, com.wf.gemrender.render.RenderThread::later);
+        return new ModelCache<>(name, loader, disposer, Pool.LOADERS, RenderThread::later);
     }
 
     public Handle<T> handle(ResourceLocation id) {

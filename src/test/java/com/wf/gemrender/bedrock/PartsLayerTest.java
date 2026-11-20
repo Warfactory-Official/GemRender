@@ -19,6 +19,7 @@ import com.wf.gemrender.gltf.GltfPaletteLayout;
 import com.wf.gemrender.gltf.NodeSpin;
 import com.wf.gemrender.gltf.NodeTable;
 import com.wf.gemrender.gltf.PartsPose;
+import com.wf.gemrender.gltf.PoseDriver;
 
 class PartsLayerTest {
 
@@ -29,7 +30,7 @@ class PartsLayerTest {
 		GltfAnimation arm = fixture.spinOf("arm", 0.25f);
 		GltfAnimation hand = fixture.spinOf("hand", 0.4f);
 		GltfAnimation merged = arm.with(hand.drivers()
-				.toArray(new com.wf.gemrender.gltf.PoseDriver[0]));
+				.toArray(new PoseDriver[0]));
 
 		for (float time : new float[] { 0.0f, 0.37f, 1.5f, 3.25f }) {
 			Matrix4f[] layered = fixture.model.newTransforms();
@@ -125,7 +126,7 @@ class PartsLayerTest {
 
 	@Test
 	void aFullDutyLayerIsLeftExactlyAsItWas() {
-		com.wf.gemrender.gltf.PoseDriver spin = new Fixture(Set.of("arm")).spin("arm", 0.25f);
+		PoseDriver spin = new Fixture(Set.of("arm")).spin("arm", 0.25f);
 		assertThat(DutyCycle.of(spin, 1.0f)).isSameAs(spin);
 	}
 

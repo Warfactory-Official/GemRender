@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import net.irisshaders.iris.shaderpack.programs.ProgramFallbackResolver;
 
 /** Guest programs of the current Iris pipeline; a pipeline change or resource reload drops them all. */
 final class GuestPrograms {
@@ -102,7 +103,7 @@ final class GuestPrograms {
                 .orElse(null);
     }
 
-    private static net.irisshaders.iris.shaderpack.programs.ProgramFallbackResolver resolver(
+    private static ProgramFallbackResolver resolver(
             IrisRenderingPipeline pipeline) {
         return ((IrisRenderingPipelineAccessor) pipeline).gemrender$resolver();
     }

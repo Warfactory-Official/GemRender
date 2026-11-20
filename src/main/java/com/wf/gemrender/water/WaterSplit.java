@@ -8,7 +8,11 @@ import com.wf.gemrender.render.PassState;
 import com.wf.gemrender.render.GlState;
 import com.wf.gemrender.render.Vanilla;
 import dev.engine_room.flywheel.backend.engine.indirect.OitFramebuffer;
+import java.nio.ByteBuffer;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
+import org.lwjgl.opengl.GL11C;
+import org.lwjgl.opengl.GL14C;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
@@ -183,7 +187,7 @@ public final class WaterSplit {
             GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                     GL_ONE_MINUS_SRC_ALPHA);
-            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlState.blendEquation(GL14C.GL_FUNC_ADD);
             GlStateManager._depthFunc(GL_ALWAYS);
 
             if (absorbanceFrame) {
@@ -250,7 +254,7 @@ public final class WaterSplit {
             GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                     GL_ONE_MINUS_SRC_ALPHA);
-            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlState.blendEquation(GL14C.GL_FUNC_ADD);
             GlStateManager._enableDepthTest();
             GlStateManager._depthFunc(GL_LEQUAL);
 
@@ -279,7 +283,7 @@ public final class WaterSplit {
         try {
             Minecraft mc = Minecraft.getInstance();
             boolean fabulous = Minecraft.useShaderTransparency();
-            Vanilla.bindWrite(fabulous ? mc.levelRenderer.getItemEntityTarget() : com.wf.gemrender.render.Vanilla.mainTarget());
+            Vanilla.bindWrite(fabulous ? mc.levelRenderer.getItemEntityTarget() : Vanilla.mainTarget());
 
             GlStateManager._depthMask(fabulous);
             GlStateManager._enableDepthTest();
@@ -287,7 +291,7 @@ public final class WaterSplit {
             GlState.enableBlend();
             GlStateManager._blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                     GL_ONE_MINUS_SRC_ALPHA);
-            GlState.blendEquation(org.lwjgl.opengl.GL14C.GL_FUNC_ADD);
+            GlState.blendEquation(GL14C.GL_FUNC_ADD);
             GlStateManager._depthFunc(GL_ALWAYS);
 
             programs.drawAbsorbanceComposite(absorbance, oit.depthBounds);
@@ -311,13 +315,13 @@ public final class WaterSplit {
         }
         frontTexture = glGenTextures();
 
-        int previousTexture = org.lwjgl.opengl.GL11C.glGetInteger(
-                org.lwjgl.opengl.GL11C.GL_TEXTURE_BINDING_2D);
+        int previousTexture = GL11C.glGetInteger(
+                GL11C.GL_TEXTURE_BINDING_2D);
         try {
             GlStateManager._bindTexture(frontTexture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0,
-                    org.lwjgl.opengl.GL11C.GL_RGBA, org.lwjgl.opengl.GL11C.GL_FLOAT,
-                    (java.nio.ByteBuffer) null);
+                    GL11C.GL_RGBA, GL11C.GL_FLOAT,
+                    (ByteBuffer) null);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -345,7 +349,7 @@ public final class WaterSplit {
         if (framesSplit == 0) {
             return "idle";
         }
-        return String.format(java.util.Locale.ROOT,
+        return String.format(Locale.ROOT,
                 "active(frames=%d,prepassGpu=%dus,extraOitGpu=%dus,frontGpu=%dus,clouds=%s,cpu=%dus)",
                 framesSplit,
                 prepassTimer.meanGpuMicros(),

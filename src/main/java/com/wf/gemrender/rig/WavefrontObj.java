@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.*;
 
 /**
@@ -204,7 +205,7 @@ public final class WavefrontObj {
 
         private Floats add(float value) {
             if (size == data.length) {
-                data = java.util.Arrays.copyOf(data, size * 2);
+                data = Arrays.copyOf(data, size * 2);
             }
             data[size++] = value;
             return this;
@@ -219,7 +220,7 @@ public final class WavefrontObj {
         }
 
         private float[] toArray() {
-            return java.util.Arrays.copyOf(data, size);
+            return Arrays.copyOf(data, size);
         }
     }
 }

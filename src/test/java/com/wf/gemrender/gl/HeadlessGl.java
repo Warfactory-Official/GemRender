@@ -33,6 +33,7 @@ import static org.lwjgl.opengl.GL46C.glShaderSource;
 import static org.lwjgl.opengl.GL46C.glUniform1i;
 
 import org.junit.jupiter.api.Assumptions;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryUtil;
 
@@ -46,7 +47,7 @@ public final class HeadlessGl implements AutoCloseable {
 	public static HeadlessGl createOrSkip() {
 		Assumptions.assumeTrue(glfwInit(), "GLFW could not initialise; no display or no GPU");
 
-		glfwWindowHint(GLFW_VISIBLE, org.lwjgl.glfw.GLFW.GLFW_FALSE);
+		glfwWindowHint(GLFW_VISIBLE, GLFW.GLFW_FALSE);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);

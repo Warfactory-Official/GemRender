@@ -26,6 +26,8 @@ import com.google.gson.JsonParser;
 
 import com.wf.gemrender.bedrock.BedrockParts.RigidPart;
 import com.wf.gemrender.gltf.MeshGeometry;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 class BedrockFleetAnalysisTest {
 	private static final int BONE_MATRIX_BYTES = 64;
@@ -100,7 +102,7 @@ class BedrockFleetAnalysisTest {
 					.toList();
 
 			int withGeometry = (int) meshes.stream()
-					.filter(java.util.Objects::nonNull)
+					.filter(Objects::nonNull)
 					.count();
 			int byBits = distinct(PartMerge.canonical(meshes, null), meshes);
 			int byPixel = v.pixels == null ? byBits : distinct(PartMerge.canonical(meshes, v.pixels), meshes);
@@ -146,8 +148,8 @@ class BedrockFleetAnalysisTest {
 				"vehicle", "palette", "paletteB", "moving", "instanceB", "ratio");
 
 		for (Vehicle v : fleet) {
-			int moving = java.util.stream.Stream.concat(v.clips.values()
-					.stream(), java.util.stream.Stream.of(v.gameplay))
+			int moving = Stream.concat(v.clips.values()
+					.stream(), Stream.of(v.gameplay))
 					.mapToInt(bones -> movingParts(v, bones))
 					.max()
 					.orElse(0);

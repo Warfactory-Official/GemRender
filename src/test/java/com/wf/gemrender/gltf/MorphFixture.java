@@ -6,6 +6,8 @@ import java.io.UncheckedIOException;
 
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
 import com.wf.gemrender.gltf.morph.MorphTargets;
+import com.wf.gemrender.gltf.skin.VertexSkinning;
+import com.wf.gemrender.texture.SpriteUv;
 import com.wf.gemrender.vendor.jgltf.model.GltfModel;
 import com.wf.gemrender.vendor.jgltf.model.MeshModel;
 import com.wf.gemrender.vendor.jgltf.model.MeshPrimitiveModel;
@@ -84,9 +86,9 @@ public final class MorphFixture {
 
 	public static float[] positions(int nodeIndex) {
 		return MeshGeometry.of(primitive(nodeIndex),
-				com.wf.gemrender.gltf.skin.VertexSkinning.rigid(vertexCount(nodeIndex),
+				VertexSkinning.rigid(vertexCount(nodeIndex),
 						LAYOUT.nodeSlot(node(nodeIndex))),
-				com.wf.gemrender.texture.SpriteUv.IDENTITY, 0)
+				SpriteUv.IDENTITY, 0)
 				.positions();
 	}
 

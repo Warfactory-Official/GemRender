@@ -99,7 +99,7 @@ public record GemRenderGltfModel(Model model, GltfPaletteLayout layout, SkinnedB
     }
 
     /** See {@link #slotFrame}. */
-    public record SlotFrame(float width, float height, org.joml.Vector3f centre, int node) {
+    public record SlotFrame(float width, float height, Vector3f centre, int node) {
     }
 
     /** Distinct slot names, in mesh order. */

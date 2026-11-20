@@ -4,6 +4,7 @@ import com.wf.gemrender.Ids;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.render.RenderThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -118,6 +119,6 @@ public final class ModelTextures {
                     .getTextureManager()
                     .register(id, texture);
         };
-        com.wf.gemrender.render.RenderThread.later(work);
+        RenderThread.later(work);
     }
 }

@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.render.BoneBuffer;
+import org.assertj.core.api.Assertions;
+import org.lwjgl.opengl.GL46C;
 
 @Tag("gl")
 class BonePaletteGlTest {
@@ -123,8 +125,8 @@ class BonePaletteGlTest {
 
 	private static void assertFetch(int program, int outBuffer, int base, int joint,
 			Matrix4f expected, String description) {
-		org.lwjgl.opengl.GL46C.glUniform1ui(0, base);
-		org.lwjgl.opengl.GL46C.glUniform1i(1, joint);
+		GL46C.glUniform1ui(0, base);
+		GL46C.glUniform1i(1, joint);
 
 		glDispatchCompute(1, 1, 1);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -139,7 +141,7 @@ class BonePaletteGlTest {
 		for (int i = 0; i < 16; i++) {
 			assertThat(actual[i])
 					.as("%s, element %d", description, i)
-					.isEqualTo(want[i], org.assertj.core.api.Assertions.within(1e-5f));
+					.isEqualTo(want[i], Assertions.within(1e-5f));
 		}
 	}
 }

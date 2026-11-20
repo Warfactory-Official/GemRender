@@ -3,6 +3,7 @@ package com.wf.gemrender.light;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.lwjgl.opengl.GL46C.*;
 
+import com.wf.gemrender.Ids;
 import com.wf.gemrender.gl.HeadlessGl;
 import com.wf.gemrender.gl.ShaderSources;
 import net.minecraft.world.phys.Vec3;
@@ -15,11 +16,14 @@ import org.lwjgl.system.MemoryUtil;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.assertj.core.data.Offset;
+import org.joml.Matrix4f;
 
 /**
  * {@code gemrender_lights} through the real section-mask grid vs an all-lights Java reference: a grid cell
@@ -216,8 +220,8 @@ class LightShadingGlTest {
 				double[] expected = reference(lights, ps[i], ns[i]);
 				for (int c = 0; c < 3; c++) {
 					assertThat((double) out[i * 8 + c])
-							.as("sample %d channel %d at %s", i, c, java.util.Arrays.toString(ps[i]))
-							.isCloseTo(expected[c], org.assertj.core.data.Offset.offset(1.0e-4 + 1.0e-3 * expected[c]));
+							.as("sample %d channel %d at %s", i, c, Arrays.toString(ps[i]))
+							.isCloseTo(expected[c], Offset.offset(1.0e-4 + 1.0e-3 * expected[c]));
 				}
 				if (expected[0] + expected[1] + expected[2] > 1.0e-3) {
 					lit++;
@@ -294,9 +298,9 @@ class LightShadingGlTest {
 				for (int c = 0; c < 3; c++) {
 					assertThat((double) out[i * 8 + c])
 							.as("%s sample %d channel %d at %s", behind ? "far" : "near", i, c,
-									java.util.Arrays.toString(ps[i]))
+									Arrays.toString(ps[i]))
 							.isCloseTo(behind ? 0.0 : expected[c],
-									org.assertj.core.data.Offset.offset(behind ? 0.0 : 1.0e-4 + 1.0e-3 * expected[c]));
+									Offset.offset(behind ? 0.0 : 1.0e-4 + 1.0e-3 * expected[c]));
 				}
 				boolean lit = expected[0] + expected[1] + expected[2] > 1.0e-3;
 				if (behind && lit) {
@@ -344,9 +348,9 @@ class LightShadingGlTest {
 					double[] irOnly = reference(ir, ps[i], ns[i]);
 					for (int c = 0; c < 3; c++) {
 						assertThat((double) out[i * 8 + c]).as("%s colour sample %d channel %d", mode, i, c)
-								.isCloseTo(seen[c], org.assertj.core.data.Offset.offset(1.0e-4 + 1.0e-3 * seen[c]));
+								.isCloseTo(seen[c], Offset.offset(1.0e-4 + 1.0e-3 * seen[c]));
 						assertThat((double) out[i * 8 + 4 + c]).as("%s IR sample %d channel %d", mode, i, c)
-								.isCloseTo(irOnly[c], org.assertj.core.data.Offset.offset(1.0e-4 + 1.0e-3 * irOnly[c]));
+								.isCloseTo(irOnly[c], Offset.offset(1.0e-4 + 1.0e-3 * irOnly[c]));
 					}
 					if (irOnly[0] > 1.0e-3) {
 						irLit++;
@@ -379,7 +383,7 @@ class LightShadingGlTest {
 			assertThat(glGetProgrami(program, GL_LINK_STATUS)).as(glGetProgramInfoLog(program)).isEqualTo(GL_TRUE);
 			glUniformBlockBinding(program, glGetUniformBlockIndex(program, "GemRenderLights"), LightFrame.UBO_BINDING);
 			glUseProgram(program);
-			float[] identity = new org.joml.Matrix4f().get(new float[16]);
+			float[] identity = new Matrix4f().get(new float[16]);
 			glUniformMatrix4fv(glGetUniformLocation(program, "ModelViewMat"), false, identity);
 			glUniformMatrix4fv(glGetUniformLocation(program, "ProjMat"), false, identity);
 			glUniform4f(glGetUniformLocation(program, "ColorModulator"), 1, 1, 1, 1);
@@ -437,16 +441,16 @@ class LightShadingGlTest {
 
 			// The light term is added to vanilla's colour, which keeps the 1/255 lightmap floor.
 			float floor = 1.0f / 255.0f;
-			assertThat(none[0]).as("unlit, zero lightmap").containsOnly(new float[] {floor}, org.assertj.core.data.Offset.offset(1.0e-4f));
+			assertThat(none[0]).as("unlit, zero lightmap").containsOnly(new float[] {floor}, Offset.offset(1.0e-4f));
 			assertThat(lit[0][0]).as("visible light on zero lightmap").isGreaterThan(0.5f);
 			assertThat(lit[1][0]).as("visible light, IR attachment").isEqualTo(0.0f);
 			assertThat(split[0][0]).as("IR light, colour under SPLIT").isEqualTo(none[0][0]);
-			assertThat(split[1][0]).as("IR light, IR attachment").isCloseTo(lit[0][0] - floor, org.assertj.core.data.Offset.offset(1.0e-3f));
-			assertThat(merged[0][0]).as("IR light, colour under MERGED").isCloseTo(lit[0][0], org.assertj.core.data.Offset.offset(1.0e-3f));
+			assertThat(split[1][0]).as("IR light, IR attachment").isCloseTo(lit[0][0] - floor, Offset.offset(1.0e-3f));
+			assertThat(merged[0][0]).as("IR light, colour under MERGED").isCloseTo(lit[0][0], Offset.offset(1.0e-3f));
 			assertThat(roofed[1]).as("night sky, sky level 0").containsOnly(0.0f);
 			assertThat(open[0]).as("night sky not in colour under SPLIT").containsOnly(none[0][0]);
-			assertThat(open[1][0]).as("night sky, sky level 15").isCloseTo(0.5f, org.assertj.core.data.Offset.offset(1.0e-3f));
-			assertThat(openMerged[0][0]).as("night sky, MERGED colour").isCloseTo(0.5f + floor, org.assertj.core.data.Offset.offset(1.0e-3f));
+			assertThat(open[1][0]).as("night sky, sky level 15").isCloseTo(0.5f, Offset.offset(1.0e-3f));
+			assertThat(openMerged[0][0]).as("night sky, MERGED colour").isCloseTo(0.5f + floor, Offset.offset(1.0e-3f));
 
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glDeleteFramebuffers(fbo);
@@ -471,12 +475,12 @@ class LightShadingGlTest {
 			glReadBuffer(GL_COLOR_ATTACHMENT0 + i);
 			glReadPixels(4, 4, 1, 1, GL_RGBA, GL_FLOAT, out[i]);
 		}
-		return new float[][] {java.util.Arrays.copyOf(out[0], 3), java.util.Arrays.copyOf(out[1], 3)};
+		return new float[][] {Arrays.copyOf(out[0], 3), Arrays.copyOf(out[1], 3)};
 	}
 
 	private static int texture(int w, int h, float value) {
 		float[] texels = new float[w * h * 4];
-		java.util.Arrays.fill(texels, value);
+		Arrays.fill(texels, value);
 		int texture = glGenTextures();
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, texels);
@@ -698,7 +702,7 @@ class LightShadingGlTest {
 	@Test
 	void sodiumFragmentSurvivesVeilBuffers() {
 		try (HeadlessGl gl = HeadlessGl.createOrSkip()) {
-			String patched = LightShaders.sodium(com.wf.gemrender.Ids.of("sodium",
+			String patched = LightShaders.sodium(Ids.of("sodium",
 					"blocks/block_layer_opaque.fsh"), SODIUM_FRAGMENT, LightShaders.irLocation(0b11));
 			int head = patched.indexOf("void main() {") + "void main() {".length();
 			int first = patched.indexOf(';', head) + 1;

@@ -2,6 +2,9 @@ package com.wf.gemrender.light;
 
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.Ids;
+//? if iris {
+import com.wf.gemrender.iris.ShaderPacks;
+//?}
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.IOException;
@@ -13,6 +16,7 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -372,7 +376,7 @@ public final class LightShaders {
 
     static boolean standDown() {
         //? if iris {
-        return com.wf.gemrender.iris.ShaderPacks.inUse();
+        return ShaderPacks.inUse();
         //?} else {
         /*return false;
         *///?}
@@ -454,7 +458,7 @@ public final class LightShaders {
 
     /** Every call opened by {@code head} -> {@code _grl_lm(call, sky(head, coordinate argument))}. */
     private static String wrapLightmap(String name, String source, Pattern head,
-                                       java.util.function.BiFunction<String, String, String> sky) {
+                                       BiFunction<String, String, String> sky) {
         Matcher matcher = head.matcher(source);
         StringBuilder out = new StringBuilder(source.length() + 64);
         int copied = 0;

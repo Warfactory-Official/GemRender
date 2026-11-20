@@ -21,6 +21,8 @@ import com.wf.gemrender.gltf.MeshGeometry;
 import com.wf.gemrender.gltf.NodeSpin;
 import com.wf.gemrender.gltf.NodeTable;
 import com.wf.gemrender.gltf.PartsPose;
+import com.wf.gemrender.gltf.PoseDriver;
+import java.util.TreeMap;
 
 class PartsPoseTest {
 
@@ -86,7 +88,7 @@ class PartsPoseTest {
 		GemRenderPartsModel model = partsModel(skeleton,
 				BedrockParts.partition(geometry, skeleton, Set.of("arm", "hand")));
 
-		GltfAnimation opaque = GltfAnimation.procedural("opaque", new com.wf.gemrender.gltf.PoseDriver() {
+		GltfAnimation opaque = GltfAnimation.procedural("opaque", new PoseDriver() {
 			@Override
 			public void apply(float timeSeconds, float[] scratch) {
 			}
@@ -111,7 +113,7 @@ class PartsPoseTest {
 		BedrockSkeleton skeleton = BedrockSkeleton.of(geometry);
 		NodeTable table = skeleton.table();
 
-		List<com.wf.gemrender.gltf.PoseDriver> drivers = new ArrayList<>();
+		List<PoseDriver> drivers = new ArrayList<>();
 		if (driven.contains("arm")) {
 			drivers.add(NodeSpin.aboutY(table, table.slotOfName("arm"), 0.25f));
 		}
@@ -119,7 +121,7 @@ class PartsPoseTest {
 			drivers.add(NodeSpin.about(table, table.slotOfName("hand"), 1.0f, 0.0f, 0.0f, 0.4f));
 		}
 		GltfAnimation clip = GltfAnimation.procedural("spin",
-				drivers.toArray(new com.wf.gemrender.gltf.PoseDriver[0]));
+				drivers.toArray(new PoseDriver[0]));
 
 		List<Vector3f> skinned = sorted(skinnedVertices(geometry, skeleton, clip, time));
 		List<Vector3f> split = sorted(partVertices(geometry, skeleton, moving, clip, time));
@@ -218,7 +220,7 @@ class PartsPoseTest {
 	}
 
 	private static Map<Integer, List<BedrockSkeleton.Part>> bySlot(BedrockSkeleton skeleton) {
-		Map<Integer, List<BedrockSkeleton.Part>> grouped = new java.util.TreeMap<>();
+		Map<Integer, List<BedrockSkeleton.Part>> grouped = new TreeMap<>();
 		for (BedrockSkeleton.Part part : skeleton.parts()) {
 			grouped.computeIfAbsent(part.slot(), key -> new ArrayList<>())
 					.add(part);

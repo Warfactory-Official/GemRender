@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import com.wf.gemrender.gltf.MatrixScalar;
 import com.wf.gemrender.gltf.skin.BoneAttributeCodec;
 import com.wf.gemrender.render.BoneBuffer;
+import java.util.Arrays;
 
 @Tag("gl")
 class SkinningBlendGlTest {
@@ -173,7 +174,7 @@ class SkinningBlendGlTest {
 		expected.get(want);
 		for (int i = 0; i < 16; i++) {
 			assertThat(actual[i])
-					.as("%s (joints %s), element %d", description, java.util.Arrays.toString(joints), i)
+					.as("%s (joints %s), element %d", description, Arrays.toString(joints), i)
 					.isEqualTo(want[i], within(1e-4f));
 		}
 	}

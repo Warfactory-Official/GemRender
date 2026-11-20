@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.ToIntBiFunction;
+import net.minecraft.world.level.block.Blocks;
 
 /**
  * Per-particle colour and light, packed into the record's last float.
@@ -139,7 +140,7 @@ public final class ParticleLook {
 
     //? if <26.1 {
     static boolean untintedTerrain(BlockState state) {
-        return state.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK);
+        return state.is(Blocks.GRASS_BLOCK);
     }
     //?}
 

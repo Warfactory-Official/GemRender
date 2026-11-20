@@ -1,6 +1,9 @@
 package com.wf.gemrender.fabric;
 
+import com.wf.gemrender.direct.DirectPass;
+import com.wf.gemrender.direct.DirectRenderer;
 import com.wf.gemrender.render.LevelStage;
+import com.wf.gemrender.water.WaterSplit;
 //? if >=26.1 {
 /*import com.wf.gemrender.render.Vanilla;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
@@ -70,17 +73,17 @@ public final class LevelStageHooks {
 
     //? if water {
     private static void waterAfterEntities(LevelStage stage) {
-        com.wf.gemrender.water.WaterSplit.getInstance()
+        WaterSplit.getInstance()
                 .onAfterEntities(stage);
     }
 
     private static void waterAfterTranslucent() {
-        com.wf.gemrender.water.WaterSplit.getInstance()
+        WaterSplit.getInstance()
                 .onAfterTranslucent();
     }
 
     private static void waterAfterWeather() {
-        com.wf.gemrender.water.WaterSplit.getInstance()
+        WaterSplit.getInstance()
                 .onAfterWeather();
     }
     //?} else {
@@ -96,7 +99,7 @@ public final class LevelStageHooks {
 
     //? if direct {
     private static void directFlush() {
-        com.wf.gemrender.direct.DirectRenderer.flush(com.wf.gemrender.direct.DirectPass.LEVEL);
+        DirectRenderer.flush(DirectPass.LEVEL);
     }
     //?} else {
     /*private static void directFlush() {

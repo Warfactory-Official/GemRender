@@ -1,5 +1,6 @@
 package com.wf.gemrender.texture;
 
+import java.util.Map;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +38,7 @@ public record MaterialMaps(@Nullable ResourceLocation baseColor, @Nullable Resou
 
     @Nullable
     private static ResourceLocation swap(@Nullable ResourceLocation texture,
-                                         java.util.Map<ResourceLocation, ResourceLocation> swaps) {
+                                         Map<ResourceLocation, ResourceLocation> swaps) {
         return texture == null ? null : swaps.getOrDefault(texture, texture);
     }
 
@@ -46,7 +47,7 @@ public record MaterialMaps(@Nullable ResourceLocation baseColor, @Nullable Resou
                 || emissiveG > 0.0f || emissiveB > 0.0f;
     }
 
-    public MaterialMaps swapped(java.util.Map<ResourceLocation, ResourceLocation> swaps) {
+    public MaterialMaps swapped(Map<ResourceLocation, ResourceLocation> swaps) {
         if (swaps.isEmpty()) {
             return this;
         }

@@ -38,6 +38,8 @@ import com.wf.gemrender.render.BoneBuffer;
 import com.wf.gemrender.render.MorphBuffer;
 
 import java.util.Arrays;
+import org.joml.Matrix4f;
+import org.lwjgl.opengl.GL46C;
 
 @Tag("gl")
 class MorphGlTest {
@@ -241,10 +243,10 @@ class MorphGlTest {
 
 	private static void samplePump(GltfMorphLayout layout, float[] block) {
 		GltfAnimation clip = MorphFixture.animation();
-		org.joml.Matrix4f[] palette = new org.joml.Matrix4f[MorphFixture.layout()
+		Matrix4f[] palette = new Matrix4f[MorphFixture.layout()
 				.size()];
 		for (int i = 0; i < palette.length; i++) {
-			palette[i] = new org.joml.Matrix4f();
+			palette[i] = new Matrix4f();
 		}
 		GltfPose.evaluate(MorphFixture.layout(), clip, MorphFixture.MID_CLIP, palette, layout, block);
 	}
@@ -277,8 +279,8 @@ class MorphGlTest {
 		glUniform1ui(0, morphBase);
 		glUniform1i(1, morphSet);
 		glUniform1ui(2, vertexId);
-		org.lwjgl.opengl.GL46C.glUniform3f(3, position[0], position[1], position[2]);
-		org.lwjgl.opengl.GL46C.glUniform3f(4, normal[0], normal[1], normal[2]);
+		GL46C.glUniform3f(3, position[0], position[1], position[2]);
+		GL46C.glUniform3f(4, normal[0], normal[1], normal[2]);
 
 		glDispatchCompute(1, 1, 1);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -295,6 +297,6 @@ class MorphGlTest {
 
 		glActiveTexture(GL_TEXTURE0 + unit);
 		glBindTexture(GL_TEXTURE_BUFFER, texture);
-		org.lwjgl.opengl.GL46C.glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, buffer);
+		GL46C.glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, buffer);
 	}
 }

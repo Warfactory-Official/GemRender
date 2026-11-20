@@ -8,6 +8,12 @@ import org.junit.jupiter.api.Test;
 
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.gltf.NodeTable;
+import com.wf.gemrender.gltf.PoseChannel;
+import com.wf.gemrender.gltf.PoseDriver;
+import com.wf.gemrender.vendor.mcgltf.animation.LinearInterpolatedChannel;
+import com.wf.gemrender.vendor.mcgltf.animation.SphericalLinearInterpolatedChannel;
+import java.util.ArrayList;
+import java.util.List;
 
 class CrossfadeTest {
 	private final NodeTable table = BlendFixture.table(15, 9L);
@@ -204,8 +210,8 @@ class CrossfadeTest {
 	private static GltfAnimation translateX(NodeTable table, String name, float from, float to, float duration) {
 		float[][] values = { { from, table.restTranslation(0, 1), table.restTranslation(0, 2) },
 				{ to, table.restTranslation(0, 1), table.restTranslation(0, 2) } };
-		return new GltfAnimation(name, java.util.List.of(new com.wf.gemrender.gltf.PoseChannel(
-				new com.wf.gemrender.vendor.mcgltf.animation.LinearInterpolatedChannel(new float[] { 0.0f, duration },
+		return new GltfAnimation(name, List.of(new PoseChannel(
+				new LinearInterpolatedChannel(new float[] { 0.0f, duration },
 						values), 0, 3)), duration);
 	}
 
@@ -303,18 +309,18 @@ class CrossfadeTest {
 	private static GltfAnimation rotateY(NodeTable table, String name, float from, float to, float duration) {
 		float[][] values = { { 0.0f, (float) Math.sin(from / 2), 0.0f, (float) Math.cos(from / 2) },
 				{ 0.0f, (float) Math.sin(to / 2), 0.0f, (float) Math.cos(to / 2) } };
-		return new GltfAnimation(name, java.util.List.of(new com.wf.gemrender.gltf.PoseChannel(
-				new com.wf.gemrender.vendor.mcgltf.animation.SphericalLinearInterpolatedChannel(
+		return new GltfAnimation(name, List.of(new PoseChannel(
+				new SphericalLinearInterpolatedChannel(
 						new float[] { 0.0f, duration }, values), NodeTable.ROTATION, 4)), duration);
 	}
 
 	private static GltfAnimation translateXBoth(NodeTable table, String name, float x) {
-		java.util.List<com.wf.gemrender.gltf.PoseDriver> drivers = new java.util.ArrayList<>();
+		List<PoseDriver> drivers = new ArrayList<>();
 		for (int n = 0; n < 2; n++) {
 			float[][] values = { { x, table.restTranslation(n, 1), table.restTranslation(n, 2) },
 					{ x, table.restTranslation(n, 1), table.restTranslation(n, 2) } };
-			drivers.add(new com.wf.gemrender.gltf.PoseChannel(
-					new com.wf.gemrender.vendor.mcgltf.animation.LinearInterpolatedChannel(new float[] { 0.0f, 1.0f },
+			drivers.add(new PoseChannel(
+					new LinearInterpolatedChannel(new float[] { 0.0f, 1.0f },
 							values), n * NodeTable.TRS_STRIDE, 3));
 		}
 		return new GltfAnimation(name, drivers, 1.0f);

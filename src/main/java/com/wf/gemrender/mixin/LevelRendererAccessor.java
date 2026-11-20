@@ -1,7 +1,13 @@
 package com.wf.gemrender.mixin;
 
+//? if >=1.21 && <26.1 {
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+//?}
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
+//? if >=1.21 && <26.1 {
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+//?}
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -24,7 +30,7 @@ public interface LevelRendererAccessor {
 
     //? if >=1.21 && <26.1 {
     @Accessor("visibleSections")
-    it.unimi.dsi.fastutil.objects.ObjectArrayList<net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection> gemrender$visibleSections();
+    ObjectArrayList<SectionRenderDispatcher.RenderSection> gemrender$visibleSections();
     //?}
 
     @Accessor("ticks")

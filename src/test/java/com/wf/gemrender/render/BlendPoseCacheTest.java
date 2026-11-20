@@ -2,6 +2,7 @@ package com.wf.gemrender.render;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sun.management.ThreadMXBean;
 import org.joml.Matrix4f;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,13 +10,16 @@ import org.junit.jupiter.api.Test;
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.gltf.GltfPose;
 import com.wf.gemrender.gltf.MatrixScalar;
+import com.wf.gemrender.gltf.NodeTable;
 import com.wf.gemrender.gltf.RigFixture;
+import com.wf.gemrender.gltf.blend.AdditiveReference;
 import com.wf.gemrender.gltf.blend.AnimationBlend;
 import com.wf.gemrender.gltf.blend.BlendMask;
 import com.wf.gemrender.gltf.blend.Crossfade;
 import com.wf.gemrender.gltf.blend.FadeCurve;
 import com.wf.gemrender.gltf.morph.GltfMorphLayout;
 import com.wf.gemrender.gltf.skin.SkinnedBounds;
+import java.lang.management.ManagementFactory;
 
 class BlendPoseCacheTest {
 	private static final float QUANTUM = 1.0f / 128.0f;
@@ -85,7 +89,7 @@ class BlendPoseCacheTest {
 		blend.override(curl, 1.5f, 0.0f);
 		blend.override(curl, 0.5f, 1.0f);
 		blend.additive(curl, 1.0f, 0.0f, BlendMask.ALL,
-				com.wf.gemrender.gltf.blend.AdditiveReference.rest(RigFixture.layout().nodeTable()));
+				AdditiveReference.rest(RigFixture.layout().nodeTable()));
 		PoseCache.Pose blended = cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE, blend, 0);
 		assertThat(blended.boneBase()).isEqualTo(legacy.boneBase());
 		cache.endFrame();
@@ -98,7 +102,7 @@ class BlendPoseCacheTest {
 		PoseCache cache = new PoseCache(QUANTUM);
 		AnimationBlend blend = fade(curl, 0.5f);
 		blend.additive(curl, 1.0f, 0.5f, BlendMask.ALL,
-				com.wf.gemrender.gltf.blend.AdditiveReference.rest(RigFixture.layout().nodeTable()));
+				AdditiveReference.rest(RigFixture.layout().nodeTable()));
 		PoseCache.Pose pose = cache.pose(RigFixture.layout(), bounds, GltfMorphLayout.NONE, blend, 0);
 
 		Matrix4f[] direct = new Matrix4f[RigFixture.layout().size()];
@@ -116,8 +120,8 @@ class BlendPoseCacheTest {
 	@Test
 	@DisplayName("a blended lookup that hits allocates nothing")
 	void hitAllocatesNothing() {
-		com.sun.management.ThreadMXBean bean =
-				(com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+		ThreadMXBean bean =
+				(ThreadMXBean) ManagementFactory.getThreadMXBean();
 		PoseCache cache = new PoseCache(QUANTUM);
 		AnimationBlend blend = fade(curl, 0.5f);
 		for (int i = 0; i < 20_000; i++) {
@@ -135,7 +139,7 @@ class BlendPoseCacheTest {
 	@DisplayName("an inertialized pose is private to its instance")
 	void inertialIsPrivate() {
 		PoseCache cache = new PoseCache(QUANTUM);
-		com.wf.gemrender.gltf.NodeTable table = RigFixture.layout().nodeTable();
+		NodeTable table = RigFixture.layout().nodeTable();
 		Crossfade one = new Crossfade(table);
 		Crossfade two = new Crossfade(table);
 		for (Crossfade fade : new Crossfade[] { one, two }) {
@@ -155,8 +159,8 @@ class BlendPoseCacheTest {
 	@Test
 	@DisplayName("an inertializing instance allocates nothing per frame once warm")
 	void inertialAllocatesNothing() {
-		com.sun.management.ThreadMXBean bean =
-				(com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+		ThreadMXBean bean =
+				(ThreadMXBean) ManagementFactory.getThreadMXBean();
 		PoseCache cache = new PoseCache(QUANTUM);
 		Crossfade fade = new Crossfade(RigFixture.layout().nodeTable());
 		fade.play(curl, 0.0f, 0.0f, FadeCurve.LINEAR);

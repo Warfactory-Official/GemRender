@@ -6,6 +6,8 @@ import com.wf.gemrender.GemRender;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 //? if neoforge {
 import net.neoforged.api.distmarker.Dist;
@@ -77,7 +79,7 @@ public final class SpikeHud {
 	//? if >=26.1 {
 	/*public static void render(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
 	*///?} else {
-	public static void render(net.minecraft.client.gui.GuiGraphics graphics) {
+	public static void render(GuiGraphics graphics) {
 	//?}
 		List<String> what = lines;
 		Minecraft mc = Minecraft.getInstance();
@@ -91,7 +93,7 @@ public final class SpikeHud {
 				.getGuiScaledHeight();
 
 		List<FormattedCharSequence> wrapped = expected.isEmpty() ? List.of()
-				: mc.font.split(net.minecraft.network.chat.Component.literal("expect: " + expected),
+				: mc.font.split(Component.literal("expect: " + expected),
 						width - 2 * MARGIN);
 
 		String live = status;
@@ -137,12 +139,12 @@ public final class SpikeHud {
 		graphics.text(font, text, x, y, color, false);
 	}
 *///?} else {
-	private static void draw(net.minecraft.client.gui.GuiGraphics graphics, Font font, String text,
+	private static void draw(GuiGraphics graphics, Font font, String text,
 			int x, int y, int color) {
 		graphics.drawString(font, text, x, y, color, false);
 	}
 
-	private static void draw(net.minecraft.client.gui.GuiGraphics graphics, Font font,
+	private static void draw(GuiGraphics graphics, Font font,
 			FormattedCharSequence text, int x, int y, int color) {
 		graphics.drawString(font, text, x, y, color, false);
 	}

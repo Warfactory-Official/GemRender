@@ -5,6 +5,7 @@ import com.wf.gemrender.vendor.jgltf.model.MeshModel;
 import com.wf.gemrender.vendor.jgltf.model.NodeModel;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public final class GltfMorphLayout {
@@ -65,7 +66,7 @@ public final class GltfMorphLayout {
         public void weights(float[] poseState, float[] out, int offset) {
             int count = targets.targetCount();
             if (weightBase < 0) {
-                java.util.Arrays.fill(out, offset, offset + count, 0.0f);
+                Arrays.fill(out, offset, offset + count, 0.0f);
                 return;
             }
             System.arraycopy(poseState, weightBase, out, offset, count);

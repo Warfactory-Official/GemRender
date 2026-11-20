@@ -1,6 +1,7 @@
 package com.wf.gemrender.iris;
 
 import com.wf.gemrender.GemRender;
+import com.wf.gemrender.iris.guest.IrisGuest;
 
 public final class IrisPbrBridge {
     private static final boolean ENABLED =
@@ -20,7 +21,7 @@ public final class IrisPbrBridge {
         installed = true;
         ShaderPacks.irisLoaded(irisLoaded);
         if (irisLoaded && GUEST) {
-            com.wf.gemrender.iris.guest.IrisGuest.install();
+            IrisGuest.install();
         }
 
         if (!ENABLED || !irisLoaded) {

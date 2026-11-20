@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.wf.gemrender.GemRender;
+import java.util.Locale;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -44,7 +45,7 @@ public record BedrockGeometry(@Nullable String identifier, int textureWidth, int
                 string(description, "gemrender:texture"),
                 description.has("gemrender:alpha") ? description.get("gemrender:alpha")
                         .getAsString()
-                        .toLowerCase(java.util.Locale.ROOT) : "cutout",
+                        .toLowerCase(Locale.ROOT) : "cutout",
                 description.has("gemrender:cull") && description.get("gemrender:cull")
                         .getAsBoolean(),
                 names(description, "gemrender:gameplay_bones"));
@@ -148,7 +149,7 @@ public record BedrockGeometry(@Nullable String identifier, int textureWidth, int
         Map<Face, FaceUv> faces = new EnumMap<>(Face.class);
         for (Face face : Face.values()) {
             JsonElement element = json.get(face.name()
-                    .toLowerCase(java.util.Locale.ROOT));
+                    .toLowerCase(Locale.ROOT));
             if (element == null || !element.isJsonObject()) {
                 continue;
             }

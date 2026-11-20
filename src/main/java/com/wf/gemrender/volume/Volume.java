@@ -1,5 +1,7 @@
 package com.wf.gemrender.volume;
 
+import java.util.Objects;
+
 public final class Volume {
     private final int slot;
 
@@ -83,7 +85,7 @@ public final class Volume {
 
     /** Shapes, animation and heat are drawn by {@link VolumeModels#effect()}. */
     public Volume shape(VolumeShape value) {
-        shape = java.util.Objects.requireNonNull(value);
+        shape = Objects.requireNonNull(value);
         flush();
         return this;
     }

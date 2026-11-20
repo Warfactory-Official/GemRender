@@ -2,8 +2,10 @@ package com.wf.gemrender.render;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import org.joml.Matrix4fc;
 
 import static org.lwjgl.opengl.GL30C.GL_FRAMEBUFFER;
 
@@ -15,8 +17,8 @@ public final class Vanilla {
         return Minecraft.getInstance().getMainRenderTarget();
     }
 
-    public static org.joml.Matrix4fc modelViewMatrix() {
-        return com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix();
+    public static Matrix4fc modelViewMatrix() {
+        return RenderSystem.getModelViewMatrix();
     }
 
     public static boolean shaderTransparency() {
@@ -155,7 +157,7 @@ public final class Vanilla {
         *///?} else {
         var light = Minecraft.getInstance().gameRenderer.lightTexture();
         light.turnOnLightLayer();
-        int id = com.mojang.blaze3d.systems.RenderSystem.getShaderTexture(2);
+        int id = RenderSystem.getShaderTexture(2);
         light.turnOffLightLayer();
         return id;
         //?}

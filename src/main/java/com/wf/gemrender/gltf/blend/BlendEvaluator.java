@@ -3,6 +3,7 @@ package com.wf.gemrender.gltf.blend;
 import com.wf.gemrender.gltf.GltfAnimation;
 import com.wf.gemrender.gltf.NodeTable;
 import com.wf.gemrender.gltf.PoseDriver;
+import java.util.Arrays;
 
 import java.util.List;
 
@@ -50,8 +51,8 @@ public final class BlendEvaluator {
         if (anyOverride) {
             float[] acc = scratch.acc(floats);
             float[] total = scratch.total(table.nodeCount());
-            java.util.Arrays.fill(acc, 0, floats, 0.0f);
-            java.util.Arrays.fill(total, 0, table.nodeCount(), 0.0f);
+            Arrays.fill(acc, 0, floats, 0.0f);
+            Arrays.fill(total, 0, table.nodeCount(), 0.0f);
             for (int i = 0; i < layers; i++) {
                 if (blend.mode(i) != BlendMode.OVERRIDE || blend.weight(i) <= 0.0f) {
                     continue;

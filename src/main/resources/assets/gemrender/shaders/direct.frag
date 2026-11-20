@@ -47,7 +47,7 @@ void main() {
     bool masked = _gr_lightCoord.x < GR_MASKED_BELOW;
     vec2 lightCoord = masked ? _gr_lightCoord + vec2(GR_MASKED_OFFSET, 0.0) : _gr_lightCoord;
     vec4 colour = texture(_gr_atlas, _gr_texCoord) * _gr_tint;
-    float glow = 1.0;
+    float glow = 0.0;
     if (masked) {
         glow = colour.a;
         colour.a = 1.0;

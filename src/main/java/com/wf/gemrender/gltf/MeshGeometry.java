@@ -3,6 +3,7 @@ package com.wf.gemrender.gltf;
 import com.wf.gemrender.gltf.skin.BoneAttributeCodec;
 import com.wf.gemrender.gltf.skin.VertexSkinning;
 import com.wf.gemrender.texture.SpriteUv;
+import java.util.Arrays;
 import com.wf.gemrender.vendor.jgltf.model.*;
 import org.joml.Vector4f;
 import org.joml.Vector4fc;
@@ -59,7 +60,7 @@ public final class MeshGeometry {
         int[] morphSets = null;
         if (morphSet != 0) {
             morphSets = new int[vertexCount];
-            java.util.Arrays.fill(morphSets, morphSet);
+            Arrays.fill(morphSets, morphSet);
         }
 
         return new MeshGeometry(vertexCount,
@@ -91,7 +92,7 @@ public final class MeshGeometry {
         int[] morphSets = null;
         if (morphSet != 0) {
             morphSets = new int[vertexCount];
-            java.util.Arrays.fill(morphSets, morphSet);
+            Arrays.fill(morphSets, morphSet);
         }
 
         return new MeshGeometry(vertexCount, positions, normals, atlas(texCoords, vertexCount, uv), indices,

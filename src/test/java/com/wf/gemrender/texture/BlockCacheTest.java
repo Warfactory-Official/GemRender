@@ -3,6 +3,7 @@ package com.wf.gemrender.texture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -170,13 +171,13 @@ class BlockCacheTest {
 		byte[] sheet = rgba(16, 16, 3);
 
 		assertThat(BlockCache.key(16, 16, sheet))
-				.isEqualTo(BlockCache.key(16, 16, java.nio.ByteBuffer.wrap(sheet)));
+				.isEqualTo(BlockCache.key(16, 16, ByteBuffer.wrap(sheet)));
 	}
 
 	@Test
 	@DisplayName("keying reads the buffer without consuming it")
 	void keyingLeavesThePositionAlone() {
-		java.nio.ByteBuffer sheet = java.nio.ByteBuffer.wrap(rgba(16, 16, 4));
+		ByteBuffer sheet = ByteBuffer.wrap(rgba(16, 16, 4));
 
 		BlockCache.key(16, 16, sheet);
 

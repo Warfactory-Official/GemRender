@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import com.wf.gemrender.bedrock.BedrockParts.RigidPart;
 import com.wf.gemrender.gltf.MeshGeometry;
 import com.wf.gemrender.gltf.NodeTable;
+import java.util.ArrayList;
+import java.util.TreeMap;
 
 class BedrockPartsTest {
 
@@ -94,7 +96,7 @@ class BedrockPartsTest {
 	private static List<Vector3f> mergedRestVertices(BedrockGeometry geometry,
 			BedrockSkeleton skeleton, NodeTable table) {
 		Matrix4f[] world = worldRest(table);
-		List<Vector3f> out = new java.util.ArrayList<>();
+		List<Vector3f> out = new ArrayList<>();
 
 		for (Map.Entry<Integer, List<BedrockSkeleton.Part>> group : bySlot(skeleton).entrySet()) {
 			BedrockCubes cubes = new BedrockCubes();
@@ -123,7 +125,7 @@ class BedrockPartsTest {
 					: new Matrix4f(partWorld[part.parent()]).mul(part.restLocal());
 		}
 
-		List<Vector3f> out = new java.util.ArrayList<>();
+		List<Vector3f> out = new ArrayList<>();
 		for (int i = 0; i < parts.size(); i++) {
 			MeshGeometry mesh = parts.get(i)
 					.geometry();
@@ -154,9 +156,9 @@ class BedrockPartsTest {
 	}
 
 	private static Map<Integer, List<BedrockSkeleton.Part>> bySlot(BedrockSkeleton skeleton) {
-		Map<Integer, List<BedrockSkeleton.Part>> grouped = new java.util.TreeMap<>();
+		Map<Integer, List<BedrockSkeleton.Part>> grouped = new TreeMap<>();
 		for (BedrockSkeleton.Part part : skeleton.parts()) {
-			grouped.computeIfAbsent(part.slot(), key -> new java.util.ArrayList<>())
+			grouped.computeIfAbsent(part.slot(), key -> new ArrayList<>())
 					.add(part);
 		}
 		return grouped;

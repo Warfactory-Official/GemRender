@@ -3,6 +3,8 @@ package com.wf.gemrender.texture;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.mixin.texture.NativeImageAccessor;
+import com.wf.gemrender.render.RenderThread;
+import java.io.File;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -199,7 +201,7 @@ public final class ModelAtlas {
             return;
         }
         try {
-            java.io.File out = new java.io.File(Minecraft.getInstance().gameDirectory,
+            File out = new File(Minecraft.getInstance().gameDirectory,
                     "gemrender_atlases/" + atlasId.getPath()
                             .replace('/', '_') + ".png");
             out.getParentFile()
@@ -233,7 +235,7 @@ public final class ModelAtlas {
             long millis = (System.nanoTime() - start) / 1_000_000L;
 
             CompressedTexture texture = new CompressedTexture(blocks);
-            com.wf.gemrender.render.RenderThread.later(() -> {
+            RenderThread.later(() -> {
                 texture.upload();
                 Minecraft.getInstance()
                         .getTextureManager()
@@ -299,7 +301,7 @@ public final class ModelAtlas {
     }
 
     private static void register(ResourceLocation atlasId, NativeImage sheet, int bands) {
-        com.wf.gemrender.render.RenderThread.later(() -> Minecraft.getInstance()
+        RenderThread.later(() -> Minecraft.getInstance()
                 .getTextureManager()
                 .register(atlasId, new AtlasTexture(sheet, bands)));
     }

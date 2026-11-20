@@ -1,9 +1,12 @@
 package com.wf.gemrender.gltf;
 
+import com.wf.gemrender.vendor.jgltf.model.AccessorByteData;
 import com.wf.gemrender.vendor.jgltf.model.AccessorData;
 import com.wf.gemrender.vendor.jgltf.model.AccessorDatas;
 import com.wf.gemrender.vendor.jgltf.model.AccessorFloatData;
+import com.wf.gemrender.vendor.jgltf.model.AccessorIntData;
 import com.wf.gemrender.vendor.jgltf.model.AccessorModel;
+import com.wf.gemrender.vendor.jgltf.model.AccessorShortData;
 import com.wf.gemrender.vendor.jgltf.model.ElementType;
 import com.wf.gemrender.vendor.jgltf.model.GltfConstants;
 import com.wf.gemrender.vendor.jgltf.model.MeshModel;
@@ -17,6 +20,7 @@ import com.wf.gemrender.vendor.jgltf.model.impl.DefaultMeshPrimitiveModel;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -181,11 +185,11 @@ final class RigSlicer {
         AccessorData data = accessor.getAccessorData();
         out = new int[accessor.getCount()];
         for (int i = 0; i < out.length; i++) {
-            if (data instanceof com.wf.gemrender.vendor.jgltf.model.AccessorIntData x) {
+            if (data instanceof AccessorIntData x) {
                 out[i] = x.get(i, 0);
-            } else if (data instanceof com.wf.gemrender.vendor.jgltf.model.AccessorShortData x) {
+            } else if (data instanceof AccessorShortData x) {
                 out[i] = x.get(i, 0) & 0xFFFF;
-            } else if (data instanceof com.wf.gemrender.vendor.jgltf.model.AccessorByteData x) {
+            } else if (data instanceof AccessorByteData x) {
                 out[i] = x.get(i, 0) & 0xFF;
             } else {
                 throw new IllegalArgumentException("index type " + data.getClass());
@@ -229,7 +233,7 @@ final class RigSlicer {
         int size;
 
         FloatList(float[] init) {
-            data = java.util.Arrays.copyOf(init, init.length * 2 + 16);
+            data = Arrays.copyOf(init, init.length * 2 + 16);
             size = init.length;
         }
 
@@ -239,7 +243,7 @@ final class RigSlicer {
 
         void add(float v) {
             if (size == data.length) {
-                data = java.util.Arrays.copyOf(data, size * 2);
+                data = Arrays.copyOf(data, size * 2);
             }
             data[size++] = v;
         }

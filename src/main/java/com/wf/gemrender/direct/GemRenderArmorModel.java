@@ -14,11 +14,16 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import com.wf.gemrender.texture.VariantUv;
+import java.util.Arrays;
+import java.util.Collections;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 //? if >=26.1 {
 /*import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 *///?}
@@ -93,7 +98,7 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
             "right_leg", "right_leg");
 
     /** Part order of {@code slots} in {@link ArmorRig#pose}. */
-    public static final java.util.List<String> PARTS = java.util.List.of("head", "body", "left_arm", "right_arm",
+    public static final List<String> PARTS = List.of("head", "body", "left_arm", "right_arm",
             "left_leg", "right_leg");
 
     @Nullable
@@ -117,8 +122,8 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
      */
     private final Map<GemRenderGltfModel, int[]> bindings = new LinkedHashMap<>();
 
-    private final java.util.Set<GemRenderGltfModel> missingSockets = java.util.Collections.newSetFromMap(
-            new java.util.WeakHashMap<>());
+    private final Set<GemRenderGltfModel> missingSockets = Collections.newSetFromMap(
+            new WeakHashMap<>());
     private final Matrix4f socketMatrix = new Matrix4f();
     private final Matrix4f nodeMatrix = new Matrix4f();
     private final Matrix4f localMatrix = new Matrix4f();
@@ -340,7 +345,7 @@ public class GemRenderArmorModel extends HumanoidModel<LivingEntity> {
         int depth = 0;
         for (int s = slot; s >= 0; s = parents[s]) {
             if (depth == chain.length) {
-                chain = java.util.Arrays.copyOf(chain, depth * 2);
+                chain = Arrays.copyOf(chain, depth * 2);
             }
             chain[depth++] = s;
         }

@@ -3,6 +3,7 @@ package com.wf.gemrender.texture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -221,8 +222,8 @@ class AtlasLayoutTest {
 	private static AtlasLayout square(int edge, int count) {
 		int[] widths = new int[count];
 		int[] heights = new int[count];
-		java.util.Arrays.fill(widths, edge);
-		java.util.Arrays.fill(heights, edge);
+		Arrays.fill(widths, edge);
+		Arrays.fill(heights, edge);
 		return AtlasLayout.pack(widths, heights, PADDING, ModelAtlas.MAX_SIZE);
 	}
 

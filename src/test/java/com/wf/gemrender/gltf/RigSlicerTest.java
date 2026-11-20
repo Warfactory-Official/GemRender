@@ -8,6 +8,7 @@ import com.wf.gemrender.vendor.jgltf.model.GltfModel;
 import com.wf.gemrender.vendor.jgltf.model.MeshPrimitiveModel;
 import com.wf.gemrender.vendor.jgltf.model.NodeModel;
 import com.wf.gemrender.vendor.jgltf.model.io.GltfModelReader;
+import java.io.IOException;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,7 @@ class RigSlicerTest {
         }
     }
 
-    private static GltfModel read() throws URISyntaxException, java.io.IOException {
+    private static GltfModel read() throws URISyntaxException, IOException {
         return new GltfModelReader().read(Path.of(RigSlicerTest.class.getResource("/slice/box.gltf").toURI()).toUri());
     }
 

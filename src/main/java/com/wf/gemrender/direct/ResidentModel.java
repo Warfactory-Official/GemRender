@@ -8,6 +8,7 @@ import dev.engine_room.flywheel.api.model.Model;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 import static org.lwjgl.opengl.GL15C.*;
 import static org.lwjgl.opengl.GL30C.GL_VERTEX_ARRAY_BINDING;
@@ -79,6 +80,6 @@ final class ResidentModel {
     }
 
     /** {@code slot} non-null: texture from the submit's {@link TextureSlots}, unbound => not drawn. */
-    record Part(ResidentMesh mesh, DirectMaterial material, @org.jetbrains.annotations.Nullable String slot) {
+    record Part(ResidentMesh mesh, DirectMaterial material, @Nullable String slot) {
     }
 }
