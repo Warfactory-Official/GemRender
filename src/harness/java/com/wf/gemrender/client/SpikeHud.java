@@ -6,7 +6,9 @@ import com.wf.gemrender.GemRender;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+//? if <26.1 {
 import net.minecraft.client.gui.GuiGraphics;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 //? if neoforge {

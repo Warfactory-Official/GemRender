@@ -89,7 +89,6 @@ import java.util.Locale;
 
 import java.util.function.Function;
 import net.minecraft.client.CloudStatus;
-import net.minecraft.client.GraphicsStatus;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -1084,10 +1083,10 @@ public final class GemRenderClient {
 			return;
 		}
 
-		GraphicsStatus mode = switch (AUTO_GRAPHICS.toLowerCase(Locale.ROOT)) {
-			case "fast" -> GraphicsStatus.FAST;
-			case "fancy" -> GraphicsStatus.FANCY;
-			case "fabulous" -> GraphicsStatus.FABULOUS;
+		net.minecraft.client.GraphicsStatus mode = switch (AUTO_GRAPHICS.toLowerCase(Locale.ROOT)) {
+			case "fast" -> net.minecraft.client.GraphicsStatus.FAST;
+			case "fancy" -> net.minecraft.client.GraphicsStatus.FANCY;
+			case "fabulous" -> net.minecraft.client.GraphicsStatus.FABULOUS;
 			default -> null;
 		};
 		if (mode == null) {
