@@ -12,6 +12,13 @@ public final class CanvasTarget implements AutoCloseable {
     private int framebuffer;
     private int texture;
     private boolean linear = true;
+    //? if >=26.1 {
+    /*private static final java.util.Set<Integer> OWNED = new java.util.HashSet<>();
+
+    static boolean owns(int texture) {
+        return OWNED.contains(texture);
+    }
+    *///?}
 
     public CanvasTarget(int width, int height) {
         resize(width, height);
@@ -47,6 +54,9 @@ public final class CanvasTarget implements AutoCloseable {
         }
         int previousTexture = glGetInteger(GL_TEXTURE_BINDING_2D);
         texture = glGenTextures();
+        //? if >=26.1 {
+        /*OWNED.add(texture);
+        *///?}
         allocate();
         GlStateManager._bindTexture(texture);
         filter();
@@ -105,6 +115,9 @@ public final class CanvasTarget implements AutoCloseable {
             glDeleteFramebuffers(framebuffer);
         }
         if (texture != 0) {
+            //? if >=26.1 {
+            /*OWNED.remove(texture);
+            *///?}
             GlStateManager._deleteTexture(texture);
         }
         framebuffer = 0;

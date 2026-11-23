@@ -70,6 +70,8 @@ def uiSupported = ui_supported.toBoolean()
 def directMixinSet = stonecutter.eval(mcVersion, '>=26.1') ? 'direct26' : 'direct'
 def renderDocCompat = stonecutter.eval(mcVersion, '>=26.1')
 def directMixinConfig = "gemrender.${directMixinSet}.mixins.json"
+def uiMixinSet = stonecutter.eval(mcVersion, '>=26.1') ? 'ui26' : 'ui'
+def uiMixinConfig = "gemrender.${uiMixinSet}.mixins.json"
 
 stonecutter.constants.match(loader, 'forge', 'neoforge', 'fabric')
 
@@ -337,10 +339,20 @@ if (!lightsSupported) {
 
 if (!uiSupported) {
     sourceSets.main.java.exclude 'com/wf/gemrender/ui/**'
-    sourceSets.main.java.exclude 'com/wf/gemrender/mixin/ui/**'
-    sourceSets.main.resources.exclude 'gemrender.ui.mixins.json'
     sourceSets.main.resources.exclude 'assets/gemrender/shaders/ui/**'
     sourceSets.test.java.exclude 'com/wf/gemrender/ui/**'
+}
+if (stonecutter.eval(mcVersion, '>=26.1')) {
+    sourceSets.main.resources.exclude 'assets/gemrender/shaders/core/sharp_text*'
+} else {
+    sourceSets.main.resources.exclude 'assets/gemrender/shaders/core/gui_sharp_text*'
+}
+sourceSets.main.java.exclude 'com/wf/gemrender/mixin/ui26/GuiRendererFabricMixin.java'
+['ui', 'ui26'].each { set ->
+    if (!uiSupported || set != uiMixinSet) {
+        sourceSets.main.java.exclude "com/wf/gemrender/mixin/${set}/**"
+        sourceSets.main.resources.exclude "gemrender.${set}.mixins.json"
+    }
 }
 
 if (!directSupported) {
@@ -369,6 +381,9 @@ if (harnessSupported) {
 tasks.named('processResources', ProcessResources) {
     filesMatching('*.mixins.json') {
         filter { String line -> line.replace('"JAVA_21"', "\"JAVA_${java_version}\"") }
+    }
+    filesMatching('gemrender.ui26.mixins.json') {
+        filter { String line -> line.contains('"GuiRendererFabricMixin"') ? null : line }
     }
 }
 
@@ -401,6 +416,9 @@ if (isLegacy) {
     }
     if (lightsSupported) {
         mixinConfigs += 'gemrender.light.mixins.json'
+    }
+    if (uiSupported) {
+        mixinConfigs += uiMixinConfig
     }
 
     dependencies {
@@ -811,6 +829,7 @@ var generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             direct_config          : directMixinConfig,
             light_path             : lightsSupported,
             ui_path                : uiSupported,
+            ui_config              : uiMixinConfig,
             iris_path              : irisSupported,
 
             flywheel_vendored_version: flywheel_vendored_version,

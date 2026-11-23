@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.24
+
+- 2D `Canvas` and `SharpText` on every version and loader (were 1.21.1 NeoForge only): 1.20.1 and 1.21.1 on Forge,
+  NeoForge and Fabric, 26.1 on NeoForge and Fabric. Same API; the one signature difference is the vanilla GUI type
+  (`GuiGraphics`, `GuiGraphicsExtractor` on 26.1).
+- 26.1: GUI drawing is deferred there, so `Canvas.begin(GuiGraphicsExtractor)` records on the CPU and each
+  `flush()`/`suspend()`/`end()` submits one GUI element (rendered offscreen, blitted at its bounds, ordered by overlap
+  like vanilla elements). Glyphs of non-atlas providers (player heads, object sprites) are skipped.
+- Fix: glyph pages of single-channel fonts (`text_intensity`) were detected by an exact name that never matched.
+
 ## 0.1.23
 
 - Opt-in sharp text (1.21.1): a `Screen` implementing `com.wf.gemrender.ui.SharpTextScreen`, or code between

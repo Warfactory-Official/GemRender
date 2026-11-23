@@ -6,6 +6,8 @@ import static org.lwjgl.opengl.GL33C.*;
 
 public final class GpuPassTimer {
     private static final int RING = 4;
+    /** One GL_TIME_ELAPSED query may be active per context; a nested begin => GL_INVALID_OPERATION per call. */
+    private static GpuPassTimer running;
 
     private final int[] queries = new int[RING];
     private final boolean[] pending = new boolean[RING];
@@ -17,8 +19,13 @@ public final class GpuPassTimer {
     private long cpuTotalNanos;
     private long cpuSamples;
     private long cpuStart;
+    private boolean started;
 
+    /** Nested inside another running timer => no-op; the outer span covers it. */
     public void begin() {
+        if (running != null) {
+            return;
+        }
         if (!created) {
             glGenQueries(queries);
             created = true;
@@ -27,9 +34,16 @@ public final class GpuPassTimer {
         harvest(cursor);
         glBeginQuery(GL_TIME_ELAPSED, queries[cursor]);
         cpuStart = System.nanoTime();
+        running = this;
+        started = true;
     }
 
     public void end() {
+        if (!started) {
+            return;
+        }
+        started = false;
+        running = null;
         cpuTotalNanos += System.nanoTime() - cpuStart;
         cpuSamples++;
         glEndQuery(GL_TIME_ELAPSED);

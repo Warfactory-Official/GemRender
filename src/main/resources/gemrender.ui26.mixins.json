@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.wf.gemrender.mixin.ui26",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "BakedSheetGlyphAccessor",
+    "FontAccessor",
+    "FontSetMixin",
+    "GlyphRenderStateMixin",
+    "GuiRendererFabricMixin",
+    "GuiRendererMixin",
+    "GuiTextRenderStateMixin",
+    "ScreenMixin"
+  ]
+}

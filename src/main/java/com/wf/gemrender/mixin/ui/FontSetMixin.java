@@ -10,7 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(FontSet.class)
 abstract class FontSetMixin {
+    //? if >=1.21 {
     @Inject(method = "resetTextures", at = @At("HEAD"))
+    //?} else {
+    /*@Inject(method = "closeTextures", at = @At("HEAD"))
+    *///?}
     private void gemrender$invalidate(CallbackInfo ci) {
         CanvasFont.invalidate();
         SharpText.invalidate();

@@ -4,12 +4,15 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.wf.gemrender.render.GlState;
-import com.wf.gemrender.render.Vanilla;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GlyphSource;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+*///?} else {
 import com.wf.gemrender.mixin.ui.BufferSourceAccessor;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.font.FontSet;
+//?}
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
@@ -91,6 +94,10 @@ public final class Canvas {
     private float unitsH;
     private int lastWindowW;
     private int lastWindowH;
+    //? if >=26.1 {
+    /*private GuiGraphicsExtractor extractor;
+    private boolean deferred;
+    *///?}
 
     public static Canvas shared() {
         RenderSystem.assertOnRenderThread();
@@ -103,6 +110,12 @@ public final class Canvas {
     static void reload() {
         if (shared != null) {
             shared.gl.delete();
+            //? if >=26.1 {
+            /*if (shared.replayFramebuffer != 0) {
+                glDeleteFramebuffers(shared.replayFramebuffer);
+                shared.replayFramebuffer = 0;
+            }
+            *///?}
         }
     }
 
@@ -114,7 +127,42 @@ public final class Canvas {
      * Draws over the GUI in the {@code graphics} pose. Flushes the vanilla batch first so ordering
      * holds; anything vanilla draws after {@link #end()} lands on top. An enclosing vanilla scissor is
      * inherited as the root clip.
+     *
+     * <p>26.1: the argument is a {@code GuiGraphicsExtractor}. GUI drawing is deferred there, so
+     * recording is CPU only and each {@link #flush()}, {@link #suspend()} and {@link #end()} submits
+     * the recorded batch as one GUI element positioned by overlap like any other; ordering against
+     * vanilla elements follows submission order.
      */
+    //? if >=26.1 {
+    /*public Canvas begin(GuiGraphicsExtractor graphics) {
+        var window = Minecraft.getInstance().getWindow();
+        extractor = graphics;
+        deferred = true;
+        base.setOrtho(0, graphics.guiWidth(), graphics.guiHeight(), 0, -1, 1);
+        scratch.identity();
+        var pose = graphics.pose();
+        scratch.m00(pose.m00()).m01(pose.m01()).m10(pose.m10()).m11(pose.m11()).m30(pose.m20()).m31(pose.m21());
+        base.mul(scratch);
+        start(0);
+        viewportX = 0;
+        viewportY = 0;
+        viewportW = window.getWidth();
+        viewportH = window.getHeight();
+        var scissor = scissorOf(graphics);
+        if (scissor == null) {
+            rootClip(false, 0, 0, 0, 0);
+        } else {
+            float sx = viewportW / (float) graphics.guiWidth();
+            float sy = viewportH / (float) graphics.guiHeight();
+            rootClip(true, Math.round(scissor.left() * sx), Math.round(viewportH - scissor.bottom() * sy),
+                    Math.round(scissor.width() * sx), Math.round(scissor.height() * sy));
+        }
+        computePixelsPerUnit();
+        unitsW = graphics.guiWidth();
+        unitsH = graphics.guiHeight();
+        return this;
+    }
+    *///?} else {
     public Canvas begin(GuiGraphics graphics) {
         if (!((BufferSourceAccessor) graphics.bufferSource()).gemrender$startedBuilders().isEmpty()) {
             graphics.flush();
@@ -139,6 +187,7 @@ public final class Canvas {
         unitsH = graphics.guiHeight();
         return this;
     }
+    //?}
 
     /**
      * Draws into {@code target} with ({@code 0,0}) top-left and ({@code width,height}) bottom-right in
@@ -162,6 +211,9 @@ public final class Canvas {
 
     private Canvas beginFramebuffer(int framebuffer, int pixelWidth, int pixelHeight, float width, float height,
                                     boolean topRowFirst, boolean clear, int clearArgb) {
+        //? if >=26.1 {
+        /*deferred = false;
+        *///?}
         start(framebuffer);
         GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         viewportX = 0;
@@ -197,7 +249,13 @@ public final class Canvas {
         active = true;
         suspended = false;
         this.framebuffer = framebuffer;
+        //? if >=26.1 {
+        /*if (!deferred) {
+            gl.save(framebuffer != 0);
+        }
+        *///?} else {
         gl.save(framebuffer != 0);
+        //?}
         font.refresh();
         vertexCount = 0;
         batchCount = 0;
@@ -235,11 +293,15 @@ public final class Canvas {
         requireActive();
         if (!suspended) {
             flush();
-            gl.restore();
+            release();
         }
         active = false;
         suspended = false;
         framebuffer = 0;
+        //? if >=26.1 {
+        /*deferred = false;
+        extractor = null;
+        *///?}
     }
 
     /**
@@ -252,7 +314,7 @@ public final class Canvas {
             return;
         }
         flush();
-        gl.restore();
+        release();
         suspended = true;
     }
 
@@ -261,13 +323,28 @@ public final class Canvas {
         if (!suspended) {
             return;
         }
+        //? if >=26.1 {
+        /*if (!deferred) {
+            gl.save(framebuffer != 0);
+        }
+        *///?} else {
         gl.save(framebuffer != 0);
+        //?}
         if (framebuffer != 0) {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
             GlStateManager._viewport(0, 0, viewportW, viewportH);
         }
         suspended = false;
         clipDirty = true;
+    }
+
+    private void release() {
+        //? if >=26.1 {
+        /*if (deferred) {
+            return;
+        }
+        *///?}
+        gl.restore();
     }
 
     /** Multiplies the current canvas transform onto {@code pose}, for vanilla drawing while suspended. */
@@ -677,10 +754,15 @@ public final class Canvas {
     }
 
     public static int textureId(ResourceLocation texture) {
+        //? if >=26.1 {
+        /*return com.wf.gemrender.render.Vanilla.textureId(
+                Minecraft.getInstance().getTextureManager().getTexture(texture).getTexture());
+        *///?} else {
         return Minecraft.getInstance()
                 .getTextureManager()
                 .getTexture(texture)
                 .getId();
+        //?}
     }
 
     // ---------------------------------------------------------------- text
@@ -756,7 +838,11 @@ public final class Canvas {
     }
 
     private float runChars(
+            //? if >=26.1 {
+            /*GlyphSource set,
+            *///?} else {
             FontSet set,
+            //?}
             boolean fishy, CharSequence text, int start, int end, float x, float y,
                            int argb, boolean shadowPass) {
         for (int i = start; i < end; ) {
@@ -925,6 +1011,12 @@ public final class Canvas {
             batchCount = 0;
             return;
         }
+        //? if >=26.1 {
+        /*if (deferred) {
+            submit();
+            return;
+        }
+        *///?}
         if (!gl.ensure()) {
             vertexCount = 0;
             batchCount = 0;
@@ -953,6 +1045,76 @@ public final class Canvas {
         clipDirty = true;
     }
 
+
+    //? if >=26.1 {
+    /*private void submit() {
+        var pass = CanvasPass.capture(vertices, vertexCount, base, viewportW, viewportH, extractor.guiWidth(),
+                extractor.guiHeight(), batchFirst, batchTextures, batchTextureCount, batchClip, batchCount);
+        if (pass != null) {
+            submitTo(extractor, pass);
+        }
+        vertexCount = 0;
+        batchCount = 0;
+        clipDirty = true;
+    }
+
+    private int replayFramebuffer;
+
+    void replay(CanvasPass pass, int colorTexture, int width, int height) {
+        if (!gl.ensure()) {
+            return;
+        }
+        gl.save(true);
+        if (replayFramebuffer == 0) {
+            replayFramebuffer = glGenFramebuffers();
+        }
+        GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, replayFramebuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
+        GlStateManager._viewport(0, 0, width, height);
+        GlStateManager._disableScissorTest();
+        GlState.colorMask(true, true, true, true);
+        GlState.clearColor(0, 0, 0, 0);
+        GlState.clear(GL_COLOR_BUFFER_BIT);
+        int baseVertex = gl.bind(pass.textureMatrix(width, height, scratch), pass.address(), pass.vertexCount,
+                pass.maxQuads, false);
+        int ox = Math.round(pass.originX);
+        int oy = Math.round(pass.originY);
+        for (int i = 0; i < pass.batchCount; i++) {
+            int first = pass.batchFirst[i];
+            int end = i + 1 < pass.batchCount ? pass.batchFirst[i + 1] : pass.vertexCount;
+            if (end == first) {
+                continue;
+            }
+            int clip = i * 5;
+            gl.scissor(pass.batchClip[clip] != 0, pass.batchClip[clip + 1] - ox, pass.batchClip[clip + 2] - oy,
+                    pass.batchClip[clip + 3] - pass.batchClip[clip + 1],
+                    pass.batchClip[clip + 4] - pass.batchClip[clip + 2]);
+            gl.textures(pass.batchTextures, i * CanvasGl.SLOTS, pass.batchTextureCount[i]);
+            gl.draw(baseVertex + first, (end - first) / 4);
+        }
+        gl.restore();
+    }
+    *///?}
+
+    //? if >=26.1 && fabric {
+    /*private static net.minecraft.client.gui.navigation.ScreenRectangle scissorOf(GuiGraphicsExtractor graphics) {
+        return graphics.scissorStack.peek();
+    }
+
+    private static void submitTo(GuiGraphicsExtractor graphics, CanvasPass pass) {
+        graphics.guiRenderState.addPicturesInPictureState(pass);
+    }
+    *///?}
+
+    //? if >=26.1 && neoforge {
+    /*private static net.minecraft.client.gui.navigation.ScreenRectangle scissorOf(GuiGraphicsExtractor graphics) {
+        return graphics.peekScissorStack();
+    }
+
+    private static void submitTo(GuiGraphicsExtractor graphics, CanvasPass pass) {
+        graphics.submitPictureInPictureRenderState(pass);
+    }
+    *///?}
 
     /** Vertices recorded since the last flush; for tests and cost counters. */
     public int pendingVertices() {

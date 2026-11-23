@@ -2121,7 +2121,7 @@ instead, as the example does when the model is null.
 
 ## 11. 2D canvas
 
-`com.wf.gemrender.ui`, 1.21.1 NeoForge only (`ui_supported`). Immediate-mode 2D recorder for HUDs, GUI
+`com.wf.gemrender.ui`, every node (`ui_supported`). Immediate-mode 2D recorder for HUDs, GUI
 panels and texture surfaces; one quad per primitive in a CPU arena, drawn in as few `glDrawElements` as
 texture slots (8 per batch) and clip changes allow. Steady state allocates nothing.
 
@@ -2136,7 +2136,7 @@ c.end();
 
 | rule | |
 |---|---|
-| units | GUI px of the `GuiGraphics` pose at `begin`; target begins: caller's units over the target |
+| units | GUI px of the `GuiGraphics` pose at `begin` (`GuiGraphicsExtractor` on 26.1: the only signature that differs); target begins: caller's units over the target |
 | colour | ARGB taken literally: alpha 0 = invisible (vanilla `drawString` treats < 4 as opaque) |
 | angles | radians, 0 = +x, positive = clockwise on screen |
 | AA | `line`, `polyline`, `dashed`, `arc`, `ring`, `disc`, `sector`, `roundRect`/`roundFrame`: edge coverage from screen-space derivatives, 1 px soft under any scale. `fill`, `quad`, `triangle`, `fan`: hard edges |
@@ -2146,6 +2146,7 @@ c.end();
 | vanilla in between | `suspend()` draws pending quads and restores GL; vanilla draws (items, entities); `resume()`. `applyTo(pose)` puts the canvas transform on a `PoseStack` |
 | targets | `CanvasTarget`: owned RGBA8 FBO, premultiplied alpha, rows upright for v0 = top. `begin(fbo, ..., topRowFirst = true)`: draw over a camera-rendered framebuffer, no clear |
 | not re-entrant | one `begin`/`end` per instance at a time; `shared()` = render-thread singleton |
+| 26.1 GUI | `begin(GuiGraphicsExtractor)` records CPU-only; `flush`/`suspend`/`end` submit the batch as one GUI element (offscreen texture sized to the batch bounds, blitted, ordered by overlap like vanilla elements). Clips are baked at record time. Allocates per submit. `begin(CanvasTarget ..)`/`begin(fbo ..)` draw immediately as on every node. Atlas and player-head glyphs inside text are skipped |
 
 Measured (Mesa radeonsi, glthread on): `glGet*` = glthread round trip, 18 per begin cost 31 us => state
 is read from `GlStateManager`'s shadow. `glBufferData` per flush 30 us; persistent map + fences worse
@@ -2157,7 +2158,8 @@ is read from `GlStateManager`'s shadow. `glBufferData` per flush 30 us; persiste
 
 - `implements SharpTextScreen` (marker) => the screen's `Font` text samples sharp-bilinear; or `SharpText.begin()` / `end()` around `Font` calls.
 - == vanilla at integer GUI scale; even stems under fractional pose / GUI scale. Other text untouched.
-- NORMAL display mode, `text` / `text_intensity` pages only. Inert under an Iris pack. 1.21.1 NeoForge only.
+- NORMAL display mode, `text` / `text_intensity` pages only. Inert under an Iris pack (nodes with Iris).
+- 26.1: judged when the text element is created; drawn through substitute `GUI_TEXT` / `GUI_TEXT_INTENSITY` pipelines (`core/gui_sharp_text*.fsh`).
 
 ## Reference
 

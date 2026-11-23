@@ -2,28 +2,37 @@ package com.wf.gemrender.ui;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 
+import com.wf.gemrender.GemRender;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import static org.lwjgl.opengl.GL33C.*;
+//? if <26.1 {
 import net.minecraft.client.renderer.ShaderInstance;
+//?}
 
 /**
  * Reads {@link GlStateManager}'s shadow copy instead of {@code glGet}: under Mesa glthread every
  * {@code glGet} is a round trip to the GL thread (18 of them measured 31 us/frame).
  */
 final class GlShadow {
-    private static final Object BLEND;
-    private static final Object BLEND_MODE;
-    private static final Object DEPTH;
-    private static final Object DEPTH_MODE;
-    private static final Object CULL_MODE;
-    private static final Object SCISSOR_MODE;
-    private static final VarHandle ENABLED;
-    private static final VarHandle SRC_RGB;
-    private static final VarHandle DST_RGB;
-    private static final VarHandle SRC_ALPHA;
-    private static final VarHandle DST_ALPHA;
-    private static final VarHandle DEPTH_MASK;
-    private static final VarHandle LAST_PROGRAM;
+    private static Object BLEND;
+    private static Object BLEND_MODE;
+    private static Object DEPTH;
+    private static Object DEPTH_MODE;
+    private static Object CULL_MODE;
+    private static Object SCISSOR_MODE;
+    private static VarHandle ENABLED;
+    private static VarHandle SRC_RGB;
+    private static VarHandle DST_RGB;
+    private static VarHandle SRC_ALPHA;
+    private static VarHandle DST_ALPHA;
+    private static VarHandle DEPTH_MASK;
+    //? if <26.1 {
+    private static VarHandle LAST_PROGRAM;
+    //?}
+
+    private static boolean shadow;
 
     static {
         try {
@@ -52,11 +61,14 @@ final class GlShadow {
             SRC_ALPHA = blend.findVarHandle(blendClass, "srcAlpha", int.class);
             DST_ALPHA = blend.findVarHandle(blendClass, "dstAlpha", int.class);
             DEPTH_MASK = depth.findVarHandle(depthClass, "mask", boolean.class);
+            //? if <26.1 {
             LAST_PROGRAM = MethodHandles.privateLookupIn(ShaderInstance.class,
                             MethodHandles.lookup())
                     .findStaticVarHandle(ShaderInstance.class, "lastProgramId", int.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
+            //?}
+            shadow = true;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            GemRender.LOGGER.warn("GlStateManager shadow state unreachable (obfuscated runtime?); canvas reads GL state with glGet", e);
         }
     }
 
@@ -64,43 +76,47 @@ final class GlShadow {
     }
 
     static boolean blend() {
-        return (boolean) ENABLED.get(BLEND_MODE);
+        return shadow ? (boolean) ENABLED.get(BLEND_MODE) : glIsEnabled(GL_BLEND);
     }
 
     static int srcRgb() {
-        return (int) SRC_RGB.get(BLEND);
+        return shadow ? (int) SRC_RGB.get(BLEND) : glGetInteger(GL_BLEND_SRC_RGB);
     }
 
     static int dstRgb() {
-        return (int) DST_RGB.get(BLEND);
+        return shadow ? (int) DST_RGB.get(BLEND) : glGetInteger(GL_BLEND_DST_RGB);
     }
 
     static int srcAlpha() {
-        return (int) SRC_ALPHA.get(BLEND);
+        return shadow ? (int) SRC_ALPHA.get(BLEND) : glGetInteger(GL_BLEND_SRC_ALPHA);
     }
 
     static int dstAlpha() {
-        return (int) DST_ALPHA.get(BLEND);
+        return shadow ? (int) DST_ALPHA.get(BLEND) : glGetInteger(GL_BLEND_DST_ALPHA);
     }
 
     static boolean depthTest() {
-        return (boolean) ENABLED.get(DEPTH_MODE);
+        return shadow ? (boolean) ENABLED.get(DEPTH_MODE) : glIsEnabled(GL_DEPTH_TEST);
     }
 
     static boolean depthMask() {
-        return (boolean) DEPTH_MASK.get(DEPTH);
+        return shadow ? (boolean) DEPTH_MASK.get(DEPTH) : glGetBoolean(GL_DEPTH_WRITEMASK);
     }
 
     static boolean cull() {
-        return (boolean) ENABLED.get(CULL_MODE);
+        return shadow ? (boolean) ENABLED.get(CULL_MODE) : glIsEnabled(GL_CULL_FACE);
     }
 
     static boolean scissor() {
-        return (boolean) ENABLED.get(SCISSOR_MODE);
+        return shadow ? (boolean) ENABLED.get(SCISSOR_MODE) : glIsEnabled(GL_SCISSOR_TEST);
     }
 
     /** Program vanilla believes is bound; -1 => none (it rebinds before its next draw). */
     static int program() {
-        return (int) LAST_PROGRAM.get();
+        //? if >=26.1 {
+        /*return glGetInteger(GL_CURRENT_PROGRAM);
+        *///?} else {
+        return shadow ? (int) LAST_PROGRAM.get() : glGetInteger(GL_CURRENT_PROGRAM);
+        //?}
     }
 }

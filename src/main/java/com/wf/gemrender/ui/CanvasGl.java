@@ -2,7 +2,9 @@ package com.wf.gemrender.ui;
 
 import com.wf.gemrender.render.GlState;
 import com.mojang.blaze3d.platform.GlStateManager;
+//? if <26.1 {
 import com.mojang.blaze3d.vertex.BufferUploader;
+//?}
 import com.wf.gemrender.GemRender;
 import com.wf.gemrender.render.GlPrograms;
 import org.joml.Matrix4f;
@@ -44,6 +46,10 @@ final class CanvasGl {
     private boolean savedDepthTest;
     private boolean savedDepthMask;
     private boolean savedCull;
+    //? if >=26.1 {
+    /*private int displacedUnits;
+    private final int[] displacedSamplers = new int[SLOTS];
+    *///?}
     final int[] savedScissor = new int[4];
     boolean savedScissorTest;
     final int[] savedViewport = new int[4];
@@ -83,7 +89,9 @@ final class CanvasGl {
         growIndices(1024);
         glBindVertexArray(previousVao);
         glBindBuffer(GL_ARRAY_BUFFER, previousBuffer);
+        //? if <26.1 {
         BufferUploader.invalidate();
+        //?}
         return true;
     }
 
@@ -193,10 +201,20 @@ final class CanvasGl {
     }
 
     void restore() {
+        //? if >=26.1 {
+        /*for (int i = 0; i < SLOTS; i++) {
+            if ((displacedUnits & 1 << i) != 0) {
+                GlState.restoreSampler(i, displacedSamplers[i]);
+            }
+        }
+        displacedUnits = 0;
+        *///?}
         GlStateManager._glUseProgram(savedProgram);
         GlStateManager._glBindVertexArray(0);
         GlStateManager._glBindBuffer(GL_ARRAY_BUFFER, 0);
+        //? if <26.1 {
         BufferUploader.invalidate();
+        //?}
         if (savedDeep) {
             GlStateManager._glBindFramebuffer(GL_FRAMEBUFFER, savedFramebuffer);
             GlStateManager._viewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
@@ -256,7 +274,19 @@ final class CanvasGl {
         for (int i = 0; i < count; i++) {
             GlStateManager._activeTexture(GL_TEXTURE0 + i);
             GlStateManager._bindTexture(ids[offset + i]);
+            //? if >=26.1 {
+            /*if (CanvasTarget.owns(ids[offset + i])) {
+                glBindSampler(i, 0);
+            } else {
+                int previous = GlState.pointSampler(i);
+                if ((displacedUnits & 1 << i) == 0) {
+                    displacedUnits |= 1 << i;
+                    displacedSamplers[i] = previous;
+                }
+            }
+            *///?} else {
             glBindSampler(i, 0);
+            //?}
         }
     }
 

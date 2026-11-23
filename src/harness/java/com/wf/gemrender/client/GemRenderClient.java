@@ -537,6 +537,7 @@ public final class GemRenderClient {
 
 	public static void tick() {
 		ImportSpike.tick();
+		CanvasSpike.tick();
 		if (autoCount() <= 0) {
 			return;
 		}

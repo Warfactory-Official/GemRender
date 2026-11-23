@@ -413,12 +413,22 @@ if (!lights_supported.toBoolean()) {
     sourceSets.harness.java.exclude 'com/wf/gemrender/spike/LightSpike.java'
 }
 
+def uiMixinSet = stonecutter.eval(mcVersion, '>=26.1') ? 'ui26' : 'ui'
 if (!ui_supported.toBoolean()) {
     sourceSets.main.java.exclude 'com/wf/gemrender/ui/**'
-    sourceSets.main.java.exclude 'com/wf/gemrender/mixin/ui/**'
-    sourceSets.main.resources.exclude 'gemrender.ui.mixins.json'
     sourceSets.main.resources.exclude 'assets/gemrender/shaders/ui/**'
     sourceSets.test.java.exclude 'com/wf/gemrender/ui/**'
+}
+if (stonecutter.eval(mcVersion, '>=26.1')) {
+    sourceSets.main.resources.exclude 'assets/gemrender/shaders/core/sharp_text*'
+} else {
+    sourceSets.main.resources.exclude 'assets/gemrender/shaders/core/gui_sharp_text*'
+}
+['ui', 'ui26'].each { set ->
+    if (!ui_supported.toBoolean() || set != uiMixinSet) {
+        sourceSets.main.java.exclude "com/wf/gemrender/mixin/${set}/**"
+        sourceSets.main.resources.exclude "gemrender.${set}.mixins.json"
+    }
 }
 
 if (!water_supported.toBoolean()) {
@@ -499,6 +509,9 @@ if (direct_supported.toBoolean()) {
 }
 if (lights_supported.toBoolean()) {
     mixinConfigs += 'gemrender.light.mixins.json'
+}
+if (ui_supported.toBoolean()) {
+    mixinConfigs += "gemrender.${uiMixinSet}.mixins.json"
 }
 if (irisSupported) {
     mixinConfigs += 'gemrender.iris.mixins.json'
